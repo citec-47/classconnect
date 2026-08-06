@@ -115,7 +115,8 @@ export class AuthService {
           data: {
             userId: created.id,
             schoolType: input.schoolType,
-            languages: [input.preferredLanguage],
+            // FR-TVR-001: what they teach in, not what they read the site in.
+            languages: input.teachingLanguages ?? [input.preferredLanguage],
             verificationStatus: 'submitted',
             submittedAt: new Date(),
           },

@@ -5,6 +5,8 @@ import { useI18n } from '@/lib/i18n';
 import { api, ApiError } from '@/lib/api';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
+import { LanguagesPicker } from '@/components/LanguagePicker';
+import type { Language } from '@classconnect/shared';
 import { DocumentUpload, type UploadedDocument } from '@/components/DocumentUpload';
 
 interface Application {
@@ -72,6 +74,7 @@ export default function Teach() {
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
   const [payoutMethod, setPayoutMethod] = useState<'mtn_momo' | 'orange_money'>('mtn_momo');
+  const [teachingLanguages, setTeachingLanguages] = useState<Language[]>([language]);
   const [form, setForm] = useState({
     highestQualification: '',
     institution: '',
@@ -123,7 +126,7 @@ export default function Teach() {
           institution: form.institution,
           qualificationYear: Number(form.qualificationYear),
           nationalId: form.nationalId,
-          languages: [language],
+          languages: teachingLanguages,
           // Registration already recorded these; the API keeps them when the
           // payload repeats what is stored.
           subjects: application!.subjects.map((pair) => ({
@@ -233,6 +236,13 @@ export default function Teach() {
             onChange={set('yearsExperience')}
             errorKey={error?.fieldError('yearsExperience')}
           />
+          <LanguagesPicker
+            value={teachingLanguages}
+            onChange={setTeachingLanguages}
+            label={t('teacher.teachingLanguages')}
+            hint={t('teacher.teachingLanguagesHint')}
+          />
+
           <Field
             label={t('teacher.identityDocument')}
             required

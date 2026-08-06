@@ -7,6 +7,8 @@ import { api, ApiError } from '@/lib/api';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
 import { SchoolTypePicker, type SchoolType } from '@/components/SchoolTypePicker';
+import { PreferredLanguagePicker } from '@/components/LanguagePicker';
+import type { Language } from '@classconnect/shared';
 
 interface Level {
   id: string;
@@ -37,6 +39,9 @@ export default function NewStudent() {
   const [fullName, setFullName] = useState('');
   const [dob, setDob] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
+  // FR-PRO-003: the learner's preferred language of instruction, which is not
+  // whatever language the administrator happens to be using.
+  const [preferredLanguage, setPreferredLanguage] = useState<Language>(language);
   const [givesSignIn, setGivesSignIn] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -71,7 +76,7 @@ export default function NewStudent() {
           schoolType,
           levelId,
           subjectIds,
-          preferredLanguage: language,
+          preferredLanguage,
           ...(guardianPhone ? { guardianPhone } : {}),
           ...(givesSignIn ? { phone, password } : {}),
         },
@@ -194,6 +199,13 @@ export default function NewStudent() {
             )}
           </fieldset>
         )}
+
+        <PreferredLanguagePicker
+          value={preferredLanguage}
+          onChange={setPreferredLanguage}
+          label={t('family.preferredLanguage')}
+          hint={t('family.preferredLanguageHint')}
+        />
 
         {/* FR-FAM-001: link the student to the Guardian who is responsible for
             them, and who pays. */}

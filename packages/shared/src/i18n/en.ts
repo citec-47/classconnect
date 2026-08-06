@@ -208,6 +208,8 @@ export const en = {
     childDob: 'Date of birth',
     level: 'Class or level',
     subjects: 'Subjects',
+    preferredLanguage: 'Language of lessons',
+    preferredLanguageHint: 'The language this student is taught in.',
     switchChild: 'Switch child',
     noChildrenTitle: 'No children linked yet',
     noChildrenBody:
@@ -237,6 +239,9 @@ export const en = {
     year: 'Year completed',
     experience: 'Years of teaching experience',
     subjectsTaught: 'Subjects and levels you teach',
+    teachingLanguages: 'Languages you teach in',
+    teachingLanguagesHint:
+      'Choose every language you can teach in. Families filter teachers by this.',
     identityDocument: 'Identity document',
     documents: 'Supporting documents',
     documentsHint: 'Certificates, diplomas, ID or teaching authorisation. PDF, JPG, PNG or HEIC, up to 10 MB each.',
@@ -376,6 +381,7 @@ export const en = {
       incorrect: 'That email and password do not match.',
     },
     identifier: { required: 'Please give us a phone number or an email address.' },
+    language: { required: 'Choose at least one language.' },
     terms: { required: 'Please accept the terms before continuing.' },
     dob: {
       required: 'Please give your date of birth.',

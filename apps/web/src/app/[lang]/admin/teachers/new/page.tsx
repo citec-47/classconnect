@@ -7,6 +7,8 @@ import { api, ApiError } from '@/lib/api';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
 import { SchoolTypePicker, type SchoolType } from '@/components/SchoolTypePicker';
+import { LanguagesPicker } from '@/components/LanguagePicker';
+import type { Language } from '@classconnect/shared';
 
 interface Level {
   id: string;
@@ -59,6 +61,7 @@ export default function NewTeacher() {
     bio: '',
   });
   const [payoutMethod, setPayoutMethod] = useState<'mtn_momo' | 'orange_money'>('mtn_momo');
+  const [teachingLanguages, setTeachingLanguages] = useState<Language[]>([language]);
   const [checks, setChecks] = useState<Record<string, { verified: boolean; findings: string }>>({});
 
   const [busy, setBusy] = useState(false);
@@ -111,7 +114,7 @@ export default function NewTeacher() {
             institution: form.institution,
             qualificationYear: Number(form.qualificationYear),
             nationalId: form.nationalId,
-            languages: [language],
+            languages: teachingLanguages,
             payoutMethod,
             payoutWallet: form.payoutWallet,
             checklist: checklistDef.map((item) => ({
@@ -140,7 +143,8 @@ export default function NewTeacher() {
       form.institution &&
       form.qualificationYear &&
       form.nationalId &&
-      form.payoutWallet,
+      form.payoutWallet &&
+      teachingLanguages.length > 0,
   );
 
   const set = (key: keyof typeof form) => (event: { target: { value: string } }) =>
@@ -297,6 +301,13 @@ export default function NewTeacher() {
           onChange={set('yearsExperience')}
           errorKey={error?.fieldError('yearsExperience')}
         />
+        <LanguagesPicker
+          value={teachingLanguages}
+          onChange={setTeachingLanguages}
+          label={t('teacher.teachingLanguages')}
+          hint={t('teacher.teachingLanguagesHint')}
+        />
+
         <Field
           label={t('teacher.identityDocument')}
           required

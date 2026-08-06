@@ -9,6 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
 import { SchoolTypePicker, type SchoolType } from '@/components/SchoolTypePicker';
+import { LanguagesPicker } from '@/components/LanguagePicker';
 import type { Language } from '@classconnect/shared';
 
 /**
@@ -53,6 +54,9 @@ export default function Register() {
   const [schoolType, setSchoolType] = useState<SchoolType | null>(null);
   const [levelId, setLevelId] = useState('');
   const [pairs, setPairs] = useState<{ subjectId: string; levelId: string }[]>([]);
+  // Seeded from the interface language as a sensible default, but editable:
+  // reading the site in English says nothing about what you teach in.
+  const [teachingLanguages, setTeachingLanguages] = useState<Language[]>([language]);
 
   // Only the teacher path needs the catalogue, so it is not fetched until
   // that role is chosen — a parent signing up pays nothing for it.
@@ -87,7 +91,7 @@ export default function Register() {
             preferredLanguage: language,
             acceptedTerms,
             ...(role === 'adult_learner' ? { dob } : {}),
-            ...(role === 'teacher' ? { schoolType, subjects: pairs } : {}),
+            ...(role === 'teacher' ? { schoolType, subjects: pairs, teachingLanguages } : {}),
           },
           language,
         },
@@ -337,6 +341,13 @@ export default function Register() {
               </fieldset>
             )}
 
+            <LanguagesPicker
+              value={teachingLanguages}
+              onChange={setTeachingLanguages}
+              label={t('teacher.teachingLanguages')}
+              hint={t('teacher.teachingLanguagesHint')}
+            />
+
             {/* FR-TVR-003: set the expectation before they sign up, not after. */}
             <p className="mb-4 rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
               {t('auth.teacherVerificationNote')}
@@ -368,7 +379,8 @@ export default function Register() {
             !fullName ||
             !phone ||
             // FR-TVR-001: a teacher cannot apply without saying what they teach.
-            (role === 'teacher' && (!schoolType || pairs.length === 0))
+            (role === 'teacher' &&
+              (!schoolType || pairs.length === 0 || teachingLanguages.length === 0))
           }
         >
           {busy ? t('common.loading') : t('common.continue')}

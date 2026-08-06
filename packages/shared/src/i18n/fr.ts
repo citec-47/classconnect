@@ -198,6 +198,8 @@ export const fr: Messages = {
     childDob: 'Date de naissance',
     level: 'Classe ou niveau',
     subjects: 'Matières',
+    preferredLanguage: 'Langue des cours',
+    preferredLanguageHint: 'La langue dans laquelle cet élève est enseigné.',
     switchChild: 'Changer d’enfant',
     noChildrenTitle: 'Aucun enfant rattaché',
     noChildrenBody:
@@ -227,6 +229,9 @@ export const fr: Messages = {
     year: 'Année d’obtention',
     experience: 'Années d’expérience',
     subjectsTaught: 'Matières et niveaux enseignés',
+    teachingLanguages: 'Langues dans lesquelles vous enseignez',
+    teachingLanguagesHint:
+      'Choisissez toutes les langues dans lesquelles vous pouvez enseigner. Les familles filtrent les enseignants sur ce critère.',
     identityDocument: 'Pièce d’identité',
     documents: 'Pièces justificatives',
     documentsHint:
@@ -377,6 +382,7 @@ export const fr: Messages = {
       incorrect: 'Cet e-mail et ce mot de passe ne correspondent pas.',
     },
     identifier: { required: 'Donnez-nous un numéro de téléphone ou une adresse e-mail.' },
+    language: { required: 'Choisissez au moins une langue.' },
     terms: { required: 'Veuillez accepter les conditions pour continuer.' },
     dob: {
       required: 'Veuillez indiquer votre date de naissance.',

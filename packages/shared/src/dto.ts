@@ -97,6 +97,16 @@ export const registerSchema = z
       .array(z.object({ subjectId: z.string().uuid(), levelId: z.string().uuid() }))
       .max(60)
       .optional(),
+
+    /**
+     * FR-TVR-001: the languages a teacher can teach in.
+     *
+     * Distinct from `preferredLanguage`, which is the language they read the
+     * site in. A teacher browsing in English may well teach in French, and
+     * FR-PRO-006 lets a family filter on this — so it is asked for rather than
+     * copied from the interface.
+     */
+    teachingLanguages: z.array(languageSchema).max(2).optional(),
   })
   .refine((data) => data.phone !== undefined || data.email !== undefined, {
     message: 'errors.identifier.required',
@@ -118,6 +128,10 @@ export const registerSchema = z
   .refine((data) => data.role !== 'teacher' || (data.subjects?.length ?? 0) > 0, {
     message: 'errors.teacher.subjects_required',
     path: ['subjects'],
+  })
+  .refine((data) => data.role !== 'teacher' || (data.teachingLanguages?.length ?? 0) > 0, {
+    message: 'errors.language.required',
+    path: ['teachingLanguages'],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

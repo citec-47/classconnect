@@ -56,6 +56,9 @@ const reg = await call('/auth/register', { method: 'POST', body: {
   preferredLanguage: 'en', acceptedTerms: true,
   schoolType: 'secondary',
   subjects: [{ subjectId: maths.id, levelId: form3.id }],
+  // Registering in English while teaching in both: the record must reflect
+  // what was chosen, not the interface language.
+  teachingLanguages: ['en', 'fr'],
 } });
 check('teacher registration succeeds', reg.status === 201, JSON.stringify(reg.data));
 check('FR-AUT-002 phone verification is still required', reg.data?.requiresOtp === true);
@@ -72,6 +75,9 @@ check('application exists', mine.status === 200, JSON.stringify(mine.data));
 check('FR-TVR-003 status is submitted, not approved', mine.data?.status === 'submitted', mine.data?.status);
 check('the chosen subject is recorded', mine.data?.subjects?.some((p) => p.subject.nameEn === 'Mathematics'), JSON.stringify(mine.data?.subjects));
 check('the chosen class is recorded', mine.data?.subjects?.some((p) => p.level.nameEn === 'Form 3'));
+check('FR-TVR-001 teaching languages are taken from the choice, not the UI',
+  Array.isArray(mine.data?.languages) && mine.data.languages.includes('fr') && mine.data.languages.includes('en'),
+  JSON.stringify(mine.data?.languages));
 
 console.log('\n=== registration validation ===');
 const noSubjects = await call('/auth/register', { method: 'POST', body: {
@@ -84,6 +90,12 @@ const noSchool = await call('/auth/register', { method: 'POST', body: {
   preferredLanguage: 'en', acceptedTerms: true,
   subjects: [{ subjectId: maths.id, levelId: form3.id }] } });
 check('a teacher cannot register without a school type', noSchool.status === 400, `got ${noSchool.status}`);
+
+const noLanguage = await call('/auth/register', { method: 'POST', body: {
+  role: 'teacher', fullName: 'No Language', phone: phone(),
+  preferredLanguage: 'en', acceptedTerms: true, schoolType: 'secondary',
+  subjects: [{ subjectId: maths.id, levelId: form3.id }], teachingLanguages: [] } });
+check('a teacher cannot register without a teaching language', noLanguage.status === 400, `got ${noLanguage.status}`);
 
 const asStudent = await call('/auth/register', { method: 'POST', body: {
   role: 'student', fullName: 'Sneaky', phone: phone(), preferredLanguage: 'en', acceptedTerms: true } });

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "prisma generate --schema=../../packages/db/prisma/schema.prisma && tsc -b ../../packages/shared ../../packages/db",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",

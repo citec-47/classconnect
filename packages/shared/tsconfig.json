@@ -3,7 +3,12 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // Kept inside outDir so that deleting dist genuinely invalidates the build.
+    // Left outside, `tsc -b` reads a stale build-info, concludes the project is
+    // up to date, and emits nothing — leaving consumers with TS6305 against
+    // output that does not exist.
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
 }

@@ -3,7 +3,10 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // See packages/shared/tsconfig.json: build info belongs with the output it
+    // describes, so removing one removes the other.
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
 }

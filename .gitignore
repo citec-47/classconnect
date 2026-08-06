@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local PostgreSQL cluster created by packages/db/scripts/local-postgres.mjs.
+# Binary data, and it holds real rows from local testing.
+.pgdata/
+packages/db/.pgdata/
+
+# NFR-SEC-007: no secret may appear in source control.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.eslintcache
+.vercel

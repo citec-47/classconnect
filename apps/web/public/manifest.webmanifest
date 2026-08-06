@@ -1,0 +1,13 @@
+{
+  "name": "ClassConnect",
+  "short_name": "ClassConnect",
+  "description": "Learn with verified teachers, anywhere in Cameroon",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1559a0",
+  "orientation": "portrait",
+  "lang": "en",
+  "categories": ["education"],
+  "icons": []
+}

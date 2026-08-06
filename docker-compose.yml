@@ -1,0 +1,43 @@
+# Local development infrastructure.
+# SRS §2.4 Operating environment: PostgreSQL 15+, Redis 7+.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: classconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: classconnect
+      POSTGRES_PASSWORD: classconnect_dev
+      POSTGRES_DB: classconnect
+      # DAT-003: timestamps are stored in UTC.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '5433:5432'
+    volumes:
+      - classconnect_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U classconnect -d classconnect']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: classconnect-redis
+    restart: unless-stopped
+    # NFR-AVL-004: session state and rate-limit counters live in Redis.
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6380:6379'
+    volumes:
+      - classconnect_redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  classconnect_pgdata:
+  classconnect_redisdata:

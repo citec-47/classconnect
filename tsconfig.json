@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  // Only the shared libraries are project references. `apps/api` and `apps/web`
+  // are applications built by their own toolchains (nest, next), and listing a
+  // non-composite project here would fail the build.
+  "references": [{ "path": "./packages/shared" }, { "path": "./packages/db" }]
+}

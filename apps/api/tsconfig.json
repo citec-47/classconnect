@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // The API is an application, not a library anything else depends on, so it
+    // is deliberately NOT `composite`. Marking it composite made `tsc --noEmit`
+    // and `nest build` share one build-info file: a type-check would record
+    // "everything is current", and the next build would emit nothing.
+    "rootDir": "src",
+    "outDir": "dist",
+    "baseUrl": "./",
+    // Kept inside outDir so that nest-cli's `deleteOutDir` clears it with the
+    // output. Left outside, a stale build-info survives the delete and tsc
+    // reports "Found 0 errors" while emitting no dist/main.js.
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "paths": {
+      "@classconnect/shared": ["../../packages/shared/src"],
+      "@classconnect/db": ["../../packages/db/src"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"],
+  "references": [{ "path": "../../packages/shared" }, { "path": "../../packages/db" }]
+}

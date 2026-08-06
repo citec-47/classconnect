@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * UI-003 / NFR-USA-003: WCAG 2.1 AA — contrast, keyboard operability, visible
+ * focus, form labelling and error identification.
+ */
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    /* NFR-USA-002: comfortable reading size at a Grade 8 level. */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-white text-ink-900 antialiased;
+    /* Full-bleed sections are measured against 100vw; clipping here keeps that
+       from producing a horizontal scrollbar. Vertical scrolling is unaffected. */
+    overflow-x: clip;
+  }
+
+  /* UI-003: focus must be visible for keyboard users, on every focusable thing. */
+  :focus-visible {
+    outline: 3px solid theme('colors.brand.600');
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Respect a user's reduced-motion preference (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* UI-002: every interactive target is at least 44 x 44 CSS pixels. */
+  .cc-btn {
+    @apply inline-flex min-h-touch min-w-touch items-center justify-center gap-2
+           rounded-lg px-4 py-2.5 text-base font-medium transition-colors
+           disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .cc-btn-primary {
+    @apply cc-btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+
+  .cc-btn-secondary {
+    @apply cc-btn border border-ink-300 bg-white text-ink-900 hover:bg-ink-100;
+  }
+
+  .cc-btn-danger {
+    @apply cc-btn bg-danger-600 text-white hover:brightness-90;
+  }
+
+  .cc-field {
+    @apply w-full min-h-touch rounded-lg border border-ink-300 px-3 py-2.5
+           text-base text-ink-900 placeholder:text-ink-600
+           focus:border-brand-600 focus:ring-0;
+  }
+
+  /* UI-003: an invalid field is identified by more than colour alone. */
+  .cc-field-invalid {
+    @apply border-danger-600 bg-danger-50;
+  }
+
+  .cc-label {
+    @apply mb-1 block text-sm font-medium text-ink-900;
+  }
+
+  .cc-hint {
+    @apply mt-1 text-sm text-ink-600;
+  }
+
+  .cc-error {
+    @apply mt-1 flex items-start gap-1.5 text-sm font-medium text-danger-600;
+  }
+
+  .cc-card {
+    @apply rounded-xl border border-ink-300 bg-white p-4;
+  }
+
+  /*
+   * Full-bleed band inside a centred column.
+   *
+   * The app shell holds content to a readable measure, which is right for
+   * reading but wrong for a landing page's coloured bands — they would float as
+   * boxes instead of spanning the page. This lets the background reach both
+   * edges while the text stays aligned with everything above and below it.
+   *
+   * `100vw` includes the scrollbar, so the body clips the overflow rather than
+   * gaining a horizontal scrollbar on desktop.
+   */
+  .cc-bleed {
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    /*
+     * Only the page gutter. Padding back to the parent column's edge would
+     * defeat the point — the band would span the viewport but its content would
+     * stay locked to the narrow measure. Re-centring is the inner element's
+     * job, which lets the landing choose a wider measure than the app pages.
+     */
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .cc-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  /*
+   * NFR-USA-005: learner-facing interfaces for primary-level users use larger
+   * typography, higher-contrast colour and iconography alongside text labels.
+   * Applied by adding `data-audience="primary"` to a layout wrapper.
+   */
+  [data-audience='primary'] {
+    @apply text-lg;
+  }
+
+  [data-audience='primary'] .cc-btn {
+    @apply min-h-[3.5rem] text-lg;
+  }
+}
+
+/* Screen-reader-only text used for labels and live regions (UI-003). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

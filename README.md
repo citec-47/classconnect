@@ -195,6 +195,30 @@ browser's `Accept-Language` (NFR-LOC-003).
 
 ---
 
+## Deploying
+
+§2.4 splits the hosting: **frontend on Vercel, backend and database elsewhere**
+(Railway or AWS). That split is not optional here — `apps/api` is a NestJS
+long-running server with WebSocket and background work, and Vercel does not host
+one. Deploying this repository to Vercel gives you the web app only.
+
+`vercel.json` at the repo root pins the monorepo build. The web app needs one
+environment variable set in the Vercel project:
+
+```
+NEXT_PUBLIC_API_URL = https://<your-api-host>/api/v1
+```
+
+It is read at **build** time, so changing it needs a redeploy, not just a
+restart. Without it the build falls back to `http://localhost:4000/api/v1`,
+which produces a site that loads and then fails every request.
+
+The API host additionally needs `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+`JWT_REFRESH_SECRET`, `FIELD_ENCRYPTION_KEY`, the `CLOUDINARY_*` values, and
+`WEB_ORIGIN` pointing at the Vercel domain so CORS admits it. `main.ts` refuses
+to boot in production if the secrets are missing or still the template
+placeholders, or if `DEV_EXPOSE_OTP` or `FILE_SCAN_MODE=bypass_dev` are set.
+
 ## Testing
 
 ```bash

@@ -10,6 +10,13 @@
  * Development only. It is not a deployment mechanism and is never used by CI or
  * production, which use the managed PostgreSQL described in §2.4.
  *
+ * The PostgreSQL binaries are platform-specific, so they are declared as
+ * OPTIONAL dependencies in package.json. npm fails a normal dependency outright
+ * when the platform does not match — that is what broke the Linux install on
+ * Vercel. As optional dependencies they are skipped silently off-platform, and
+ * this script simply will not run there, which is correct: nothing outside a
+ * developer machine should be starting a database as a child process.
+ *
  * Usage:
  *   node scripts/local-postgres.mjs start   # start and stay in the foreground
  *   node scripts/local-postgres.mjs stop    # stop a server started earlier

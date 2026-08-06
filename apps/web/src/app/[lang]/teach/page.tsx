@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { api, ApiError } from '@/lib/api';
+import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
 import { DocumentUpload, type UploadedDocument } from '@/components/DocumentUpload';
 
@@ -69,6 +70,19 @@ export default function Teach() {
 
   const [application, setApplication] = useState<Application | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [payoutMethod, setPayoutMethod] = useState<'mtn_momo' | 'orange_money'>('mtn_momo');
+  const [form, setForm] = useState({
+    highestQualification: '',
+    institution: '',
+    qualificationYear: '',
+    yearsExperience: '',
+    nationalId: '',
+    payoutWallet: '',
+  });
+
+  const set = (key: keyof typeof form) => (event: { target: { value: string } }) =>
+    setForm((current) => ({ ...current, [key]: event.target.value }));
 
   const load = useCallback(async () => {
     try {
@@ -82,8 +96,64 @@ export default function Teach() {
     void load();
   }, [load]);
 
+  // Seed the form from whatever is already recorded, so editing means
+  // correcting rather than retyping.
+  useEffect(() => {
+    if (!application) return;
+    setForm({
+      highestQualification: application.highestQualification ?? '',
+      institution: application.institution ?? '',
+      qualificationYear: application.qualificationYear?.toString() ?? '',
+      yearsExperience: application.yearsExperience?.toString() ?? '',
+      nationalId: '',
+      payoutWallet: '',
+    });
+  }, [application]);
+
+  /** FR-TVR-001: submit or correct the credentials an Admin will check. */
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/teachers/me/application', {
+        method: 'POST',
+        body: {
+          yearsExperience: Number(form.yearsExperience),
+          highestQualification: form.highestQualification,
+          institution: form.institution,
+          qualificationYear: Number(form.qualificationYear),
+          nationalId: form.nationalId,
+          languages: [language],
+          // Registration already recorded these; the API keeps them when the
+          // payload repeats what is stored.
+          subjects: application!.subjects.map((pair) => ({
+            subjectId: pair.subject.id,
+            levelId: pair.level.id,
+          })),
+          payoutMethod,
+          payoutWallet: form.payoutWallet,
+        },
+        language,
+      });
+      await load();
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const name = (item: { nameEn: string; nameFr: string }) =>
     language === 'fr' ? item.nameFr : item.nameEn;
+
+  /**
+   * The application is editable while it is still open. Once an Admin has
+   * approved or rejected it, the record becomes the evidence for that decision
+   * (FR-TVR-010) and stops being a form.
+   */
+  const editable =
+    application !== null &&
+    ['draft', 'submitted', 'under_review', 'more_info_required'].includes(application.status);
 
   if (!application) {
     return (
@@ -114,6 +184,94 @@ export default function Teach() {
         )}
       </div>
 
+
+      {/*
+        FR-TVR-001: the credentials an Admin will check.
+
+        Editable while the application is open. Registration captured who they
+        are and what they teach; this is what verification actually examines, so
+        a teacher can complete or correct it without queueing for staff time.
+      */}
+      {editable ? (
+        <form
+          className="mt-4 cc-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <h2 className="font-medium text-ink-900">{t('teacher.qualification')}</h2>
+          <p className="cc-hint mb-3">{t('teacher.applicationIntro')}</p>
+
+          <Field
+            label={t('teacher.qualification')}
+            required
+            value={form.highestQualification}
+            onChange={set('highestQualification')}
+            errorKey={error?.fieldError('highestQualification')}
+          />
+          <Field
+            label={t('teacher.institution')}
+            required
+            value={form.institution}
+            onChange={set('institution')}
+            errorKey={error?.fieldError('institution')}
+          />
+          <Field
+            label={t('teacher.year')}
+            type="number"
+            required
+            value={form.qualificationYear}
+            onChange={set('qualificationYear')}
+            errorKey={error?.fieldError('qualificationYear')}
+          />
+          <Field
+            label={t('teacher.experience')}
+            type="number"
+            required
+            value={form.yearsExperience}
+            onChange={set('yearsExperience')}
+            errorKey={error?.fieldError('yearsExperience')}
+          />
+          <Field
+            label={t('teacher.identityDocument')}
+            required
+            value={form.nationalId}
+            onChange={set('nationalId')}
+            errorKey={error?.fieldError('nationalId')}
+          />
+
+          <div className="mb-4">
+            <label htmlFor="payout-method" className="cc-label">
+              {t('teacher.payoutDetails')}
+            </label>
+            <select
+              id="payout-method"
+              className="cc-field"
+              value={payoutMethod}
+              onChange={(event) =>
+                setPayoutMethod(event.target.value as 'mtn_momo' | 'orange_money')
+              }
+            >
+              <option value="mtn_momo">MTN Mobile Money</option>
+              <option value="orange_money">Orange Money</option>
+            </select>
+          </div>
+          <Field
+            label={t('admin.payoutWallet')}
+            hint={t('teacher.payoutHint')}
+            type="tel"
+            required
+            value={form.payoutWallet}
+            onChange={set('payoutWallet')}
+            errorKey={error?.fieldError('payoutWallet')}
+          />
+
+          <button type="submit" className="cc-btn-primary w-full" disabled={busy}>
+            {busy ? t('common.saving') : t('teacher.submitApplication')}
+          </button>
+        </form>
+      ) : (
       <div className="mt-4 cc-card">
         <h2 className="font-medium text-ink-900">{t('teacher.qualification')}</h2>
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
@@ -147,8 +305,8 @@ export default function Teach() {
           </>
         )}
 
-        <p className="cc-hint mt-4">{t('teacher.detailsManagedByAdmin')}</p>
       </div>
+      )}
 
       <ErrorAlert error={error} />
 

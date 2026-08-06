@@ -60,9 +60,10 @@ export const PERMISSIONS = [
   'learner:credentials:manage',
   'guardian:invite',
 
-  // Teacher's own profile. There is no `teacher:apply`: the self-service
-  // application is gone, so a teacher account exists only because an Admin
-  // created it (see `teacher:create`).
+  // Teacher's own application and profile. A teacher may state their
+  // credentials and supply documents; only an Admin may accept them
+  // (FR-TVR-005), so applying and being approved stay separate permissions.
+  'teacher:apply',
   'teacher:profile:write:own',
   'teacher:document:upload:own',
 
@@ -127,6 +128,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'catalogue:read',
     'profile:read:own',
     'profile:write:own',
+    'teacher:apply',
     'teacher:profile:write:own',
     // FR-TVR-007: a teacher still supplies documents for re-verification when
     // a credential is due to expire, even though they did not create the account.

@@ -171,6 +171,8 @@ export const en = {
     roleAdultLearnerHint: 'You are 18 or older and manage your own account.',
     roleTeacher: 'I want to teach',
     roleTeacherHint: 'Apply to teach. We check every teacher before their first lesson.',
+    teacherVerificationNote:
+      'After you sign up, upload your certificate and identity document. An administrator checks them by hand, and you can be given learners once that is done.',
     fullName: 'Full name',
     phone: 'Phone number',
     phoneHint: 'We send your code by SMS. Use the number on this phone.',

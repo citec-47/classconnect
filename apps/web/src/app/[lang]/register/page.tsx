@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
+import { SchoolTypePicker, type SchoolType } from '@/components/SchoolTypePicker';
 import type { Language } from '@classconnect/shared';
 
 /**
@@ -18,11 +19,19 @@ import type { Language } from '@classconnect/shared';
  *              so this asks for the minimum and defers the rest.
  */
 /**
- * Only Parents and Adult Learners sign themselves up. Student and Teacher
- * accounts are created by an Admin, so those roles are absent here and the API
- * refuses them regardless.
+ * FR-AUT-001. `student` is absent by design: a Student account for a minor is
+ * created by an Admin, never by the child, and the API refuses the role here
+ * regardless of what this form sends.
  */
-type Role = 'parent' | 'adult_learner';
+type Role = 'parent' | 'adult_learner' | 'teacher';
+
+interface Level {
+  id: string;
+  nameEn: string;
+  nameFr: string;
+  schoolType: SchoolType;
+  subjects: { id: string; nameEn: string; nameFr: string }[];
+}
 
 export default function Register() {
   const { language, t } = useI18n();
@@ -38,6 +47,29 @@ export default function Register() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // FR-TVR-001: a teacher states what they teach as they apply.
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [schoolType, setSchoolType] = useState<SchoolType | null>(null);
+  const [levelId, setLevelId] = useState('');
+  const [pairs, setPairs] = useState<{ subjectId: string; levelId: string }[]>([]);
+
+  // Only the teacher path needs the catalogue, so it is not fetched until
+  // that role is chosen — a parent signing up pays nothing for it.
+  useEffect(() => {
+    if (role !== 'teacher' || levels.length > 0) return;
+    void api<Level[]>('/catalogue/levels', { language })
+      .then(setLevels)
+      .catch((caught) => setError(caught as ApiError));
+  }, [role, levels.length, language]);
+
+  const classesForSchool = useMemo(
+    () => (schoolType ? levels.filter((l) => l.schoolType === schoolType) : []),
+    [levels, schoolType],
+  );
+  const selectedLevel = levels.find((l) => l.id === levelId);
+  const name = (item: { nameEn: string; nameFr: string }) =>
+    language === 'fr' ? item.nameFr : item.nameEn;
 
   const submit = async () => {
     if (!role) return;
@@ -55,6 +87,7 @@ export default function Register() {
             preferredLanguage: language,
             acceptedTerms,
             ...(role === 'adult_learner' ? { dob } : {}),
+            ...(role === 'teacher' ? { schoolType, subjects: pairs } : {}),
           },
           language,
         },
@@ -130,6 +163,12 @@ export default function Register() {
         label: t('auth.roleAdultLearner'),
         hint: t('auth.roleAdultLearnerHint'),
         icon: '🎓',
+      },
+      {
+        value: 'teacher',
+        label: t('auth.roleTeacher'),
+        hint: t('auth.roleTeacherHint'),
+        icon: '📚',
       },
     ];
 
@@ -213,6 +252,98 @@ export default function Register() {
           />
         )}
 
+        {/*
+          FR-TVR-001: what this teacher teaches, stated up front.
+
+          School type narrows the classes, and the class narrows the subjects,
+          so a primary teacher is never offered A-Level Further Maths. The
+          server re-checks the pair against the catalogue regardless
+          (FR-PRO-002) — this only keeps the form honest.
+        */}
+        {role === 'teacher' && (
+          <>
+            <SchoolTypePicker
+              value={schoolType}
+              onChange={(value) => {
+                setSchoolType(value);
+                // The class and its subjects belong to the previous school
+                // type; carrying them over would submit a mismatched pair.
+                setLevelId('');
+                setPairs([]);
+              }}
+            />
+
+            {schoolType && (
+              <fieldset className="mb-4">
+                <legend className="cc-label">{t('teacher.subjectsTaught')}</legend>
+                <p className="cc-hint mb-2">{t('admin.chooseTeachingSubjectsHint')}</p>
+
+                <select
+                  className="cc-field mb-2"
+                  value={levelId}
+                  onChange={(event) => setLevelId(event.target.value)}
+                  aria-label={t('admin.chooseClass')}
+                >
+                  <option value="">{t('admin.chooseClass')}</option>
+                  {classesForSchool.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {name(level)}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedLevel && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedLevel.subjects.map((subject) => {
+                      const checked = pairs.some(
+                        (pair) => pair.subjectId === subject.id && pair.levelId === levelId,
+                      );
+                      return (
+                        <label
+                          key={subject.id}
+                          className={`flex min-h-touch cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                            checked
+                              ? 'border-brand-600 bg-brand-50 text-brand-700'
+                              : 'border-ink-300 text-ink-900'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={checked}
+                            onChange={(event) =>
+                              setPairs((current) =>
+                                event.target.checked
+                                  ? [...current, { subjectId: subject.id, levelId }]
+                                  : current.filter(
+                                      (pair) =>
+                                        !(pair.subjectId === subject.id && pair.levelId === levelId),
+                                    ),
+                              )
+                            }
+                          />
+                          {name(subject)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="cc-hint">
+                  {pairs.length > 0
+                    ? t('admin.subjectsSelected', { count: pairs.length })
+                    : t('errors.teacher.subjects_required')}
+                </p>
+              </fieldset>
+            )}
+
+            {/* FR-TVR-003: set the expectation before they sign up, not after. */}
+            <p className="mb-4 rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
+              {t('auth.teacherVerificationNote')}
+            </p>
+          </>
+        )}
+
         {/* NFR-PRV-002: acceptance of the notice and terms is recorded. */}
         <div className="mb-4 flex items-start gap-3">
           <input
@@ -231,7 +362,14 @@ export default function Register() {
         <button
           type="submit"
           className="cc-btn-primary w-full"
-          disabled={busy || !acceptedTerms || !fullName || !phone}
+          disabled={
+            busy ||
+            !acceptedTerms ||
+            !fullName ||
+            !phone ||
+            // FR-TVR-001: a teacher cannot apply without saying what they teach.
+            (role === 'teacher' && (!schoolType || pairs.length === 0))
+          }
         >
           {busy ? t('common.loading') : t('common.continue')}
         </button>

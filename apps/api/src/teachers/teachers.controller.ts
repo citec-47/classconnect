@@ -3,8 +3,10 @@ import { TeachersService } from './teachers.service';
 import { zodBody, uuidParam } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import {
+  teacherApplicationSchema,
   verificationDecisionSchema,
   suspendTeacherSchema,
+  type TeacherApplicationInput,
   type VerificationDecisionInput,
 } from '@classconnect/shared';
 import { VERIFICATION_CHECKLIST } from './verification-checklist';
@@ -14,19 +16,31 @@ import { VERIFICATION_CHECKLIST } from './verification-checklist';
 export class TeachersController {
   constructor(private readonly teachers: TeachersService) {}
 
-  /**
-   * The teacher's read-only view of their own record and its verification
-   * state.
-   *
-   * There is no POST counterpart: the self-service application is withdrawn.
-   * A Teacher account exists only because an Admin created it, so the only
-   * thing a teacher does here is see their status and supply documents for
-   * re-verification (FR-TVR-007).
-   */
+  /** The teacher's own record and its verification state. */
   @Get('me/application')
   @RequirePermissions('teacher:profile:write:own')
   async myApplication(@CurrentUser() user: AuthenticatedUser) {
     return this.teachers.getOwnApplication(user);
+  }
+
+  /**
+   * FR-TVR-001: the teacher completes their application.
+   *
+   * Registration captures who they are and what they teach; this captures the
+   * credentials an Admin will check. Accepted while the application is open —
+   * `draft`, `submitted`, `more_info_required` — so FR-TVR-006's resubmission
+   * path works without a separate endpoint.
+   *
+   * An account an Admin created is also editable here, which is what lets a
+   * teacher correct their own details rather than queueing for staff time.
+   */
+  @Post('me/application')
+  @RequirePermissions('teacher:apply')
+  async apply(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(zodBody(teacherApplicationSchema)) body: TeacherApplicationInput,
+  ) {
+    return this.teachers.submitApplication(user, body);
   }
 }
 

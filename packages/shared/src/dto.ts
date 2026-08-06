@@ -43,6 +43,16 @@ export const passwordSchema = z
 
 export const otpCodeSchema = z.string().regex(/^\d{6}$/, 'errors.otp.format');
 
+/**
+ * Primary school, or secondary school.
+ *
+ * Declared here rather than beside the admin schemas because teacher
+ * registration needs it first, and a `const` referenced before its declaration
+ * throws when the module loads.
+ */
+export const schoolTypeSchema = z.enum(['primary', 'secondary']);
+export type SchoolType = z.infer<typeof schoolTypeSchema>;
+
 // ---------------------------------------------------------------------------
 // Registration and authentication — FR-AUT-001..008
 // ---------------------------------------------------------------------------
@@ -50,14 +60,14 @@ export const otpCodeSchema = z.string().regex(/^\d{6}$/, 'errors.otp.format');
 /**
  * Who may sign themselves up.
  *
- * FR-AUT-001 also allowed Teacher here. That is deliberately withdrawn: Student
- * and Teacher accounts are created by an Admin only, so neither role is
- * expressible on this endpoint. Parents and Adult Learners still register
- * themselves — they are the payers, and closing that path would put every new
- * customer behind staff time (OI-10 already names that as the binding
- * constraint on growth).
+ * FR-AUT-001: Parent, Adult Learner or Teacher. `student` is absent by design —
+ * a Student account for a minor is created by an Admin, never by the child.
+ *
+ * A Teacher registering here creates an account, not an entitlement. FR-TVR-003
+ * still holds: they land in `submitted`, and only an Admin working the
+ * verification checklist can make them listable, assignable or payable.
  */
-export const registerRoleSchema = z.enum(['parent', 'adult_learner']);
+export const registerRoleSchema = z.enum(['parent', 'adult_learner', 'teacher']);
 
 export const registerSchema = z
   .object({
@@ -73,6 +83,20 @@ export const registerSchema = z
     }),
     /** Adult Learner registers themselves; date of birth establishes 18+. */
     dob: z.string().date().optional(),
+
+    /**
+     * FR-TVR-001: a teacher states what they teach when they apply.
+     *
+     * `schoolType` travels with the subjects so the server can check the two
+     * agree. Subjects are level-scoped (FR-PRO-002), so a pair naming a level
+     * outside the chosen school is a form that has drifted from the catalogue,
+     * and trusting the level would enrol a primary teacher on A-Level papers.
+     */
+    schoolType: schoolTypeSchema.optional(),
+    subjects: z
+      .array(z.object({ subjectId: z.string().uuid(), levelId: z.string().uuid() }))
+      .max(60)
+      .optional(),
   })
   .refine((data) => data.phone !== undefined || data.email !== undefined, {
     message: 'errors.identifier.required',
@@ -86,6 +110,14 @@ export const registerSchema = z
   .refine((data) => data.role !== 'adult_learner' || data.dob !== undefined, {
     message: 'errors.dob.required',
     path: ['dob'],
+  })
+  .refine((data) => data.role !== 'teacher' || data.schoolType !== undefined, {
+    message: 'errors.teacher.school_required',
+    path: ['schoolType'],
+  })
+  .refine((data) => data.role !== 'teacher' || (data.subjects?.length ?? 0) > 0, {
+    message: 'errors.teacher.subjects_required',
+    path: ['subjects'],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -222,8 +254,8 @@ export const suspendTeacherSchema = z.object({
 // ---------------------------------------------------------------------------
 
 /** The Admin's first choice: primary school, or secondary school. */
-export const schoolTypeSchema = z.enum(['primary', 'secondary']);
-export type SchoolType = z.infer<typeof schoolTypeSchema>;
+// `schoolTypeSchema` is declared near the top of this file, because teacher
+// registration references it before this section.
 
 /**
  * Creating a Student account.

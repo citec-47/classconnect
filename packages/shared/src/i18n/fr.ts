@@ -161,6 +161,8 @@ export const fr: Messages = {
     roleAdultLearnerHint: 'Vous avez 18 ans ou plus et gérez votre propre compte.',
     roleTeacher: 'Je veux enseigner',
     roleTeacherHint: 'Postulez pour enseigner. Nous vérifions chaque enseignant avant son premier cours.',
+    teacherVerificationNote:
+      'Après votre inscription, envoyez votre diplôme et votre pièce d’identité. Un administrateur les vérifie à la main, et des apprenants peuvent vous être confiés une fois cela fait.',
     fullName: 'Nom complet',
     phone: 'Numéro de téléphone',
     phoneHint: 'Nous envoyons votre code par SMS. Utilisez le numéro de ce téléphone.',

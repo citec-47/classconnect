@@ -161,8 +161,11 @@ check('teacher sees their own record', ownRecord.status === 200 && ownRecord.dat
 check('FR-PRO-005 payout shown masked only', ownRecord.data?.payoutWalletPreview?.startsWith('****') &&
   !JSON.stringify(ownRecord.data).includes('678901234'));
 
+// The endpoint exists again, and an admin-created teacher may use it to correct
+// their own details. An empty payload is still refused: validation applies to
+// every caller (FR-RBA-002).
 const selfApply = await call('/teachers/me/application', { method: 'POST', token: teacherAuth.data.accessToken, body: {} });
-check('the self-application endpoint no longer exists', selfApply.status === 404, `got ${selfApply.status}`);
+check('an empty application payload is refused', selfApply.status === 400, `got ${selfApply.status}`);
 
 console.log('\n=== Incomplete checklist leaves the teacher unassignable ===');
 const partialPhone = phone();

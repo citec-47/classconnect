@@ -9,6 +9,7 @@ import { FieldEncryptionService } from '../teachers/field-encryption.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/http-exception.filter';
+import { VERIFICATION_CHECKLIST } from '../teachers/verification-checklist';
 import {
   CONFIG_KEYS,
   isMinor,
@@ -100,8 +101,45 @@ export class AuthService {
         });
       }
 
-      // No teacher branch: a Teacher account is created by an Admin only, via
-      // AdminAccountsService. The registration DTO cannot express that role.
+      /**
+       * FR-TVR-001/003: a teacher states what they teach and enters the
+       * verification queue as `submitted`.
+       *
+       * The account exists; the entitlement does not. FR-TVR-003 keeps an
+       * unapproved teacher unlistable, unassignable and unpaid until an Admin
+       * completes the checklist, so self-registration widens the intake without
+       * touching the control that protects learners.
+       */
+      if (input.role === 'teacher' && input.subjects && input.schoolType) {
+        await tx.teacher.create({
+          data: {
+            userId: created.id,
+            schoolType: input.schoolType,
+            languages: [input.preferredLanguage],
+            verificationStatus: 'submitted',
+            submittedAt: new Date(),
+          },
+        });
+
+        await tx.teacherSubject.createMany({
+          data: input.subjects.map((pair) => ({
+            teacherId: created.id,
+            subjectId: pair.subjectId,
+            levelId: pair.levelId,
+          })),
+          skipDuplicates: true,
+        });
+
+        // FR-TVR-004: the queue renders a checklist. Creating the rows now
+        // means an Admin cannot approve an application that has none.
+        await tx.verificationChecklistItem.createMany({
+          data: VERIFICATION_CHECKLIST.map((item) => ({
+            teacherId: created.id,
+            itemKey: item.key,
+            verified: false,
+          })),
+        });
+      }
 
       return created;
     });

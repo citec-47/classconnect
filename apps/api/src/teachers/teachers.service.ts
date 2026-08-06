@@ -5,6 +5,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { FieldEncryptionService } from './field-encryption.service';
 import { AppError } from '../common/http-exception.filter';
 import { MANDATORY_CHECKLIST_KEYS, VERIFICATION_CHECKLIST } from './verification-checklist';
+import type { VerificationStatus } from '@classconnect/db';
 import type { AuthenticatedUser } from '../rbac/decorators';
 import type { TeacherApplicationInput, VerificationDecisionInput } from '@classconnect/shared';
 
@@ -34,11 +35,21 @@ export class TeachersService {
     const teacher = await this.prisma.teacher.findUnique({ where: { userId: user.id } });
     if (!teacher) throw AppError.notFound();
 
-    if (teacher.verificationStatus === 'approved') {
-      throw AppError.conflict('errors.teacher.already_applied');
-    }
-    if (teacher.verificationStatus === 'submitted' || teacher.verificationStatus === 'under_review') {
-      throw AppError.conflict('errors.teacher.already_applied');
+    /**
+     * The application is editable while it is still open.
+     *
+     * Registration already puts a self-registered teacher in `submitted`, so
+     * refusing that state would lock them out of the very form they were sent
+     * to fill in. `more_info_required` must stay open too — FR-TVR-006 gives
+     * the applicant the right to resubmit.
+     *
+     * Closed once decided: an approved teacher cannot quietly rewrite the
+     * credentials an Admin signed off (FR-TVR-010 keeps that evidence), and a
+     * rejected one starts again rather than editing in place.
+     */
+    const open: VerificationStatus[] = ['draft', 'submitted', 'under_review', 'more_info_required'];
+    if (!open.includes(teacher.verificationStatus)) {
+      throw AppError.conflict('errors.teacher.application_closed');
     }
 
     await this.prisma.$transaction(async (tx) => {

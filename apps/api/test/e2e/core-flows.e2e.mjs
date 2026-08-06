@@ -148,10 +148,12 @@ const selfRegister = await call('/auth/register', {
   method: 'POST',
   body: { role: 'teacher', fullName: 'Paul Tabi', phone: `+2376${rnd()}${Math.floor(Math.random()*10)}`.slice(0, 13), preferredLanguage: 'fr', acceptedTerms: true },
 });
-check('cannot self-register as a teacher', selfRegister.status === 400, `got ${selfRegister.status}`);
+check('a teacher cannot register without naming subjects', selfRegister.status === 400, `got ${selfRegister.status}`);
 
+// FR-RBA-002: the application endpoint is scoped to teacher:apply, so a parent
+// holding a valid token still cannot reach it.
 const selfApply = await call('/teachers/me/application', { method: 'POST', token: parentToken, body: {} });
-check('the self-application endpoint no longer exists', selfApply.status === 404, `got ${selfApply.status}`);
+check('a parent cannot use the teacher application endpoint', selfApply.status === 403, `got ${selfApply.status}`);
 
 console.log('\n=== FR-PRO-001: school-type grouping ===');
 const primaryLevels = await call('/catalogue/levels?schoolType=primary');

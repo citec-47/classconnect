@@ -9,6 +9,7 @@ import { FieldEncryptionService } from '../teachers/field-encryption.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/http-exception.filter';
+import { devFlag } from '../common/deployment';
 import { VERIFICATION_CHECKLIST } from '../teachers/verification-checklist';
 import {
   CONFIG_KEYS,
@@ -189,7 +190,7 @@ export class AuthService {
     const roles = user.roles.map((r) => r.role as Role);
 
     // FR-AUT-009: staff cannot hold a passwordless phone-only path.
-    if (requiresMfa(roles)) {
+    if (this.staffMfaRequired(roles)) {
       throw AppError.forbidden('errors.mfa.required');
     }
 
@@ -278,7 +279,7 @@ export class AuthService {
     const roles = user.roles.map((r) => r.role as Role);
 
     // FR-AUT-009: multi-factor authentication for all Admin and Support roles.
-    if (requiresMfa(roles)) {
+    if (this.staffMfaRequired(roles)) {
       if (!input.mfaCode) throw AppError.unauthorised('errors.mfa.required');
       const accepted = await this.verifyMfa(user.id, input.mfaCode);
       if (!accepted) throw AppError.unauthorised('errors.mfa.incorrect');
@@ -355,6 +356,24 @@ export class AuthService {
       emailVerified: user.emailVerifiedAt !== null,
       mfaEnabled: user.mfaEnabled,
     };
+  }
+
+  /**
+   * Whether these roles must present a second factor.
+   *
+   * FR-AUT-009 says yes for every Admin and Support role, and that is what
+   * ships. DEV_DISABLE_STAFF_MFA lifts it on a developer machine only.
+   *
+   * The affordance exists because the requirement is enforced by role, not by
+   * enrolment: an admin account with no authenticator enrolled cannot sign in
+   * at all, and there is no way to enrol one without first signing in. On a
+   * laptop that is a locked door with the key inside. `devFlag` returns false
+   * on any deployed platform, and boot refuses to start there with this set
+   * (see main.ts), so the door stays shut everywhere it matters.
+   */
+  private staffMfaRequired(roles: readonly Role[]): boolean {
+    if (!requiresMfa(roles)) return false;
+    return !devFlag('DEV_DISABLE_STAFF_MFA');
   }
 
   /**

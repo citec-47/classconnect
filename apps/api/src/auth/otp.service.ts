@@ -4,6 +4,7 @@ import { PlatformConfigService } from '../common/platform-config.service';
 import { PasswordService } from './password.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/http-exception.filter';
+import { devFlag } from '../common/deployment';
 import { CONFIG_KEYS, maskPhone } from '@classconnect/shared';
 import type { OtpChannel, OtpPurpose } from '@classconnect/db';
 
@@ -152,6 +153,6 @@ export class OtpService {
    * be switched on against real users.
    */
   private devExposeOtp(): boolean {
-    return process.env.DEV_EXPOSE_OTP === 'true' && process.env.NODE_ENV !== 'production';
+    return devFlag('DEV_EXPOSE_OTP');
   }
 }

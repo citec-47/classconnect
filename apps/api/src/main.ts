@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { JsonLogger } from './common/logger';
+import { isDeployed } from './common/deployment';
 
 /**
  * API bootstrap.
@@ -67,36 +68,6 @@ async function bootstrap(): Promise<void> {
       context: 'Bootstrap',
       message: `ClassConnect API listening on :${port}${process.env.API_PREFIX ?? '/api/v1'}`,
     }),
-  );
-}
-
-/**
- * Variables the hosting platform sets itself.
- *
- * NODE_ENV is not a trustworthy signal here. It is operator-supplied, and the
- * common mistake is pasting a laptop's environment file into a hosting
- * dashboard — which carries NODE_ENV=development along with every development
- * affordance, switching the checks below off at exactly the moment they matter.
- *
- * These variables are injected by the platform at runtime. They cannot travel
- * in a copied file, which is precisely what makes them worth trusting.
- */
-const PLATFORM_MARKERS = [
-  'VERCEL',
-  'RAILWAY_ENVIRONMENT',
-  'RENDER',
-  'FLY_APP_NAME',
-  'DYNO', // Heroku
-  'K_SERVICE', // Cloud Run
-  'AWS_EXECUTION_ENV',
-  'WEBSITE_INSTANCE_ID', // Azure App Service
-  'KUBERNETES_SERVICE_HOST',
-];
-
-function isDeployed(): boolean {
-  return (
-    process.env.NODE_ENV === 'production' ||
-    PLATFORM_MARKERS.some((marker) => Boolean(process.env[marker]))
   );
 }
 
@@ -188,6 +159,7 @@ function assertProductionSafety(): void {
     const risky = [
       process.env.DEV_EXPOSE_OTP === 'true' ? 'DEV_EXPOSE_OTP=true' : null,
       process.env.FILE_SCAN_MODE === 'bypass_dev' ? 'FILE_SCAN_MODE=bypass_dev' : null,
+      process.env.DEV_DISABLE_STAFF_MFA === 'true' ? 'DEV_DISABLE_STAFF_MFA=true' : null,
     ].filter(Boolean);
 
     if (risky.length > 0 && databaseIsRemote()) {
@@ -195,7 +167,8 @@ function assertProductionSafety(): void {
       console.warn(
         '\n  WARNING: development affordances are enabled against a REMOTE database:\n' +
           `    ${risky.join('\n    ')}\n` +
-          '  One-time codes are returned in API responses and uploads are not scanned.\n' +
+          '  One-time codes are returned in API responses, uploads are not scanned,\n' +
+          '  and administrators sign in with a password alone.\n' +
           '  Never carry this configuration to a deployed environment.\n',
       );
     }
@@ -208,6 +181,11 @@ function assertProductionSafety(): void {
   // production with the bypass on would serve unscanned files to children.
   if (process.env.FILE_SCAN_MODE === 'bypass_dev') {
     violations.push('FILE_SCAN_MODE must not be bypass_dev (FR-FIL-001)');
+  }
+  // FR-AUT-009 / NFR-SEC-012: an administrator can approve teachers and read
+  // minors' data. Behind a password alone, one leaked password is the platform.
+  if (process.env.DEV_DISABLE_STAFF_MFA === 'true') {
+    violations.push('DEV_DISABLE_STAFF_MFA must not be true (FR-AUT-009)');
   }
   if (!process.env.CLOUDINARY_API_SECRET) {
     violations.push('CLOUDINARY_API_SECRET is required (SI-006)');

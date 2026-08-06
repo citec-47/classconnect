@@ -47,7 +47,7 @@ async function bootstrap(): Promise<void> {
   );
 
   app.enableCors({
-    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(','),
+    origin: corsOrigin(),
     credentials: true,
     // Correlation IDs must survive the browser round trip (NFR-MNT-005).
     exposedHeaders: ['x-correlation-id'],
@@ -97,6 +97,61 @@ function isDeployed(): boolean {
   return (
     process.env.NODE_ENV === 'production' ||
     PLATFORM_MARKERS.some((marker) => Boolean(process.env[marker]))
+  );
+}
+
+/**
+ * Which origins the browser may call this API from.
+ *
+ * Deployed: exactly what WEB_ORIGIN lists, and nothing else.
+ *
+ * On a developer machine, also any loopback or private-network address. Testing
+ * on a real phone means opening the site on the LAN address of the laptop, and
+ * that is a different origin from localhost — so with a fixed list the page
+ * loads, every request is blocked, and the app reports itself unreachable. The
+ * alternative is re-listing an origin that changes with the network, which
+ * nobody does more than once.
+ *
+ * This cannot leak into production: `isDeployed()` keys off variables the
+ * hosting platform injects, which cannot travel in a copied environment file.
+ */
+function corsOrigin() {
+  const configured = (process.env.WEB_ORIGIN ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (isDeployed()) return configured;
+
+  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // No Origin header at all: curl, a health probe, a same-origin request.
+    if (!origin) return callback(null, true);
+    if (configured.includes(origin)) return callback(null, true);
+    callback(null, isLoopbackOrPrivate(origin));
+  };
+}
+
+function isLoopbackOrPrivate(origin: string): boolean {
+  let host: string;
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+
+  // RFC 1918 ranges, plus link-local. Anything routable is refused.
+  const parts = host.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return false;
+  }
+  const [a, b] = parts as [number, number, number, number];
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254)
   );
 }
 

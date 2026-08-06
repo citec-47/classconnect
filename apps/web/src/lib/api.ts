@@ -7,8 +7,29 @@
  * quote it to support and it can be traced through the API logs.
  */
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+/**
+ * Where the API lives.
+ *
+ * `NEXT_PUBLIC_API_URL` is the answer whenever it is set, and it must be set
+ * for any real deployment — it is read at build time and baked into the bundle.
+ *
+ * With it unset, the host is derived from the page's own address rather than
+ * hard-coded to localhost. Otherwise a build served on a LAN address works on
+ * the machine that made it and fails on every other device: the phone dutifully
+ * calls its own localhost, finds nothing, and reports the site unreachable.
+ */
+function defaultApiBase(): string {
+  if (typeof window === 'undefined') return 'http://localhost:4000/api/v1';
+  const port = process.env.NEXT_PUBLIC_API_PORT ?? '4000';
+  return `${window.location.protocol}//${window.location.hostname}:${port}/api/v1`;
+}
+
+export function apiBase(): string {
+  return process.env.NEXT_PUBLIC_API_URL || defaultApiBase();
+}
+
+/** @deprecated Prefer `apiBase()`, which resolves at call time. */
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 export interface ApiFieldError {
   path: string;
@@ -86,7 +107,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    response = await fetch(`${apiBase()}${path}`, {
       method,
       headers: {
         'content-type': 'application/json',
@@ -148,7 +169,7 @@ async function tryRefresh(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
+    const response = await fetch(`${apiBase()}/auth/refresh`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ refreshToken }),

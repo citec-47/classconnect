@@ -1,3 +1,8 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
 /**
  * Next.js configuration.
  *
@@ -10,6 +15,21 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+
+  /**
+   * The monorepo root, stated rather than guessed.
+   *
+   * Next traces which files a server route actually needs and copies only those
+   * into the deployed function. It infers the root from the nearest lockfile,
+   * and in a workspace with more than one in scope it can choose wrongly —
+   * here it selected a stray lockfile in the user's home directory.
+   *
+   * A wrong root is invisible at build time and fatal at runtime: the build
+   * succeeds, then the function is missing `packages/shared` and every request
+   * fails with FUNCTION_INVOCATION_FAILED. Pinning it makes the trace cover the
+   * whole workspace.
+   */
+  outputFileTracingRoot: path.join(here, '..', '..'),
 
   images: {
     // NFR-PER-007: WebP/AVIF with responsive sizing.

@@ -113,7 +113,12 @@ export const registerSchema = z
     path: ['phone'],
   })
   .refine((data) => data.phone !== undefined || data.password !== undefined, {
-    // Email-only registration needs a password; phone registration uses OTP.
+    /*
+     * Email-only registration must set a password, because there is no OTP
+     * path to fall back on. Registering with a phone may set one too, and
+     * should: without it the account can only ever be reached by asking for a
+     * code, which costs an SMS every time and fails when the network does.
+     */
     message: 'errors.password.required_for_email',
     path: ['password'],
   })
@@ -152,13 +157,27 @@ export const verifyOtpSchema = z.object({
 });
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 
-export const passwordLoginSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1),
-  deviceLabel: z.string().max(200).optional(),
-  /** FR-AUT-009: required when the account holds a staff role. */
-  mfaCode: z.string().regex(/^\d{6}$/).optional(),
-});
+/**
+ * FR-AUT-003: signing in with a password.
+ *
+ * Either identifier works. AS-07 makes the mobile number the universal one, and
+ * most accounts here are identified by phone — an Admin creating a teacher or a
+ * student sets a phone and a password, and demanding an email at sign-in would
+ * make that password unusable.
+ */
+export const passwordLoginSchema = z
+  .object({
+    email: emailSchema.optional(),
+    phone: phoneSchema.optional(),
+    password: z.string().min(1),
+    deviceLabel: z.string().max(200).optional(),
+    /** FR-AUT-009: required when the account holds a staff role. */
+    mfaCode: z.string().regex(/^\d{6}$/).optional(),
+  })
+  .refine((data) => data.email !== undefined || data.phone !== undefined, {
+    message: 'errors.identifier.required',
+    path: ['phone'],
+  });
 export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
 
 export const refreshSchema = z.object({ refreshToken: z.string().min(20) });

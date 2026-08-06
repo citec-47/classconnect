@@ -44,6 +44,9 @@ export default function Register() {
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // Optional at registration, but it is what lets them sign in later without
+  // waiting on an SMS that costs money and fails on a bad signal.
+  const [password, setPassword] = useState('');
   const [devCode, setDevCode] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -90,6 +93,7 @@ export default function Register() {
             phone,
             preferredLanguage: language,
             acceptedTerms,
+            ...(password ? { password } : {}),
             ...(role === 'adult_learner' ? { dob } : {}),
             ...(role === 'teacher' ? { schoolType, subjects: pairs, teachingLanguages } : {}),
           },
@@ -354,6 +358,16 @@ export default function Register() {
             </p>
           </>
         )}
+
+        <Field
+          label={t('auth.setPassword')}
+          hint={t('auth.setPasswordHint')}
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          errorKey={error?.fieldError('password')}
+        />
 
         {/* NFR-PRV-002: acceptance of the notice and terms is recorded. */}
         <div className="mb-4 flex items-start gap-3">

@@ -10,19 +10,35 @@ import { ErrorAlert } from '@/components/Alert';
 import type { Language } from '@classconnect/shared';
 
 type Step = 'phone' | 'code';
+/**
+ * Credentials by default; a one-time code as the fallback.
+ *
+ * Anyone whose account has a password should be able to just use it. An Admin
+ * creating a teacher or a student sets one and hands it over, so making the
+ * code the only route would make that password meaningless — and every sign-in
+ * would cost an SMS and fail whenever the network did.
+ */
+type Method = 'password' | 'code';
 
 /**
- * FR-AUT-002: phone-first sign-in with a 6-digit code delivered by SMS.
+ * FR-AUT-003: sign in with a password, by phone number or email.
+ * FR-AUT-002: or with a 6-digit code, for an account that has no password.
  * FR-AUT-005: WhatsApp fallback offered where SMS delivery fails.
- * AS-07: a mobile number is the universal identifier, so this is the primary
- *        path and email/password is secondary.
+ *
+ * AS-07 makes the mobile number the universal identifier, so it is what the
+ * form asks for first; an email is accepted in the same box.
  */
 export default function SignIn() {
   const { language, t } = useI18n();
   const router = useRouter();
   const { signIn } = useAuth();
 
+  const [method, setMethod] = useState<Method>('password');
   const [step, setStep] = useState<Step>('phone');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [needsMfa, setNeedsMfa] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,6 +102,43 @@ export default function SignIn() {
     }
   };
 
+  /**
+   * FR-AUT-003. The identifier box takes either a phone number or an email;
+   * which one it is, is the server's business, so the user is not asked to
+   * classify their own credential before they can type it.
+   */
+  const signInWithPassword = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const looksLikeEmail = identifier.includes('@');
+      const tokens = await api<{ accessToken: string; refreshToken: string }>('/auth/login', {
+        method: 'POST',
+        body: {
+          ...(looksLikeEmail ? { email: identifier } : { phone: identifier }),
+          password,
+          ...(mfaCode ? { mfaCode } : {}),
+          deviceLabel: navigator.userAgent.slice(0, 60),
+        },
+        language,
+      });
+      await signIn(tokens);
+      router.push(`/${language}`);
+    } catch (caught) {
+      const failure = caught as ApiError;
+      // FR-AUT-009: staff need a second factor. Rather than refusing outright,
+      // reveal the field and let them finish the same attempt.
+      if (failure.messageKey === 'errors.mfa.required') {
+        setNeedsMfa(true);
+        setError(null);
+      } else {
+        setError(failure);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md">
       <h1 className="text-2xl font-semibold text-ink-900">{t('auth.signIn')}</h1>
@@ -93,7 +146,73 @@ export default function SignIn() {
 
       <ErrorAlert error={error} />
 
-      {step === 'phone' ? (
+      {method === 'password' ? (
+        <form
+          className="mt-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void signInWithPassword();
+          }}
+        >
+          <Field
+            label={t('auth.phoneOrEmail')}
+            hint={t('auth.phoneOrEmailHint')}
+            type="text"
+            inputMode="email"
+            autoComplete="username"
+            required
+            value={identifier}
+            onChange={(event) => setIdentifier(event.target.value)}
+            errorKey={error?.fieldError('phone') ?? error?.fieldError('email')}
+            placeholder="6XX XXX XXX"
+          />
+
+          <Field
+            label={t('auth.password')}
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            errorKey={error?.fieldError('password')}
+          />
+
+          {/* FR-AUT-009: only shown once the server says this account needs it. */}
+          {needsMfa && (
+            <Field
+              label={t('auth.mfaCode')}
+              hint={t('auth.mfaHint')}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={mfaCode}
+              onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ''))}
+            />
+          )}
+
+          <button
+            type="submit"
+            className="cc-btn-primary w-full"
+            disabled={busy || !identifier || !password}
+          >
+            {busy ? t('common.loading') : t('auth.signIn')}
+          </button>
+
+          {/* An account registered by phone may have no password at all. */}
+          <button
+            type="button"
+            className="cc-btn-secondary mt-3 w-full"
+            onClick={() => {
+              setMethod('code');
+              setError(null);
+            }}
+          >
+            {t('auth.useCodeInstead')}
+          </button>
+        </form>
+      ) : step === 'phone' ? (
         <form
           className="mt-6"
           onSubmit={(event) => {
@@ -161,6 +280,18 @@ export default function SignIn() {
           </button>
 
           <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              className="cc-btn-secondary w-full"
+              onClick={() => {
+                setMethod('password');
+                setStep('phone');
+                setError(null);
+              }}
+            >
+              {t('auth.usePasswordInstead')}
+            </button>
+
             <button
               type="button"
               className="cc-btn-secondary w-full"

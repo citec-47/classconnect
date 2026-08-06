@@ -222,8 +222,11 @@ export class AuthService {
     input: PasswordLoginInput,
     device?: { label?: string; ip?: string; userAgent?: string },
   ): Promise<IssuedTokens> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: input.email },
+    // Either identifier resolves to the same account. `findFirst` rather than
+    // `findUnique` because the lookup key varies; both columns are unique
+    // (DAT-004), so at most one row can match.
+    const user = await this.prisma.user.findFirst({
+      where: input.phone ? { phoneE164: input.phone } : { email: input.email },
       include: { roles: true },
     });
 

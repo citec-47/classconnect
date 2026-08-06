@@ -141,7 +141,7 @@ console.log('\n=== FR-RBA-002: permission enforcement ===');
 const parentTriesQueue = await call('/admin/verification/queue', { token: parentToken });
 check('parent cannot read the verification queue', parentTriesQueue.status === 403, `got ${parentTriesQueue.status}`);
 
-console.log('\n=== Teacher self-application is withdrawn ===');
+console.log('\n=== Teacher self-registration, and its limits ===');
 // A Teacher account exists only because an Admin created it. Both halves of the
 // old self-service path are gone: the registration role, and the endpoint.
 const selfRegister = await call('/auth/register', {
@@ -163,6 +163,43 @@ check('secondary includes Lower and Upper Sixth',
   ['Lower Sixth', 'Upper Sixth'].every(n => secondaryLevels.data?.some(l => l.nameEn === n)));
 check('the groups partition the catalogue',
   primaryLevels.data.length + secondaryLevels.data.length === levels.data.length);
+
+
+console.log('\n=== FR-AUT-003: signing in with credentials ===');
+// An account identified by phone still has a password when one was set, and
+// demanding an email at sign-in would make that password unusable. Both
+// identifiers must reach the same account.
+const credPhone = `+2376${rnd()}${Math.floor(Math.random() * 10)}`.slice(0, 13);
+const credEmail = `cred${rnd()}@classconnect.test`;
+const credPassword = 'a-long-enough-password';
+
+const credReg = await call('/auth/register', { method: 'POST', body: {
+  role: 'parent', fullName: 'Credential User', phone: credPhone, email: credEmail,
+  password: credPassword, preferredLanguage: 'en', acceptedTerms: true } });
+check('registration accepts an optional password', credReg.status === 201, JSON.stringify(credReg.data));
+
+const byPhone = await call('/auth/login', { method: 'POST', body: {
+  phone: credPhone, password: credPassword } });
+check('sign in by phone and password', byPhone.status === 200 && !!byPhone.data?.accessToken, JSON.stringify(byPhone.data));
+
+const byEmail = await call('/auth/login', { method: 'POST', body: {
+  email: credEmail, password: credPassword } });
+check('sign in by email and password', byEmail.status === 200 && !!byEmail.data?.accessToken, JSON.stringify(byEmail.data));
+
+const wrongPassword = await call('/auth/login', { method: 'POST', body: {
+  phone: credPhone, password: 'not-the-password' } });
+check('a wrong password is refused', wrongPassword.status === 401 &&
+  wrongPassword.data?.messageKey === 'errors.password.incorrect', JSON.stringify(wrongPassword.data));
+
+const noIdentifier = await call('/auth/login', { method: 'POST', body: { password: credPassword } });
+check('sign-in without an identifier is refused', noIdentifier.status === 400, `got ${noIdentifier.status}`);
+
+// FR-AUT-007 rationale: an unknown account and a wrong password must be
+// indistinguishable, or the endpoint enumerates who has registered.
+const unknownPhone = await call('/auth/login', { method: 'POST', body: {
+  phone: `+2376${rnd()}${Math.floor(Math.random() * 10)}`.slice(0, 13), password: credPassword } });
+check('an unknown account fails the same way as a wrong password', unknownPhone.status === 401 &&
+  unknownPhone.data?.messageKey === 'errors.password.incorrect', JSON.stringify(unknownPhone.data));
 
 console.log('\n=== Results ===');
 console.log(`${pass} passed, ${fail} failed`);

@@ -384,7 +384,7 @@ export const en = {
       too_long: 'That password is too long.',
       required_for_email: 'Please choose a password to sign in with your email.',
       required_for_signin: 'Set a password to give this student their own sign-in.',
-      incorrect: 'That email and password do not match.',
+      incorrect: 'Those sign-in details do not match. Check the password and try again.',
     },
     identifier: { required: 'Please give us a phone number or an email address.' },
     language: { required: 'Choose at least one language.' },

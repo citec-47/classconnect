@@ -385,7 +385,7 @@ export const fr: Messages = {
       required_for_email: 'Choisissez un mot de passe pour vous connecter avec votre e-mail.',
       required_for_signin:
         'Définissez un mot de passe pour donner à cet élève son propre accès.',
-      incorrect: 'Cet e-mail et ce mot de passe ne correspondent pas.',
+      incorrect: 'Ces identifiants ne correspondent pas. Vérifiez le mot de passe et réessayez.',
     },
     identifier: { required: 'Donnez-nous un numéro de téléphone ou une adresse e-mail.' },
     language: { required: 'Choisissez au moins une langue.' },

@@ -73,10 +73,11 @@ A-Level Further Maths.
 Three things are wired to a seam and left unimplemented rather than stubbed with
 something that looks like it works:
 
-- **Notification delivery (SI-007/008/009).** AS-03 and AS-04 are unmet — no SMS
-  aggregator or WhatsApp provider is contracted. `NotificationsService` records
-  every notification row and logs the intent; `deliver()` is the drop-in point.
-  In development the OTP is returned in the API response so the flow is usable.
+- **WhatsApp and email delivery (SI-008/009).** AS-03 is unmet — no provider is
+  contracted. `NotificationsService` records the notification row and logs the
+  intent; `deliver()` is the drop-in point. SMS **is** implemented (below).
+  In development the OTP is returned in the API response so the flow is usable
+  without any provider at all.
 - **Malware scanning (FR-FIL-001).** No anti-malware provider is contracted, so
   nothing can honestly report a file as clean. `MalwareScanService` implements
   the quarantine state machine and a provider seam; `FILE_SCAN_MODE=enforce`
@@ -195,6 +196,41 @@ browser's `Accept-Language` (NFR-LOC-003).
 
 ---
 
+### SMS (SI-007)
+
+Set two variables and SMS sends for real:
+
+```
+SMS_PROVIDER_URL   = https://<aggregator>/send
+SMS_PROVIDER_TOKEN = <token>
+SMS_SENDER_ID      = ClassConnect
+```
+
+Both are required; one without the other counts as unconfigured and the message
+is logged rather than sent. The transport POSTs `{"to","from","text"}` as JSON
+with `Authorization: Bearer <token>`, which most aggregators accept — adjust
+`sms.transport.ts` if yours differs.
+
+NFR-DEP-001 is implemented rather than assumed: a 10s timeout, bounded retries
+that distinguish transient faults from permanent rejections, exponential backoff
+with **full jitter** so a queue built up during an outage does not stampede the
+provider on recovery, and a circuit breaker that opens after five consecutive
+failures and half-opens after 30s to probe. Delivery status, provider reference
+and segment count are recorded per notification (FR-NOT-006), and a *confirmed*
+SMS failure falls back to WhatsApp then email — a message we never attempted is
+not a failure and does not trigger one.
+
+**On GSM-7.** SI-007 asks for English and French bodies "within GSM-7 where
+possible", and that turns out to matter commercially. One character outside the
+alphabet forces the whole message to UCS-2, cutting a segment from 160
+characters to 70. GSM 03.38 carries è é ù ì ò à ä ö ñ ü, but **not** ê ë î ï ô û
+â, and not lowercase ç — only uppercase Ç. So `prêt`, `août` and `français` each
+tripled the cost of a message. `gsm7.ts` replaces the typography (curly quotes,
+guillemets, ellipses, superscript ordinals) and the letters GSM-7 lacks, while
+leaving the accents it does have intact. A test walks every notification
+template in both languages and fails if any lands on UCS-2, because nothing else
+would catch a doubled SMS bill.
+
 ## Deploying
 
 §2.4 splits the hosting: **frontend on Vercel, backend and database elsewhere**
@@ -202,8 +238,13 @@ browser's `Accept-Language` (NFR-LOC-003).
 long-running server with WebSocket and background work, and Vercel does not host
 one. Deploying this repository to Vercel gives you the web app only.
 
-`vercel.json` at the repo root pins the monorepo build. The web app needs one
-environment variable set in the Vercel project:
+**Set the Vercel project's Root Directory to `apps/web`.** Vercel detects the
+framework from the `package.json` in that directory, and the repository root has
+no `next` dependency — leaving it at the root fails with *"No Next.js version
+detected"*. Vercel recognises the npm workspace and still installs from the
+repository root, so `@classconnect/shared` resolves.
+
+The web app needs one environment variable set in the Vercel project:
 
 ```
 NEXT_PUBLIC_API_URL = https://<your-api-host>/api/v1

@@ -254,11 +254,32 @@ It is read at **build** time, so changing it needs a redeploy, not just a
 restart. Without it the build falls back to `http://localhost:4000/api/v1`,
 which produces a site that loads and then fails every request.
 
-The API host additionally needs `DATABASE_URL`, `JWT_ACCESS_SECRET`,
-`JWT_REFRESH_SECRET`, `FIELD_ENCRYPTION_KEY`, the `CLOUDINARY_*` values, and
-`WEB_ORIGIN` pointing at the Vercel domain so CORS admits it. `main.ts` refuses
-to boot in production if the secrets are missing or still the template
-placeholders, or if `DEV_EXPOSE_OTP` or `FILE_SCAN_MODE=bypass_dev` are set.
+**The Vercel project needs `NEXT_PUBLIC_API_URL` and nothing else.** The web app
+reads exactly one environment variable; adding the API's secrets there gives
+them a second place to leak from without making anything work.
+
+The API host is where the rest belong: `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+`JWT_REFRESH_SECRET`, `FIELD_ENCRYPTION_KEY`, the `CLOUDINARY_*` values,
+`SMS_PROVIDER_URL` and `SMS_PROVIDER_TOKEN`, and `WEB_ORIGIN` pointing at the
+Vercel domain so CORS admits it.
+
+### The boot-time safety check
+
+`main.ts` refuses to start on deployed infrastructure when the configuration is
+unsafe: `DEV_EXPOSE_OTP=true`, `FILE_SCAN_MODE=bypass_dev`, a `WEB_ORIGIN` still
+pointing at localhost, or a secret that is missing or still the template
+placeholder.
+
+"Deployed" is decided by the platform's own variables — `VERCEL`,
+`RAILWAY_ENVIRONMENT`, `RENDER`, `FLY_APP_NAME`, `DYNO`, `K_SERVICE` and
+friends — not by `NODE_ENV`. That is deliberate. The common mistake is pasting a
+laptop's `.env` into a hosting dashboard, and it carries `NODE_ENV=development`
+with it, which would switch the check off at exactly the moment it matters.
+A platform variable cannot travel in a copied file.
+
+Developing against a managed database stays permitted, because that is normal.
+It prints a warning instead, since these flags are harmless pointed at a local
+database and dangerous pointed at a real one.
 
 ## Testing
 

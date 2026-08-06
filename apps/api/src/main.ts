@@ -71,12 +71,81 @@ async function bootstrap(): Promise<void> {
 }
 
 /**
- * Refuses to start with a development affordance enabled in production.
- * DEV_EXPOSE_OTP returns one-time codes in API responses; reaching production
- * with it on would hand every account to anyone who knows a phone number.
+ * Variables the hosting platform sets itself.
+ *
+ * NODE_ENV is not a trustworthy signal here. It is operator-supplied, and the
+ * common mistake is pasting a laptop's environment file into a hosting
+ * dashboard — which carries NODE_ENV=development along with every development
+ * affordance, switching the checks below off at exactly the moment they matter.
+ *
+ * These variables are injected by the platform at runtime. They cannot travel
+ * in a copied file, which is precisely what makes them worth trusting.
+ */
+const PLATFORM_MARKERS = [
+  'VERCEL',
+  'RAILWAY_ENVIRONMENT',
+  'RENDER',
+  'FLY_APP_NAME',
+  'DYNO', // Heroku
+  'K_SERVICE', // Cloud Run
+  'AWS_EXECUTION_ENV',
+  'WEBSITE_INSTANCE_ID', // Azure App Service
+  'KUBERNETES_SERVICE_HOST',
+];
+
+function isDeployed(): boolean {
+  return (
+    process.env.NODE_ENV === 'production' ||
+    PLATFORM_MARKERS.some((marker) => Boolean(process.env[marker]))
+  );
+}
+
+function databaseIsRemote(): boolean {
+  const url = process.env.DATABASE_URL;
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return !['localhost', '127.0.0.1', '::1', 'host.docker.internal', 'postgres'].includes(host);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Refuses to start with a development affordance enabled on deployed
+ * infrastructure.
+ *
+ * DEV_EXPOSE_OTP returns one-time codes in API responses; reaching a deployed
+ * environment with it on would hand every account to anyone who knows a phone
+ * number. FILE_SCAN_MODE=bypass_dev serves unscanned uploads to children.
+ * Neither is survivable, so both stop the process rather than warn.
  */
 function assertProductionSafety(): void {
-  if (process.env.NODE_ENV !== 'production') return;
+  const deployed = isDeployed();
+
+  if (!deployed) {
+    /*
+     * Developing against a managed database is normal and stays permitted. It
+     * is worth a warning all the same: these flags are safe pointed at a local
+     * database and dangerous pointed at a real one, and the warning is the only
+     * thing standing between "my laptop" and "the same file, deployed".
+     */
+    const risky = [
+      process.env.DEV_EXPOSE_OTP === 'true' ? 'DEV_EXPOSE_OTP=true' : null,
+      process.env.FILE_SCAN_MODE === 'bypass_dev' ? 'FILE_SCAN_MODE=bypass_dev' : null,
+    ].filter(Boolean);
+
+    if (risky.length > 0 && databaseIsRemote()) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '\n  WARNING: development affordances are enabled against a REMOTE database:\n' +
+          `    ${risky.join('\n    ')}\n` +
+          '  One-time codes are returned in API responses and uploads are not scanned.\n' +
+          '  Never carry this configuration to a deployed environment.\n',
+      );
+    }
+    return;
+  }
 
   const violations: string[] = [];
   if (process.env.DEV_EXPOSE_OTP === 'true') violations.push('DEV_EXPOSE_OTP must not be true');
@@ -94,9 +163,26 @@ function assertProductionSafety(): void {
   if (process.env.JWT_ACCESS_SECRET?.startsWith('replace-me')) {
     violations.push('JWT_ACCESS_SECRET is still the template placeholder');
   }
+  if (process.env.JWT_REFRESH_SECRET?.startsWith('replace-me')) {
+    violations.push('JWT_REFRESH_SECRET is still the template placeholder');
+  }
+  if (process.env.FIELD_ENCRYPTION_KEY?.startsWith('replace-me')) {
+    violations.push('FIELD_ENCRYPTION_KEY is still the template placeholder');
+  }
+  // COM-001 / NFR-SEC-006: CORS admits WEB_ORIGIN. Left at the local default it
+  // both blocks the real site and, if it were ever widened to compensate, would
+  // widen it to everything.
+  if (!process.env.WEB_ORIGIN || process.env.WEB_ORIGIN.includes('localhost')) {
+    violations.push('WEB_ORIGIN must point at the deployed web origin, not localhost');
+  }
 
   if (violations.length > 0) {
-    throw new Error(`Refusing to start in production:\n  - ${violations.join('\n  - ')}`);
+    throw new Error(
+      'Refusing to start: this is deployed infrastructure and the configuration is unsafe.\n' +
+        `  - ${violations.join('\n  - ')}\n` +
+        'These values look like a development environment file copied verbatim. ' +
+        'Set them for this environment rather than reusing a laptop\'s.',
+    );
   }
 }
 

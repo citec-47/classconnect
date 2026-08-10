@@ -12,10 +12,11 @@ export const en = {
     tagline: 'Learn with verified teachers, anywhere in Cameroon',
     continue: 'Continue',
     back: 'Back',
+    delete: 'Remove',
+    actions: 'Actions',
     cancel: 'Cancel',
     save: 'Save',
     saving: 'Saving…',
-    delete: 'Delete',
     edit: 'Edit',
     close: 'Close',
     loading: 'Loading…',
@@ -352,6 +353,709 @@ export const en = {
     auditTrail: 'Audit trail',
   },
 
+  /**
+   * The three teaching bands.
+   *
+   * Top level rather than under `admin`, because a learner and a teacher see
+   * these words too — on a profile, in a plan name, on a receipt.
+   */
+  schoolType: {
+    primary: 'Primary school',
+    primaryHint: 'Class 1 to Class 6.',
+    secondary: 'Secondary school',
+    secondaryHint: 'Form 1 to Form 5, and GCE Ordinary Level.',
+    sixthForm: 'Lower & Upper Sixth',
+    sixthFormHint: 'Lower Sixth and Upper Sixth, and GCE Advanced Level teaching.',
+    all: 'All bands',
+    unclassified: 'Not classified',
+  },
+
+  /** §4.4 extension — classifying teachers, and what they teach. */
+  teachers: {
+    title: 'Teachers',
+    band: 'Teaches',
+    classify: 'Change band',
+    classified: 'Teacher reclassified',
+    classifyTitle: 'Move {name} to a different band',
+    classifyBody:
+      'This decides which learners {name} can be assigned to. It does not change the subjects already recorded against them.',
+    classifyMismatch:
+      '{count} of their subjects are taught at levels outside this band. Those subjects stay on the record and will need reviewing.',
+    unclassifiedBanner:
+      '{count} teachers have no band. They cannot be assigned a learner until one is chosen.',
+    subjectsTaught: 'Subjects taught',
+    noSubjects: 'No subjects recorded',
+    hoursTaught: 'Hours taught',
+    hoursThisMonth: 'This month',
+    hoursAllTime: 'All time',
+    sessionsDelivered: 'Lessons delivered',
+    learnersTaught: 'Learners taught',
+    perSubject: 'By subject',
+    noHours: 'No lessons delivered yet',
+    verification: 'Verification',
+    emptyTitle: 'No teachers in this band',
+    emptyBody: 'Change the filter, or add a teacher.',
+    viewDetail: 'Open',
+    hoursExplain:
+      'Hours come from the media server’s join and leave events, never from a teacher’s own account of them.',
+  },
+
+
+  /** The weekly timetable. */
+  schedule: {
+    title: 'Schedules',
+    subtitle: 'The week ahead, by band or by private lesson.',
+    private: 'Private classes',
+    privateHint: 'One-to-one lessons, across every band.',
+    thisWeek: 'This week',
+    previousWeek: 'Previous week',
+    nextWeek: 'Next week',
+    weekOf: 'Week of {date}',
+    today: 'Today',
+    emptyTitle: 'Nothing scheduled',
+    emptyBody: 'No lessons are booked for this group in this week. Try another week, or another group.',
+    noLessons: 'No lessons',
+    totalSessions: '{count} lessons',
+    totalTeachers: '{count} teachers',
+    cancelled: 'Cancelled',
+    liveNow: 'Live now',
+    slotTeacher: 'Teacher',
+    slotDetail: 'Lesson detail',
+    nowTeaching: 'Teaching right now',
+    nowTeachingNone: 'Not in a lesson at the moment',
+    nowTeachingThis: 'This is the lesson they are in.',
+    runningFor: 'Running {duration}',
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
+    sunday: 'Sunday',
+  },
+  /** §4.x extension — live lessons. */
+  live: {
+    title: 'Live classes',
+    subtitle: 'Every lesson in progress right now.',
+    emptyTitle: 'No lessons in progress',
+    emptyBody: 'Lessons appear here the moment a teacher starts one.',
+    teacher: 'Teacher',
+    subject: 'Subject',
+    kind: 'Type',
+    private: 'Private lesson',
+    privateHint: 'One-to-one, with a single learner.',
+    group: 'Group class',
+    attending: 'Attending',
+    attendingCount: '{count} attending',
+    nobodyJoined: 'Nobody has joined yet',
+    startedAt: 'Started',
+    runningFor: 'Running {duration}',
+    scheduledFor: 'Scheduled {duration}',
+    overrunning: 'Over by {duration}',
+    recording: 'Recording',
+    recordingOn: 'Being recorded',
+    recordingOff: 'Not recorded',
+    level: 'Level',
+    startingSoon: 'Starting soon',
+    startsIn: 'Starts in {duration}',
+    watchNote:
+      'Opening this list records who looked, and when. Everyone in a lesson is told that staff may see it.',
+    liveNow: '{count} live now',
+    newClassStarted: '{teacher} started a {kind} — {subject}',
+  },
+
+  /**
+   * The admin sidebar (§3).
+   *
+   * `badgeLabel` exists because §3 requires the count to be announced to screen
+   * readers and never conveyed by colour alone (UI-003).
+   */
+  adminNav: {
+    title: 'ClassConnect · Admin',
+    collapse: 'Collapse the menu',
+    expand: 'Expand the menu',
+    unavailableTitle: 'The menu could not be loaded',
+    unavailableBody:
+      'This is not about your account. The admin service is unreachable or out of date. Tell whoever runs the platform, and quote the reference below.',
+    group: {
+      approvals: 'Approvals',
+      people: 'People',
+      operations: 'Operations',
+      money: 'Money',
+    },
+    /*
+     * The accessible name of a collapsible group's toggle.
+     *
+     * Three whole sentences rather than fragments stitched together at runtime:
+     * French puts a space before its colon and does not order the clauses the
+     * same way, and a translator handed "{label}, {detail}" can fix neither.
+     */
+    sectionBadgeLabel: '{label}, {count} items need attention',
+    sectionCurrentLabel: '{label}, contains the current page',
+    sectionBadgeCurrentLabel:
+      '{label}, {count} items need attention, contains the current page',
+    overview: 'Overview',
+    students: 'Students',
+    primaryStudents: 'Primary students',
+    teachers: 'Teachers',
+    // Distinct from the approval queues above, which are work waiting to be
+    // done. These are the full rosters — everyone already on the platform.
+    teacherRoster: 'All teachers',
+    studentRoster: 'All students',
+    live: 'Live classes',
+    schedule: 'Schedules',
+    support: 'Assign customer service',
+    messages: 'Messages',
+    safeguarding: 'Safeguarding',
+    payments: 'Payments',
+    studentsFees: 'Students — fees',
+    studentsPaid: 'Students — paid',
+    studentsOwing: 'Students — owing',
+    teachersPaid: 'Teachers — paid',
+    teachersPending: 'Teachers — pending',
+    hoursEarnings: 'Hours & earnings',
+    reconciliation: 'Reconciliation',
+    accounts: 'Accounts & access',
+    reports: 'Reports',
+    audit: 'Audit log',
+    badgeLabel: {
+      studentsAwaitingApproval: 'Students awaiting approval: {count}',
+      primaryAwaitingApproval: 'Primary students awaiting approval: {count}',
+      teachersAwaitingVerification: 'Teachers awaiting verification: {count}',
+      unassignedTickets: 'Unassigned tickets: {count}',
+      safeguardingOpen: 'Safeguarding concerns open: {count}',
+      studentsOwing: 'Students owing payment: {count}',
+      teacherPayoutsPending: 'Teacher payouts pending: {count}',
+      reconciliationUnmatched: 'Unmatched payments: {count}',
+      liveClasses: 'Lessons in progress: {count}',
+      teachersUnclassified: 'Teachers with no band: {count}',
+    },
+  },
+
+  /** §4.1 — the overview answers "what needs me right now?". */
+  overview: {
+    title: 'Overview',
+    needsYouNow: 'What needs you now',
+    operational: 'Operations',
+    money: 'Money this month',
+    alerts: 'Alerts',
+    noAlertsTitle: 'Nothing needs attention',
+    noAlertsBody: 'Alerts about payments, teachers and ungraded work appear here.',
+    tile: {
+      teachersAwaitingVerification: 'Teachers awaiting verification',
+      studentsAwaitingApproval: 'Students awaiting approval',
+      unassignedTickets: 'Unassigned tickets',
+      safeguardingOpen: 'Safeguarding open',
+      paymentsPendingReconciliation: 'Payments pending reconciliation',
+      autoFrozen24h: 'Accounts frozen in the last 24 hours',
+    },
+    metric: {
+      activeLearners: 'Active learners',
+      activeTeachers: 'Active teachers',
+      sessionsScheduled: 'Sessions scheduled today',
+      sessionsDelivered: 'Sessions delivered today',
+      sessionsCancelled: 'Sessions cancelled today',
+      teacherNoShowRate: 'Teacher no-show rate',
+      learnerNoShowRate: 'Learner no-show rate',
+      verificationThroughput: 'Approvals this week',
+      supportSla: 'Support SLA met',
+      grossRevenue: 'Gross revenue',
+      refunds: 'Refunds',
+      teacherPoolAccrued: 'Teacher pool accrued',
+      payoutsMade: 'Payouts made',
+      payoutsPayable: 'Payouts payable',
+      unreconciled: 'Unreconciled items',
+      churn: 'Churn this month',
+      paymentSuccessRate: 'Payment success rate',
+    },
+    alert: {
+      unmatchedAboveThreshold:
+        '{count} payments have not matched the provider statement, worth {value}.',
+      teacherBelowThreshold: '{name} has fallen below the rating or reliability threshold.',
+      ungradedOverdue: '{count} submissions have been waiting more than {days} days for a mark.',
+      providerDegraded: '{provider} is responding slowly or failing.',
+    },
+    revenueByPlan: 'Revenue by plan',
+    revenueByMethod: 'Payment success by method',
+  },
+
+  /** §4.2 / §4.3 / §4.4 — the three approval queues. */
+  approvals: {
+    studentsTitle: 'Students awaiting approval',
+    primaryTitle: 'Primary students awaiting approval',
+    teachersTitle: 'Teachers awaiting verification',
+    emptyStudentsTitle: 'No students waiting',
+    emptyStudentsBody: 'New student accounts appear here for approval before they become active.',
+    emptyPrimaryBody:
+      'New primary accounts appear here. Each needs recorded guardian consent before approval.',
+    primaryBanner: 'These are children under 12. Verify guardian consent before approving.',
+    learner: 'Learner',
+    guardian: 'Guardian',
+    guardianPhone: 'Guardian phone',
+    level: 'Level',
+    subjects: 'Subjects',
+    dob: 'Date of birth',
+    minorStatus: 'Minor',
+    isMinor: 'Under 18',
+    isAdult: '18 or over',
+    consentRecorded: 'Guardian consent',
+    plan: 'Plan',
+    submittedAt: 'Submitted',
+    ageOfRequest: 'Waiting',
+    ageDays: '{days} days',
+    checks: 'Required checks',
+    checkGuardianLinked: 'Guardian account is linked and verified',
+    checkDobRecorded: 'Date of birth recorded and minor status derived',
+    checkConsent: 'Guardian consent recorded, with a timestamp and evidence',
+    checkCatalogue: 'Level and subjects match the catalogue',
+    checkDuplicate: 'No existing account with this phone or email',
+    checkRecordingDisclosed: 'Default recording for one-to-one lessons disclosed and acknowledged',
+    checkNoSelfSignIn: 'No self-managed sign-in unless the guardian granted it',
+    checkProfileLocked: 'Profile visibility limited to guardians, assigned teachers and staff',
+    checkPassed: 'Passed',
+    checkFailed: 'Not met',
+    approve: 'Approve student',
+    approved: 'Student approved',
+    reject: 'Reject',
+    rejected: 'Student rejected',
+    requestInfo: 'Request more information',
+    requestedInfo: 'More information requested',
+    reason: 'Reason (sent to the guardian)',
+    reasonRequired: 'Give a reason. We send it to the guardian.',
+    noBulk: 'Approvals are one at a time, on purpose. There is no bulk action.',
+    approveBlocked: 'This account cannot be approved until every required check passes.',
+    // §4.4 — teacher queue additions
+    reviewer: 'Reviewer',
+    daysWaiting: 'Days waiting',
+    documents: 'Documents',
+    documentsCount: '{count} documents',
+    openDocument: 'Open document',
+    postApprovalGate: 'Before the first assignment',
+    gateCodeOfConduct: 'Code of conduct accepted',
+    gateSafeguarding: 'Safeguarding policy accepted',
+    gateCommercial: 'Commercial terms accepted',
+    gatePending: 'Not yet accepted',
+    gateAccepted: 'Accepted {when}',
+    suspend: 'Suspend teacher',
+    suspended: 'Teacher suspended',
+    suspendConsequences: 'Suspending {name} will:',
+    suspendConsequence1: 'cancel {count} upcoming sessions',
+    suspendConsequence2: 'notify the affected learners and their guardians',
+    suspendConsequence3: 'freeze their payouts pending review',
+    suspendConsequence4: 'send their learners back to the assignment queue',
+  },
+
+  /** §4.5 — routing the support queue. */
+  support: {
+    title: 'Assign customer service',
+    unassigned: 'Unassigned',
+    myQueue: 'My queue',
+    agents: 'Agents',
+    emptyTitle: 'Nothing waiting',
+    emptyBody: 'New support requests appear here to be assigned.',
+    ticket: 'Ticket',
+    channel: 'Channel',
+    channelInApp: 'In-app chat',
+    channelWhatsapp: 'WhatsApp',
+    channelEmail: 'Email',
+    category: 'Category',
+    categoryGeneral: 'General',
+    categoryBilling: 'Billing',
+    categoryTechnical: 'Technical',
+    categorySafeguarding: 'Safeguarding',
+    categoryPaymentDispute: 'Payment dispute',
+    priority: 'Priority',
+    requester: 'Requester',
+    subject: 'Subject',
+    age: 'Age',
+    slaCountdown: 'First response due',
+    slaBreached: 'Overdue by {duration}',
+    slaDueIn: 'Due in {duration}',
+    openTickets: 'Open',
+    waitingOnUser: 'Waiting on user',
+    avgFirstResponse: 'Average first response',
+    presenceOnline: 'Online',
+    presenceAway: 'Away',
+    presenceOffline: 'Offline',
+    assign: 'Assign',
+    assignTo: 'Assign to',
+    assignSelected: 'Assign {count} tickets',
+    assigned: 'Assigned to {name}',
+    reassign: 'Reassign',
+    escalate: 'Escalate',
+    context: 'Ticket context',
+    contextSubscription: 'Subscription',
+    contextFreeze: 'Account state',
+    contextRecentPayments: 'Recent payments',
+    contextRecentSessions: 'Recent sessions',
+    contextRecentErrors: 'Recent errors',
+    routedSafeguarding: 'Routed to safeguarding. Not shown in the general pool.',
+    routedFinance: 'Routed to the finance queue.',
+    whatsappWindowOpen: 'WhatsApp window open for {duration}. You can reply freely.',
+    whatsappWindowClosed:
+      'The 24-hour WhatsApp window has closed. Replies must use an approved template.',
+    whatsappTemplate: 'Approved template',
+  },
+
+  /** §4.6 — the restricted safeguarding queue. */
+  safeguarding: {
+    title: 'Safeguarding',
+    restricted: 'This queue is restricted to designated staff. Every view of it is recorded.',
+    notDesignatedTitle: 'You do not have access to this queue',
+    notDesignatedBody:
+      'Safeguarding is limited to named staff. Ask a super admin to designate you if this is your work.',
+    emptyTitle: 'No open concerns',
+    emptyBody: 'Reports from lessons, message threads and profiles appear here immediately.',
+    source: 'Source',
+    sourceSession: 'Lesson',
+    sourceMessageThread: 'Message thread',
+    sourceTeacherProfile: 'Teacher profile',
+    sourceRedactionFlag: 'Blocked contact details',
+    sourceOther: 'Other',
+    reporter: 'Reported by',
+    subjectOfReport: 'About',
+    evidence: 'Evidence',
+    ageOfReport: 'Age',
+    firstResponseDue: 'First response due',
+    firstResponseTarget: 'Target: {hours} hours',
+    respond: 'Record first response',
+    responded: 'First response recorded',
+    state: 'State',
+    stateOpen: 'Open',
+    stateInReview: 'In review',
+    stateActioned: 'Actioned',
+    stateClosed: 'Closed',
+    suspendTeacherNow: 'Suspend the teacher now',
+    actionTaken: 'What was done',
+    close: 'Close this report',
+    closed: 'Report closed',
+    neverDeleted: 'Reports and evidence are kept in full. Nothing here can be deleted.',
+    redactionFlags: 'Blocked contact attempts',
+    redactionFlagsBody:
+      '{name} tried to share contact details with a learner {count} times. The details were removed automatically.',
+    redactionPhone: 'Phone number',
+    redactionEmail: 'Email address',
+    redactionSocial: 'Social handle',
+  },
+
+  /** §4.7 — the six money screens. */
+  payments: {
+    title: 'Payments',
+    studentsPaidTitle: 'Students — paid',
+    studentsOwingTitle: 'Students — owing',
+    teachersPaidTitle: 'Teachers — paid',
+    teachersPendingTitle: 'Teachers — pending salary',
+    earningsTitle: 'Hours taught & earnings',
+    reconciliationTitle: 'Reconciliation',
+
+    emptyPaidTitle: 'No payments in this period',
+    emptyPaidBody: 'Change the date range, or check back after the next collection.',
+    emptyOwingTitle: 'Nobody is behind',
+    emptyOwingBody: 'Every learner is up to date on their instalments.',
+    emptyPendingTitle: 'No payouts waiting',
+    emptyPendingBody: 'Teacher earnings appear here once the period has been calculated.',
+    emptyReconciliationTitle: 'Everything matched',
+    emptyReconciliationBody: 'Nothing is unmatched against the provider statements.',
+
+    learner: 'Learner',
+    payer: 'Payer',
+    plan: 'Plan',
+    billingPeriod: 'Period',
+    method: 'Method',
+    methodMtnMomo: 'MTN MoMo',
+    methodOrangeMoney: 'Orange Money',
+    methodVisa: 'Visa',
+    methodMastercard: 'Mastercard',
+    amountPaid: 'Amount paid',
+    paymentDate: 'Paid on',
+    providerRef: 'Provider reference',
+    invoiceNumber: 'Invoice',
+    planTypeFull: 'Paid in full',
+    planTypeInstalments: '3 instalments',
+    instalmentsDone: '{done} of {total}',
+    viewInvoice: 'View invoice',
+    resendReceipt: 'Resend receipt',
+    receiptResent: 'Receipt sent',
+    refund: 'Refund',
+    refunded: 'Refund started',
+    refundReason: 'Why are you refunding?',
+    refundConfirm:
+      'Refunding {amount} to {payer} reverses the ledger entries and notifies them. It cannot be undone here.',
+    financeOnly: 'Only a Finance Admin can do this.',
+
+    totalFee: 'Total fee',
+    paidToDate: 'Paid to date',
+    outstanding: 'Outstanding',
+    daysOverdue: 'Days overdue',
+    accountState: 'Account',
+    stateActive: 'Active',
+    stateGrace: 'In grace',
+    stateFrozen: 'Frozen',
+    stateSuspended: 'Suspended',
+    lastAttempt: 'Last attempt',
+    lastAttemptFailed: 'Failed: {reason}',
+    lastReminder: 'Last reminder',
+    neverReminded: 'None sent',
+    instalmentSchedule: 'Instalment schedule',
+    instalmentNumber: 'Instalment {number}',
+    instalmentScheduled: 'Scheduled',
+    instalmentDue: 'Due',
+    instalmentOverdue: 'Overdue',
+    instalmentPaid: 'Paid',
+    instalmentCancelled: 'Cleared',
+    dueOn: 'Due {date}',
+    sendReminder: 'Send a reminder now',
+    reminderSent: 'Reminder sent',
+    reminderChannel: 'Send by',
+    paymentHistory: 'Payment history',
+    setStage: 'Set status',
+    setStageTitle: 'Set fee status',
+    current: 'Current',
+    reasonHint: 'Why this is being changed — a correction, a waiver, fees recorded elsewhere',
+    stageAdjusted: 'Fee status set to {stage}.',
+    /* UI-007: the consequence, before the button. */
+    stageConsequence:
+      'This changes the status without a payment. It writes a balanced ledger entry against the learner’s balance and is recorded with your name and reason. Use Record payment instead when money was actually received.',
+    register: 'Register',
+    registerTitle: 'Register student',
+    registered: '{learner} registered. Fee status can now be set.',
+    plan: 'Plan',
+    howToPay: 'How the fees will be paid',
+    startOn: 'Fees start from',
+    registerConsequence:
+      'This creates the subscription and its payment schedule for {total}. Record payment and Set status become available on this row.',
+    feesTitle: 'Students — fees',
+    feesSubtitle: 'Every registered student, and where their fees stand.',
+    student: 'Student',
+    level: 'Level',
+    feeStage: 'Fee status',
+    progress: 'Parts paid',
+    noStudents: 'No students match',
+    noStudentsBody: 'Try a different level or clear the search.',
+    noSubscription: 'Not registered',
+    stage: {
+      not_registered: 'Not registered',
+      registered: 'Registration only',
+      first: 'First instalment',
+      second: 'Second instalment',
+      completed: 'Completed',
+    },
+    searchStudent: 'Search student, payer, phone or invoice',
+    showingCount: 'Showing {shown} of {total}',
+    levelGroup: {
+      all: 'All levels',
+      primary: 'Primary',
+      secondary: 'Secondary',
+      lower: 'Lower Sixth',
+      upper: 'Upper Sixth',
+    },
+    recordPaymentTitle: 'Record a payment',
+    recordPayment: 'Record payment',
+    amountReceived: 'Amount received (FCFA)',
+    wholeFrancsOnly: 'Whole francs only',
+    paidVia: 'How it was paid',
+    methodCash: 'Cash',
+    methodBank: 'Bank transfer',
+    evidenceRef: 'Evidence reference',
+    evidenceHint: 'Receipt number, transaction ID or file reference',
+    reason: 'Reason',
+    /* UI-007: the consequence, before the button. */
+    recordConsequence:
+      'This creates a payment and ledger entries, issues a numbered invoice, and settles instalments in order starting from the earliest unpaid one. It cannot be edited afterwards — a correction is another entry.',
+    recordedPartial: '{count} instalment(s) settled. Invoice {invoice}.',
+    recordedComplete: 'Fees complete. Invoice {invoice}.',
+    recordOfflinePayment: 'Record a payment taken offline',
+    offlineAmount: 'Amount received',
+    offlineReason: 'Why is this being recorded by hand?',
+    offlineEvidence: 'Evidence',
+    offlineRecorded: 'Payment recorded',
+
+    teacher: 'Teacher',
+    period: 'Period',
+    attendedMinutes: 'Attended minutes',
+    grossEarnings: 'Gross',
+    deductions: 'Deductions',
+    providerFee: 'Provider fee',
+    taxWithheld: 'Tax withheld',
+    netPaid: 'Net paid',
+    netPayable: 'Net payable',
+    payoutMethod: 'Paid to',
+    approvedBy: 'Approved by',
+    paidAt: 'Paid at',
+    kycComplete: 'KYC',
+    walletVerified: 'Wallet',
+    daysPending: 'Days pending',
+    whyThisNumber: 'Why this number?',
+    sessionsBehind: 'Sessions behind this figure',
+    approvePayout: 'Approve payout',
+    payoutApproved: 'Payout approved',
+    approveBatch: 'Approve {count} payouts',
+    batchConfirmTitle: 'Confirm each payout before it is sent',
+    batchTotal: 'Total to send: {amount}',
+    blocked: 'Blocked',
+    blockedWalletUnverified: 'The payout wallet has not been verified.',
+    blockedKycIncomplete: 'KYC is not complete.',
+    blockedTeacherSuspended: 'This teacher is suspended. Earnings are held, not forfeited.',
+    blockedBelowMinimum: 'Below the {minimum} payout minimum.',
+    blockedNothingPayable: 'Nothing is payable for this period.',
+    heldPendingReview: 'Held pending review',
+    heldPendingReviewBody:
+      'This teacher is suspended. {amount} is held and will not be sent until someone decides to release or withhold it.',
+    release: 'Release the held earnings',
+    withhold: 'Withhold the earnings',
+    heldDecisionReason: 'Reason for this decision',
+
+    sessionsDelivered: 'Sessions delivered',
+    oneToOne: 'One-to-one',
+    group: 'Group',
+    effectiveHourly: 'Effective hourly',
+    poolThisMonth: 'Teacher pool this month',
+    poolBasis: 'Basis: {percent}% of revenue, {basis}',
+    poolBasisGross: 'on gross',
+    poolBasisNet: 'net of fees and tax',
+    poolUnresolved:
+      'The revenue share is not commercially settled (OI-02). These values come from configuration and are recorded on each earnings row.',
+    unallocated: 'Unallocated pool',
+    unallocatedBody:
+      '{amount} could not be attributed because those learners attended no sessions. It is held for a decision and will not be moved automatically.',
+    unallocatedDecide: 'Decide what happens to this',
+    unallocatedRelease: 'Share among teachers',
+    unallocatedRetain: 'Keep as platform revenue',
+    unallocatedCarry: 'Carry forward to next period',
+    unallocatedDecided: 'Decision recorded',
+    recalculate: 'Recalculate this period',
+    recalculated: 'Period recalculated',
+    configVersion: 'Calculated with {version}',
+
+    provider: 'Provider',
+    statementDate: 'Statement date',
+    unmatchedItems: 'Unmatched items',
+    matched: 'Matched',
+    unmatched: 'Unmatched',
+    writtenOff: 'Written off',
+    escalated: 'Escalated',
+    matchTo: 'Match to a payment',
+    matchedOk: 'Matched',
+    writeOff: 'Write off',
+    writeOffReason: 'Why is this being written off?',
+    writtenOffOk: 'Written off',
+    escalate: 'Escalate',
+    stateMachine: 'Payment states',
+    stateInitiated: 'Initiated',
+    statePending: 'Pending',
+    stateSucceeded: 'Succeeded',
+    stateFailed: 'Failed',
+    statePendingReconciliation: 'Pending reconciliation',
+    recheckHourly: 'Rechecked every hour. Escalates if unresolved after {hours} hours.',
+    thresholdAlert:
+      'Unmatched items are above the alert threshold of {count} items or {value}.',
+  },
+
+  /** §5.4 / §5.5 — freezing, in plain language. */
+  freeze: {
+    freeze: 'Freeze account',
+    unfreeze: 'Unfreeze account',
+    frozen: 'Account frozen',
+    unfrozen: 'Account unfrozen',
+    frozenAutomatic: 'Frozen — non-payment (automatic)',
+    frozenManual: 'Frozen — manual: {reason}',
+    reason: 'Reason',
+    reasonRequired: 'Give a reason. It is recorded against this account.',
+    category: 'Category',
+    categoryNonPayment: 'Non-payment',
+    categorySafeguarding: 'Safeguarding',
+    categoryAbuse: 'Abuse',
+    categoryDispute: 'Dispute',
+    categoryOther: 'Other',
+    manualOutranks:
+      'A manual freeze is not lifted by payment. Only an admin can lift it.',
+    confirmLearnerTitle: 'Freezing this account',
+    confirmLearnerBody:
+      'Freezing {name} cancels {sessions} upcoming sessions and notifies the guardian and {teachers} teachers. They can still sign in, see their balance and pay. They cannot join lessons, open materials or submit homework.',
+    confirmUnfreezeBody:
+      'Unfreezing {name} restores their access immediately. Bookings return where the slot is still free; otherwise they will be asked to rebook.',
+    confirmTeacherBody:
+      'Freezing {name} cancels {sessions} upcoming sessions, notifies the affected learners and their guardians, freezes payouts pending review, and sends {learners} learners back to the assignment queue.',
+    deferredMidSession:
+      'This learner is in a lesson now. The freeze is recorded and takes effect when the lesson ends.',
+    autoNoticeTrail: 'Notices sent before this freeze',
+    noticeBefore: '{days} days before',
+    noticeDue: 'On the due date',
+    noticeFreeze: 'On the freeze date',
+    triggeringInstalment: 'Triggered by instalment {number}, due {date}',
+    frozenSince: 'Frozen since {when}',
+    liftedBy: 'Lifted by {name}',
+    payToUnfreeze: 'Paying this instalment unfreezes the account immediately.',
+  },
+
+  /** §6 — accounts and access, reports, audit. */
+  accounts: {
+    title: 'Accounts & access',
+    searchPlaceholder: 'Search by name, phone or email',
+    emptyTitle: 'Search for an account',
+    emptyBody: 'Type a name, phone number or email address to find someone.',
+    noResultsTitle: 'Nothing matched',
+    noResultsBody: 'Check the spelling, or try just the phone number.',
+    name: 'Name',
+    contact: 'Contact',
+    roles: 'Roles',
+    state: 'State',
+    linkedRecords: 'Linked records',
+    activeSessions: 'Signed in on {count} devices',
+    grantRole: 'Grant a role',
+    revokeRole: 'Revoke a role',
+    roleGranted: 'Role granted',
+    roleRevoked: 'Role revoked',
+    superAdminOnly: 'Only a super admin can change roles.',
+    forceSignOut: 'Sign out of all devices',
+    signedOut: 'Signed out of all devices',
+    forceSignOutConfirm:
+      'This ends all {count} of their sessions immediately. They will have to sign in again.',
+    designateSafeguarding: 'Designate for safeguarding',
+    removeSafeguarding: 'Remove safeguarding access',
+    designationChanged: 'Safeguarding access changed',
+    viewAs: 'View as this user',
+    viewAsReason: 'Why do you need to see their account?',
+    viewAsBanner: 'You are viewing as {name}. This is read-only and is being recorded.',
+    viewAsEnd: 'Stop viewing as {name}',
+  },
+
+  reports: {
+    title: 'Reports',
+    dateRange: 'Date range',
+    from: 'From',
+    to: 'To',
+    filterLevel: 'Level',
+    filterSubject: 'Subject',
+    filterRegion: 'Region',
+    all: 'All',
+    exportCsv: 'Export to CSV',
+    exported: 'Export started',
+    emptyTitle: 'No data for these filters',
+    emptyBody: 'Widen the date range, or clear a filter.',
+    readReplicaNote: 'Reports read from a copy of the database, so they never slow the platform.',
+  },
+
+  audit: {
+    title: 'Audit log',
+    readOnly: 'This log is append-only. Entries are never changed or removed.',
+    emptyTitle: 'No entries match',
+    emptyBody: 'Widen the date range, or clear the actor and action filters.',
+    when: 'When',
+    actor: 'Who',
+    action: 'What',
+    entity: 'On',
+    ip: 'IP address',
+    before: 'Before',
+    after: 'After',
+    reason: 'Reason',
+    filterActor: 'Who',
+    filterAction: 'Action',
+    filterEntity: 'Record type',
+    system: 'System',
+    viewDetail: 'View the full entry',
+  },
+
   catalogue: {
     levels: 'Levels',
     subjects: 'Subjects',
@@ -445,12 +1149,93 @@ export const en = {
     impersonation: {
       read_only: 'You are viewing as another user. This view is read-only.',
     },
+    approval: {
+      reason_required: 'Please give a reason. We send it to the guardian.',
+      already_decided: 'This account has already been decided.',
+      checks_incomplete: 'These checks have not passed yet: {missing}.',
+      consent_missing:
+        'Guardian consent has not been recorded. A learner cannot be approved without it.',
+      guardian_unverified: 'The linked guardian account has not been verified yet.',
+      duplicate_contact: 'Another account already uses that phone number or email.',
+      no_bulk: 'Approvals are made one at a time.',
+    },
+    freeze: {
+      reason_required: 'Please give a reason. It is recorded against this account.',
+      already_frozen: 'This account is already frozen.',
+      not_frozen: 'This account is not frozen.',
+      manual_outranks:
+        'This account has a manual freeze. Paying does not lift it — an admin must.',
+      mid_session:
+        'This learner is in a lesson. The freeze is recorded and takes effect when it ends.',
+    },
+    payout: {
+      wallet_unverified: 'The payout wallet has not been verified.',
+      kyc_incomplete: 'KYC is not complete for this teacher.',
+      teacher_suspended: 'This teacher is suspended. Their earnings are held pending a decision.',
+      below_minimum: 'This is below the {minimum} payout minimum.',
+      nothing_payable: 'There is nothing payable for this period.',
+      already_approved: 'This payout has already been approved.',
+      decision_required: 'Someone has to decide to release or withhold this. Give a reason.',
+    },
+    refund: {
+      reason_required: 'Please say why you are refunding.',
+      not_refundable: 'Only a successful payment can be refunded.',
+      exceeds_payment: 'A refund cannot be more than the payment it reverses.',
+    },
+    offlinePayment: {
+      reason_required: 'Please say why this payment is being recorded by hand.',
+      evidence_required: 'Please attach evidence of the payment.',
+    },
+    safeguarding: {
+      not_designated:
+        'Safeguarding is limited to designated staff. Ask a super admin if this is your work.',
+      already_closed: 'This report is already closed.',
+      action_required: 'Please record what was done before closing this.',
+    },
+    support: {
+      not_your_ticket: 'That ticket is assigned to someone else.',
+      agent_not_found: 'That agent does not exist or is not a support agent.',
+      whatsapp_window_closed:
+        'The 24-hour WhatsApp window has closed. Use an approved template instead.',
+    },
+    reconciliation: {
+      note_required: 'Please say why this item is being written off.',
+      already_resolved: 'This item has already been resolved.',
+    },
+    instalment: {
+      already_paid: 'That instalment is already paid.',
+      schedule_exists: 'This subscription already has a payment schedule.',
+      does_not_sum: 'The instalments do not add up to the total fee.',
+    },
+    role: {
+      super_admin_only: 'Only a super admin can grant or revoke roles.',
+      cannot_remove_last_super_admin: 'There has to be at least one super admin.',
+    },
+    subscription: {
+      /*
+       * Registration errors.
+       *
+       * `no_payer` is the one an operator will actually hit, so it says what to
+       * do rather than what went wrong: a subscription is a debt, and a debt
+       * needs somebody to ask.
+       */
+      no_payer:
+        'This student has no guardian linked and no account of their own, so there is nobody to bill. Link a guardian first, or convert them to an adult learner.',
+      already_registered: 'This student already has an active subscription.',
+      plan_unavailable: 'That plan is not available. Choose another.',
+      bad_start_date: 'That start date is not valid.',
+    },
+    adjustment: {
+      reason_required: 'Give a reason — it is recorded with your name.',
+    },
     file: {
       no_extension: 'That file has no file type. Please rename it, for example to ".pdf".',
       empty: 'That file is empty. Please choose another one.',
       too_large: 'That file is larger than {maxMb} MB. Please use a smaller file.',
       type_blocked: 'We cannot accept ".{extension}" files for safety reasons.',
       type_not_allowed: 'Please use one of these file types: {allowed}.',
+      upload_rejected: 'Storage would not accept that file. Please try again.',
+      already_uploaded: 'That file has already been sent.',
       upload_not_found: 'We did not receive that file. Please try uploading it again.',
       rejected: 'We could not accept that file. Please try uploading it again.',
       quarantined:
@@ -461,6 +1246,20 @@ export const en = {
   },
 
   notifications: {
+    fees: {
+      registered: {
+        subject: 'School fees set up',
+        body: 'Fees for {learner} have been set up. The payment plan is below.',
+      },
+      status_changed: {
+        subject: 'Fee status updated',
+        body: 'The fee status for {learner} is now {stage}.',
+      },
+      payment_received: {
+        subject: 'Payment received',
+        body: 'A payment of {amount} was recorded for {learner}. Thank you.',
+      },
+    },
     otp: { body: 'Your ClassConnect code is {code}. It expires in {minutes} minutes. Do not share it.' },
     welcome: { subject: 'Welcome to ClassConnect', body: 'Hello {name}, your ClassConnect account is ready.' },
     teacherApplicationSubmitted: {
@@ -486,6 +1285,798 @@ export const en = {
     accountLocked: {
       subject: 'Sign-in attempts on your account',
       body: 'We locked your account for {minutes} minutes after several failed sign-in attempts. If this was not you, please contact support.',
+    },
+
+    // §4.2 — approval outcomes. The reason the admin gave travels with them.
+    studentApproved: {
+      subject: '{learner} is approved',
+      body: 'Hello {name}, {learner}’s account is approved. You can book lessons now.',
+    },
+    studentRejected: {
+      subject: 'About {learner}’s account',
+      body: 'Hello {name}, we could not approve {learner}’s account. Reason: {reason}. Reply to this message and we will help.',
+    },
+    studentMoreInfo: {
+      subject: 'We need a little more about {learner}',
+      body: 'Hello {name}, we need more information before we can approve {learner}: {reason}.',
+    },
+
+    // FR-PAY-019 / §5.3 — the five notices that must precede any freeze.
+    instalmentDueSoon: {
+      subject: 'Payment due in {days} days for {learner}',
+      body: 'Hello {name}, instalment {instalment} of {amount} FCFA for {learner} is due on {dueOn}. Pay in the app to keep lessons running.',
+    },
+    instalmentDueToday: {
+      subject: 'Payment due today for {learner}',
+      body: 'Hello {name}, instalment {instalment} of {amount} FCFA for {learner} is due today. Pay in the app to keep lessons running.',
+    },
+    instalmentFreezeWarning: {
+      subject: 'Last day to pay for {learner}',
+      body: 'Hello {name}, instalment {instalment} of {amount} FCFA for {learner} was due on {dueOn}. If it is not paid today, lessons pause until it is. You can pay in the app in one tap.',
+    },
+    accountFrozen: {
+      subject: 'Lessons paused for {learner}',
+      body: 'Hello {name}, lessons for {learner} are paused because instalment {instalment} of {amount} FCFA has not been paid. You can still sign in, see the timetable and pay. Paying starts lessons again straight away.',
+    },
+    accountUnfrozen: {
+      subject: 'Lessons are back on for {learner}',
+      body: 'Hello {name}, thank you. {learner}’s lessons are running again.',
+    },
+    sessionsCancelledAccountFrozen: {
+      subject: 'Some lessons were cancelled',
+      body: 'Hello {name}, {count} of your upcoming lessons were cancelled because the learner’s account is on hold. We will let you know when it is back on.',
+    },
+    rebookNeeded: {
+      subject: 'Please rebook {count} lessons',
+      body: 'Hello {name}, your account is active again. {count} of your old lesson times have been taken, so please pick new ones in the app.',
+    },
+    teacherSuspendedSessionsCancelled: {
+      subject: 'A change to your upcoming lessons',
+      body: 'Hello {name}, {count} of your upcoming lessons are cancelled while we review a staffing matter. We are arranging another teacher and will confirm the new times shortly.',
+    },
+
+    // §4.7.1 — receipts and refunds.
+    paymentReceipt: {
+      subject: 'Your receipt {invoice}',
+      body: 'Hello {name}, here is your receipt for {amount} FCFA. Invoice number {invoice}.',
+    },
+    refundIssued: {
+      subject: 'We have refunded {amount} FCFA',
+      body: 'Hello {name}, we have refunded {amount} FCFA for {learner}. It can take a few days to reach your account.',
+    },
+
+    // §4.5 — routing.
+    ticketAssigned: {
+      subject: '{count} tickets assigned to you',
+      body: 'Hello {name}, {count} support tickets have been assigned to you.',
+    },
+  },
+
+  /**
+   * The learner surface (§5 of the student brief).
+   *
+   * NFR-USA-002 bites hardest here: a six-year-old on a shared family phone is
+   * inside this vocabulary. No "entitlement", no "submission", no "assessment"
+   * — "classes", "work", "practice". Where a word had to be precise, it is short.
+   */
+  adminMessages: {
+    title: 'Messages',
+    subtitle: 'Conversations students have started with ClassConnect help.',
+    search: 'Search by student or message',
+    none: 'No messages yet',
+    noneBody: 'When a student writes to ClassConnect help, the conversation appears here.',
+    selectThread: 'Choose a conversation to read and reply.',
+    new: 'Needs a reply',
+    awaiting: '{count} waiting for a reply',
+    reply: 'Write a reply',
+    sending: 'Sending…',
+    send: 'Send reply',
+    scanning: 'file being checked',
+    redacted: 'Contact details were removed from this message.',
+    redactionNotice:
+      'Phone numbers, emails and social handles are removed from replies as well. Keep everything on ClassConnect.',
+  },
+
+  student: {
+    /** UI-005: five destinations, plain language, each with an icon. */
+    tab: {
+      subjects: 'Subjects',
+      home: 'Home',
+      classes: 'Classes',
+      work: 'Work',
+      practice: 'Practice',
+      progress: 'Progress',
+      exams: 'Exams',
+      messages: 'Messages',
+    },
+    navLabel: 'Main menu',
+    navMore: 'More',
+    navMoreLabel: 'More destinations',
+
+    /**
+     * §4: profile, language, notifications and help live behind the avatar.
+     * They are not destinations — putting them in the bar would break UI-005's
+     * limit for no benefit.
+     */
+    account: {
+      open: 'Your account',
+      close: 'Close the account menu',
+      profile: 'Your profile',
+      notifications: 'What you get told about',
+      help: 'Help',
+      tour: 'Show me around',
+    },
+
+    home: {
+      title: 'Home',
+      greeting: 'Hello {name}',
+      nothingTitle: 'Nothing waiting for you',
+      nothingBody: 'When you have a class or some work to do, it will show up here.',
+    },
+
+    /** §5.1 — the cards, ranked by level rather than fixed. */
+    card: {
+      nextSession: 'Your next class',
+      homeworkDue: 'Work to hand in',
+      newlyGraded: 'Newly marked',
+      examCountdown: 'Your exam',
+      weakestTopic: 'Worth some practice',
+    },
+
+    nextSession: {
+      none: 'No class booked yet',
+      noneBody: 'Your teacher or the ClassConnect team will book your next class. It will show up here.',
+      with: 'with {teacher}',
+      /** FR-LIV-003: the control goes live 10 minutes before the start. */
+      join: 'Join the class',
+      opensIn: 'You can join in {time}',
+      opensAt: 'You can join from {time}',
+      ended: 'This class has finished',
+      deviceCheck: 'Check your camera and sound',
+    },
+
+    homework: {
+      none: 'No work to hand in',
+      noneBody: 'When a teacher sets you some work, you will find it here.',
+      due: 'Hand in by {date}',
+      late: 'Late',
+      dueToday: 'Hand in today',
+      dueTomorrow: 'Hand in tomorrow',
+    },
+
+    graded: {
+      none: 'Nothing marked yet',
+      noneBody: 'When a teacher marks your work, it will show up here.',
+      score: '{score} out of {max}',
+      unread: 'New',
+    },
+
+    exam: {
+      /** FR-PRO-003: drawn from the learner's own target date. */
+      daysLeft: '{count} days to go',
+      dayLeft: '1 day to go',
+      today: 'Your exam starts today',
+      noDate: 'No exam date set yet',
+      noDateBody: 'Once your exam date is set, you will see how long you have left.',
+    },
+
+    /**
+     * §5.5 / FR-GCE-004.
+     *
+     * NEEDS_HUMAN_COPY (Q2). This is structurally correct and deliberately
+     * hedged, but it is the single sentence most likely to be quoted back at
+     * the platform by an angry parent in August, and a human who will stand
+     * behind it publicly has to own the words before release.
+     */
+    readiness: {
+      title: 'How your practice is going',
+      estimateOnly:
+        'This is a guide to how your practice is going. It is not a prediction of your exam result.',
+      explain: 'What this is based on',
+      weakestTopic: 'You have found {topic} hardest so far.',
+      weakestTopicAction: 'Practise this topic',
+    },
+
+    /** NFR-BAN-002: say what it will cost before it costs it. */
+    data: {
+      estimate: 'Uses about {size} of data',
+      audioOnly: 'Audio only — uses much less data',
+    },
+
+    /* ---------------------------------------------------------------- *
+     * Subjects
+     * ---------------------------------------------------------------- */
+    subjects: {
+      title: 'Your subjects',
+      none: 'No subjects yet',
+      noneBody: 'Once your subjects are set up, they will show up here with your timetable.',
+      timetable: 'Your timetable',
+      thisWeek: 'This week',
+      noTeacherYet: 'Teacher being arranged',
+      noTeacherYetBody: 'The ClassConnect team is finding a teacher for this subject.',
+      taughtBy: 'Taught by {teacher}',
+      upcomingCount: '{count} coming up',
+      recordingCount: '{count} to watch again',
+      workCount: '{count} to hand in',
+      noneThisWeek: 'Nothing on this day',
+      openSubject: 'Open {subject}',
+      /** The learner's class, shown wherever the surface has room for it. */
+      yourClass: 'Your class',
+    },
+
+    weekday: {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    },
+
+    /* ---------------------------------------------------------------- *
+     * Past lessons
+     * ---------------------------------------------------------------- */
+    attendance: {
+      title: 'Your attendance',
+      subtitle: 'How many of your lessons you have joined.',
+      none: 'No lessons yet',
+      noneBody: 'Once you have had some lessons, your attendance will show here.',
+      overall: 'Overall',
+      attendedOf: 'You joined {attended} of {scheduled} lessons',
+      streak: '{count} lessons in a row',
+      streakOne: '1 lesson so far',
+      bySubject: 'By subject',
+      recent: 'Your recent lessons',
+      present: 'Joined',
+      absent: 'Missed',
+      minutes: '{count} min',
+      /* Never a reproach. A missed lesson is usually the power, not the child. */
+      encourage: 'Missed a lesson? You can still watch the recording.',
+    },
+
+    lessons: {
+      title: 'My past lessons',
+      subtitle: 'Every lesson is recorded and kept for you, even the ones you missed.',
+      none: 'No past lessons yet',
+      noneBody: 'After your first class, you will be able to watch it again here.',
+      watch: 'Watch again',
+      watchAudio: 'Listen only',
+      attended: 'You were there',
+      missed: 'You missed this one',
+      missedBody: 'You can still watch the recording.',
+      minutesWatched: 'You were there for {count} minutes',
+      /** NFR-USA-004: four different reasons, said precisely rather than as one. */
+      processing: 'The recording will be ready within an hour',
+      expired: 'This recording is no longer available',
+      notRecorded: 'This lesson was not recorded',
+      availableUntil: 'Available until {date}',
+      filterAll: 'All subjects',
+    },
+
+    /* ---------------------------------------------------------------- *
+     * Fees — a status, never a bill (see the fees service).
+     * ---------------------------------------------------------------- */
+    fees: {
+      title: 'Fees',
+      none: 'Nothing to show yet',
+      noneBody: 'Your fee plan will show up here once it is set.',
+      /** What a minor is told. No amount, no due date, no blame. */
+      updates: 'Recent updates',
+      stillToPay: 'Still to pay',
+      allPaid: 'All fees paid',
+      paidOfTotal: '{paid} paid of {total}',
+      progressLabel: 'How much of the fees have been paid',
+      thePlan: 'The payment plan',
+      guardianHandles: 'Your parent or guardian looks after your fees. We tell them what is due.',
+      payInFull: 'Paid in one payment',
+      threeInstalments: 'Paid in three parts',
+      stage: 'Part {number}',
+      stagePaid: 'Paid',
+      stageDue: 'Due now',
+      stageOverdue: 'Overdue',
+      stageUpcoming: 'Not yet due',
+      stageCancelled: 'Cancelled',
+      completed: 'All fees paid — thank you',
+      inProgress: '{paid} of {total} parts paid',
+      notStarted: 'Not started yet',
+      dueOn: 'Due {date}',
+      paidOn: 'Paid {date}',
+      /** Adult Learners only — they are their own payer. */
+      total: 'Total',
+      outstanding: 'Still to pay',
+      pay: 'Pay now',
+    },
+
+    /* ---------------------------------------------------------------- *
+     * Ratings
+     * ---------------------------------------------------------------- */
+    rating: {
+      title: 'Rate your teacher',
+      forSubject: 'How is {subject} going?',
+      /** The promise, made plainly, because it is the reason to be honest. */
+      anonymous: 'Your teacher never finds out who rated them.',
+      anonymousLong:
+        'Teachers only see their average score once enough students have rated them. They never see who said what, or when.',
+      stars: '{count} out of 5',
+      star1: 'Not good',
+      star2: 'Could be better',
+      star3: 'Alright',
+      star4: 'Good',
+      star5: 'Very good',
+      commentLabel: 'Anything you want to add? (optional)',
+      commentHelp: 'Please do not include your name, phone number or address.',
+      submit: 'Send rating',
+      submitted: 'Thank you — your rating has been sent',
+      change: 'Change your rating',
+      changeWindow: 'You can change this for the next 24 hours',
+      yourRating: 'You rated this {stars} out of 5',
+      notYet: 'You have not rated this teacher yet',
+      noTeacher: 'You can rate your teacher once one has been assigned',
+    },
+
+    /* ---------------------------------------------------------------- *
+     * Messages
+     * ---------------------------------------------------------------- */
+
+    classes: {
+      title: 'Classes',
+      upcoming: 'Coming up',
+      past: 'Finished',
+      none: 'No classes yet',
+      noneBody: 'Your timetable will show up here once your classes are booked.',
+      exportCalendar: 'Add to your calendar',
+      /** FR-SCH-007 / UI-007: say the consequence before asking to confirm. */
+      cancel: 'Cancel this class',
+      cancelFree: 'You can cancel this class and keep it for another time.',
+      cancelCharged: 'It is less than {hours} hours before this class. If you cancel now, this class is used up.',
+      /** FR-LIV-013: the recording goes on the retention date, so say so. */
+      recording: 'Watch the recording',
+      recordingUntil: 'You can watch this until {date}',
+      recordingPending: 'The recording will be ready within an hour',
+      /** FR-SCH-002: assignment is an administrative action for minors. */
+      bookingByStaff: 'The ClassConnect team books your classes for you.',
+      book: 'Book a class',
+      /** §1 — the four views, as a segmented control inside Classes. */
+      view: {
+        live: 'Live now',
+        upcoming: 'Upcoming',
+        attended: 'Attended',
+        missed: 'Missed',
+      },
+      liveNow: 'Live now',
+      elapsed: '{minutes} min so far',
+      participants: '{count} in the class',
+      join: 'Join the class',
+      joinOpensIn: 'You can join in {time}',
+      joinClosed: 'This class has ended',
+      nextUp: 'Next class',
+      noneLive: 'No class is running right now',
+      noneLiveBody: 'When a class starts, the Join button appears here.',
+      noneUpcoming: 'Nothing booked yet',
+      noneAttended: 'No finished classes yet',
+      noneAttendedBody: 'Classes you have attended will be listed here with what you did.',
+      noneMissed: 'You have not missed a class',
+      noneMissedBody: 'Nothing to catch up on. Keep it that way.',
+      oneToOne: 'Just you and your teacher',
+      group: 'Group class',
+      minutes: '{count} min',
+      attendedMinutes: 'You were in for {minutes} min',
+      /**
+       * §1.1 — neutral wording. Three of the four reasons are not the learner's
+       * doing, and telling a child they "missed" a class their teacher cancelled
+       * says something untrue about them.
+       */
+      miss: {
+        learner_no_show: 'You did not join this class.',
+        teacher_cancelled: 'Your teacher cancelled this class.',
+        teacher_no_show: 'Your teacher did not join.',
+        learner_cancelled: 'You cancelled this class.',
+        attended_none: 'This class ran, but you were not in it.',
+      },
+      entitlementRestored: 'Your class was returned to you — this did not use one up.',
+      entitlementUsed: 'This class was used up.',
+      /** §1.2 — the detail view. */
+      detail: {
+        title: 'Class details',
+        attendance: 'Your attendance',
+        firstJoin: 'Joined at',
+        lastLeave: 'Left at',
+        totalMinutes: 'Total time connected',
+        chat: 'Class chat',
+        noChat: 'Nothing was written in the chat.',
+        files: 'Files shared',
+        noFiles: 'No files were shared.',
+        homework: 'Work set in this class',
+        noHomework: 'No work was set.',
+        teacher: 'Your teacher',
+        back: 'Back to classes',
+      },
+      /**
+       * §1.3 — mic and camera, reported neutrally. Never scored, never ranked,
+       * never shown to other learners.
+       */
+      stream: {
+        title: 'Your microphone and camera',
+        mic: 'Microphone',
+        camera: 'Camera',
+        on_throughout: 'On for the whole class',
+        on_partly: 'On for {minutes} min',
+        off_whole_session_by_choice: 'Off for the whole class',
+        /**
+         * FR-LIV-009 switches learner video off as bandwidth falls. Saying so is
+         * required, not a nicety: the learner did not hide, the platform hid them.
+         */
+        off_whole_session_by_system: 'Off — switched off automatically to save data',
+        explain: 'This is here so you and your family can see what happened. It is not a mark and nobody is ranked on it.',
+      },
+      /** §2 — asking to speak. The teacher decides, always. */
+      speak: {
+        ask: 'Ask to speak',
+        asked: 'Your hand is up — waiting for your teacher',
+        approved: 'Your teacher let you speak',
+        dismissed: 'Your teacher did not take your hand this time',
+        lower: 'Lower your hand',
+        stop: 'Stop speaking',
+        full: 'As many people as possible are already speaking. Try again shortly.',
+        tooMany: 'You have asked a few times already. Give your teacher a moment.',
+        explain: 'Your teacher has to say yes before your camera and microphone go out to the class.',
+      },
+    },
+
+    /** §3 — recorded lessons. */
+    recordings: {
+      title: 'Recorded lessons',
+      subtitle: 'Watch a class again',
+      none: 'No recordings yet',
+      noneBody: 'When a class you attended is recorded, it will appear here.',
+      count: '{count} recording',
+      countPlural: '{count} recordings',
+      recordedOn: 'Recorded {date}',
+      duration: '{minutes} min',
+      /** §3: a recording that silently disappears in August is a support ticket. */
+      availableUntil: 'Available until {date}',
+      expiringSoon: 'Only {days} days left to watch this',
+      /** NFR-BAN-002: say what it costs before it is spent. */
+      size: '{size} of data',
+      audioOnly: 'Listen only — uses much less data',
+      audioSize: 'Listen only ({size})',
+      watch: 'Watch',
+      resume: 'Carry on from {time}',
+      backToSubjects: 'All subjects',
+    },
+
+    /** §4 — exams. */
+    exams: {
+      title: 'Exams',
+      subtitle: 'Take an exam, and see every one you have taken',
+      available: 'Ready to take',
+      history: 'Your exams so far',
+      none: 'No exams yet',
+      noneBody: 'When your teacher sets an exam, it will appear here.',
+      noneHistory: 'You have not taken an exam yet',
+      start: 'Start this exam',
+      resume: 'Carry on with this exam',
+      durationMin: '{minutes} minutes',
+      questions: '{count} questions',
+      setBy: 'Set by {teacher}',
+      markedBy: 'Marked by {teacher}',
+      takenOn: 'Taken {date}',
+      timeTaken: 'Took you {minutes} min',
+      score: '{score} out of {total}',
+      percentage: '{percent}%',
+      cohortMean: 'Class average {percent}%',
+      byTopic: 'How you did, topic by topic',
+      trend: 'Your scores over time',
+      /** FR-ASM-003: a partial score shown as final is a lie. */
+      awaitingMarking: 'Waiting for your teacher to mark the written answers',
+      awaitingMarkingBody: 'The score below counts only the questions the system can mark.',
+      /** FR-ASM-010: an override is shown as an override. */
+      overridden: 'Your teacher adjusted this mark',
+      overriddenBy: 'Adjusted by {teacher} on {date}',
+      filterSubject: 'Subject',
+      filterAll: 'All subjects',
+      messageTeacher: 'Message this teacher',
+
+      /** §4.2 — the pre-exam gate. */
+      gate: {
+        title: 'Before you start',
+        deviceCheck: 'Check your microphone and camera',
+        micOk: 'Microphone is working',
+        micBad: 'We cannot hear your microphone',
+        cameraOk: 'Camera is working',
+        cameraBad: 'We cannot see your camera',
+        bandwidth: 'Your connection: {kbps} kbps',
+        retry: 'Check again',
+        /** §4.2.3 — plain language, both languages, before consent. */
+        disclosureTitle: 'What is recorded while you take this exam',
+        disclosureMic: 'Your microphone stays on for the whole exam, and the sound is listened to for background noise.',
+        disclosureCamera: 'Your camera stays on for the whole exam.',
+        disclosureNoise: 'If loud noise is picked up three times, the exam will stop and a person from ClassConnect will look at what happened.',
+        disclosureStored: 'Short sound clips and pictures from your camera are kept for {days} days.',
+        disclosureWho: 'Only your teacher, your parent or guardian, and ClassConnect staff can see them.',
+        acknowledge: 'I have read this and I am ready to start',
+        /** §4.2.1 — no consent is not the same as no exam. */
+        consentNeeded: 'Your parent or guardian needs to agree before you can take a watched exam',
+        consentNeededBody: 'They will be asked once. In the meantime you can take this exam without watching, or ask your teacher to sit it with you.',
+        takeUnproctored: 'Take it without watching',
+        cannotStart: 'You cannot start this exam yet',
+      },
+
+      /** §4.3 / §4.4 — the runner. */
+      runner: {
+        remaining: 'Time left',
+        warningMinutes: '{minutes} minutes left',
+        saved: 'Saved',
+        saving: 'Saving…',
+        savedAt: 'Your answers were saved at {time}',
+        question: 'Question {number} of {total}',
+        section: 'Section {name}',
+        previous: 'Back',
+        next: 'Next',
+        submit: 'Finish and hand in',
+        submitConfirm: 'Hand this in? You cannot change your answers afterwards.',
+        autoSubmitted: 'Time ran out, so your answers were handed in automatically.',
+        /** FR-ASM-007: reconnection is the normal case here, not an edge case. */
+        reconnecting: 'Connection lost — your answers are safe',
+        reconnectingBody: 'We are getting you back in. Nothing you have typed is lost.',
+        resumed: 'You are back. Your answers were kept and the clock kept running.',
+        /** §4.3 — the noise ladder. */
+        noiseWarning: 'We can hear background noise. Please find a quieter spot if you can.',
+        noiseFinal: 'That is the last warning — one more and the exam will stop.',
+        micRequired: 'Your microphone must stay on',
+        cameraRequired: 'Your camera must stay on',
+        streamGrace: 'Turn it back on within {seconds} seconds or the exam will stop.',
+        stopped: 'The exam has stopped',
+        stoppedNoise: 'Background noise was picked up three times, so the exam stopped.',
+        stoppedMic: 'Your microphone was off, so the exam stopped.',
+        stoppedCamera: 'Your camera was off, so the exam stopped.',
+        /**
+         * The system stops the sitting. It does not mark the paper — FR-AI-005
+         * and FR-ASM-007 both survive the stop, and a learner who is not told
+         * their answers were kept will assume they were not.
+         */
+        stoppedKept: 'Everything you answered has been handed in and saved.',
+        stoppedReview: 'A person from ClassConnect will look at what happened and decide. You will be told the outcome.',
+        stoppedRespond: 'You can tell us what was going on',
+        yourStatement: 'What was happening?',
+        sendStatement: 'Send this',
+        statementSent: 'Thank you — this will be read alongside the recording.',
+      },
+
+      /** §4.1 — an attempt under review. */
+      review: {
+        flagged: 'Being looked at',
+        flaggedBody: 'This exam is with a person from ClassConnect. Your score is not final yet.',
+        outcomeUpheld: 'Reviewed — your result stands',
+        outcomeDismissed: 'Reviewed — nothing was wrong',
+        outcomeVoided: 'Reviewed — this attempt does not count',
+      },
+    },
+
+    /** §5 — messages. */
+    messages: {
+      title: 'Messages',
+      subtitle: 'Talk to your teachers and to ClassConnect',
+      none: 'No messages yet',
+      noneBody: 'Message a teacher from their class, or write to ClassConnect below.',
+      newThread: 'Start a message',
+      toTeacher: 'Message a teacher',
+      toSupport: 'Message ClassConnect',
+      teachers: 'Your teachers',
+      support: 'ClassConnect',
+      write: 'Write a message',
+      send: 'Send',
+      sending: 'Sending…',
+      you: 'You',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      /** Staff-side safeguarding redaction only — see the messaging service. */
+      deleted: 'This message was deleted.',
+      edited: 'edited',
+      /** §5.2 — say why the text changed, rather than silently altering it. */
+      redacted: 'Phone numbers, emails and other contact details are removed automatically.',
+      redactedNotice: 'Some contact details were removed from your message. Everything on ClassConnect stays on ClassConnect.',
+      /** §5.3 — attachments. */
+      attach: 'Add a file',
+      attachPhoto: 'Photo',
+      attachVideo: 'Video',
+      attachFile: 'File',
+      attachVoice: 'Voice note',
+      recording: 'Recording… {seconds}s',
+      stopRecording: 'Stop',
+      voiceMax: 'Voice notes can be up to {seconds} seconds',
+      attachmentSize: '{size}',
+      /** FR-FIL-001: nothing is downloadable before it has passed a scan. */
+      scanning: 'Checking this file…',
+      scanFailed: 'This file did not pass our safety check and was not sent.',
+      tooLarge: 'That file is too big. The limit is {size}.',
+      typeNotAllowed: 'That kind of file cannot be sent.',
+      /**
+       * The no-delete rule, told to the person it constrains, before they send.
+       *
+       * A learner who does not know a message is permanent will discover it at
+       * the worst possible moment. Saying so up front is not a warning, it is
+       * the safeguarding control doing its job: it changes what gets sent.
+       */
+      permanent: 'Messages cannot be deleted once sent.',
+      permanentLong:
+        'Once you send a message it stays in this conversation. Neither you nor your teacher can delete it. This keeps everyone safe.',
+      teacherUnavailable: 'This teacher is not available right now. Contact ClassConnect help.',
+      closed: 'This conversation is closed. You can still read it.',
+      empty: 'Write something first',
+      openThread: 'Open conversation with {name}',
+      placeholder: 'Write your message',
+      compose: 'Write a message',
+      attachmentTooBig: 'Files must be smaller than {size}',
+      /* Starting a conversation. Teachers and support only — see the service. */
+      newMessage: 'New message',
+      chooseContact: 'Who do you want to message?',
+      searchContacts: 'Search your teachers',
+      searchNoResults: 'No one matches that',
+      searchNoResultsBody: 'You can message the teachers who teach you, and ClassConnect help.',
+      onlyYourTeachers: 'You can message your own teachers and ClassConnect help.',
+      startWith: 'Message {name}',
+      openExisting: 'Open conversation',
+      uploading: 'Sending…',
+      attachmentReady: 'Ready',
+      unreadCount: '{count} unread messages',
+      unreadOne: '1 unread message',
+      attachmentPending: 'Being checked…',
+      voiceNote: 'Voice note',
+      recordVoice: 'Record a voice note',
+      voiceUnsupported: 'Voice notes need microphone permission. Check your browser settings.',
+      openImage: 'Open {name}',
+      preview: 'Preview',
+      attachmentBlocked: 'This file could not be sent',
+      previewOpen: 'Open to check',
+      attachmentTimeout: 'That took too long. Check your connection and try again.',
+      reportConcern: 'Report a concern about this conversation',
+    },
+
+    work: {
+      title: 'Work',
+      toDo: 'To do',
+      submitted: 'Handed in',
+      graded: 'Marked',
+      materials: 'Reading and notes',
+      noneToDo: 'Nothing to do right now',
+      noneToDoBody: 'When a teacher sets you some work, it will show up here.',
+      noneSubmitted: 'Nothing waiting to be marked',
+      noneSubmittedBody: 'Work you hand in shows here until your teacher marks it.',
+      noneGraded: 'Nothing marked yet',
+      noneGradedBody: 'Your marks and your teacher’s comments will show here.',
+      noneMaterials: 'No notes yet',
+      noneMaterialsBody: 'Notes and reading from your teachers will show here.',
+      savedOffline: 'Saved to read offline',
+    },
+
+    practice: {
+      title: 'Practice',
+      quizzes: 'Quizzes',
+      mocks: 'Mock exams',
+      pastPapers: 'Past questions',
+      none: 'Nothing to practise yet',
+      noneBody: 'Quizzes and past questions will show up here as your teachers add them.',
+      /** §9: timed work is never available offline, and says so plainly. */
+      needsConnection: 'You need to be online to start this',
+      needsConnectionBody: 'A timed test cannot be started while you are offline. Try again when you have a connection.',
+    },
+
+    progress: {
+      title: 'Progress',
+      attendance: 'Classes attended',
+      homework: 'Work handed in',
+      onTime: 'Handed in on time',
+      scores: 'Your marks',
+      strengths: 'What is going well',
+      weaknesses: 'What to work on',
+      teacherComments: 'What your teachers say',
+      revisionPlan: 'Your revision plan',
+      none: 'Nothing to show yet',
+      noneBody: 'Once you have been to some classes and handed in some work, your progress will show here.',
+    },
+
+    /**
+     * §6 — the frozen account.
+     *
+     * NEEDS_HUMAN_COPY (Q3). The structure is right and the prohibitions are
+     * enforced: nothing here names an amount, a due date or a schedule, and
+     * nothing blames the learner. The words themselves still need a human
+     * writer — this is the screen a stressed family sees on the worst day of
+     * their month.
+     */
+    frozen: {
+      minorTitle: 'Some things are paused just now',
+      minorBody:
+        'A payment is needed before your classes can start again. We have told your parent or guardian, so you do not need to do anything.',
+      minorStillOpen: 'You can still use these',
+      minorStillOpenBody:
+        'Your timetable, work that has already been marked, and anything you saved to read offline.',
+      adultTitle: 'Your classes are paused',
+      adultBody:
+        'There is a payment outstanding on your account. Once it is paid, everything starts working again straight away.',
+      adultPay: 'Make a payment',
+      adultAmount: '{amount} FCFA outstanding',
+      blockedAction: 'This is paused until the payment is made.',
+      contactSupport: 'Get help',
+      resolvedTitle: 'Everything is back on',
+      resolvedBody: 'Thank you. Your classes and your work are available again.',
+    },
+
+    /** FR-SAF-005: reachable from every session, thread and teacher profile. */
+    report: {
+      concern: 'Report a concern',
+      concernHint: 'Tell us if something here worries you. A person will read it.',
+    },
+
+    /** FR-SAF-004 / FR-LIV-012: disclosed at booking and again at join. */
+    recording: {
+      disclosureBooking: 'This class will be recorded.',
+      disclosureJoin: 'This class is being recorded.',
+      indicator: 'Recording',
+    },
+
+    /** NFR-BAN-006: nothing fails silently, and every failure offers a way on. */
+    error: {
+      loadTitle: 'We could not load this',
+      loadBody: 'This is usually the connection. Check your signal and try again.',
+      retry: 'Try again',
+      offlineTitle: 'You are offline',
+      offlineBody: 'We will show you this as soon as you have a connection again.',
+    },
+
+    /** Units and small connective phrases the screens interpolate. */
+    unit: {
+      minutes: '{count} min',
+      questions: '{count} questions',
+      oneQuestion: '1 question',
+      attempts: '{used} of {allowed} tries used',
+      attemptsLeft: '{count} tries left',
+      best: 'Best {percent}%',
+      percent: '{value}%',
+      outOf: '{value} of {total}',
+      paperNo: 'Paper {number}',
+      today: 'Today',
+      tomorrow: 'Tomorrow',
+      yesterday: 'Yesterday',
+      inMinutes: 'in {count} min',
+      inHours: 'in {count} h',
+      inDays: 'in {count} days',
+    },
+
+    /** Appendix A's session outcomes, in words a learner uses. */
+    sessionStatus: {
+      scheduled: 'Coming up',
+      in_progress: 'Happening now',
+      completed: 'Finished',
+      cancelled_by_learner: 'You cancelled this',
+      cancelled_by_teacher: 'Your teacher cancelled this',
+      no_show_teacher: 'Your teacher did not come',
+      no_show_learner: 'You missed this one',
+      aborted: 'Stopped early',
+      disputed: 'Being looked into',
+      voided: 'Cancelled',
+    },
+
+    /**
+     * FR-GCE-004: the plain-language account of what moves the number.
+     *
+     * Named inputs with their own values, so a learner can check the figure
+     * against the rest of the screen instead of taking it on trust.
+     */
+    readinessDriver: {
+      practice: 'Your practice scores',
+      homework: 'Work you have finished',
+      attendance: 'Classes you attended',
+    },
+
+    /** UI-006: skippable, and re-runnable from the help menu. */
+    tour: {
+      skip: 'Skip',
+      next: 'Next',
+      done: 'Got it',
+      restart: 'Show me around again',
     },
   },
 } as const;

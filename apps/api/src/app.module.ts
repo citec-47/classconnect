@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaService } from './common/prisma.service';
 import { PlatformConfigService } from './common/platform-config.service';
+import { CacheService } from './common/cache.service';
 import { CorrelationMiddleware } from './common/correlation.middleware';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 
@@ -15,17 +16,20 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { FamilyModule } from './family/family.module';
+import { LearnerModule } from './learner/learner.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { FilesModule } from './files/files.module';
+import { BillingModule } from './billing/billing.module';
+import { EarningsModule } from './earnings/earnings.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
 /** Database and configuration are needed everywhere; exported once. */
 @Global()
 @Module({
-  providers: [PrismaService, PlatformConfigService],
-  exports: [PrismaService, PlatformConfigService],
+  providers: [PrismaService, PlatformConfigService, CacheService],
+  exports: [PrismaService, PlatformConfigService, CacheService],
 })
 class CoreModule {}
 
@@ -51,9 +55,12 @@ class CoreModule {}
     NotificationsModule,
     AuthModule,
     FamilyModule,
+    LearnerModule,
     CatalogueModule,
     TeachersModule,
     FilesModule,
+    BillingModule,
+    EarningsModule,
     AdminModule,
   ],
   controllers: [HealthController],

@@ -4,9 +4,7 @@ import { notFound } from 'next/navigation';
 import { LANGUAGES, t, type Language } from '@classconnect/shared';
 import { I18nProvider } from '@/lib/i18n';
 import { AuthProvider } from '@/lib/auth-context';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { Logo } from '@/components/Logo';
 import '../globals.css';
 
 /**
@@ -17,6 +15,19 @@ import '../globals.css';
  * A screen reader picks its voice from this attribute, so getting it wrong
  * makes the French pages unusable for the users who most need the label to be
  * read correctly.
+ *
+ * This layout holds only what every surface shares: the document, the language
+ * and session providers, and the connectivity banner. The visible chrome is
+ * split below it, because the platform has two of them:
+ *
+ *   `(site)`  — the learner, parent and teacher PWA. Mobile-first at 360px,
+ *               centred reading measure, header and footer (UI-001).
+ *   `admin`   — the operations surface. Desktop-first at 1440px with a
+ *               persistent sidebar and no reading measure at all (§2.3 of the
+ *               admin brief: "the opposite of the learner PWA").
+ *
+ * Route groups keep both under `/{lang}/...` without either inheriting the
+ * other's furniture.
  */
 
 export function generateStaticParams() {
@@ -38,6 +49,19 @@ export async function generateMetadata({
     applicationName: t(language, 'common.appName'),
     // §1.2: version 1.0 is a responsive Progressive Web App.
     manifest: '/manifest.webmanifest',
+    /*
+     * The tab icon, and the one Android uses on the home screen.
+     *
+     * One SVG at every size rather than a raster set: nothing to keep in step,
+     * and a few hundred bytes against the NFR-PER-002 payload budget. `shortcut`
+     * covers browsers that still ask for `/favicon.ico` — which is what was
+     * producing a 404 on every page load.
+     */
+    icons: {
+      icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+      shortcut: ['/icon.svg'],
+      apple: [{ url: '/icon.svg' }],
+    },
     alternates: {
       languages: { en: '/en', fr: '/fr' },
     },
@@ -50,7 +74,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Never block zoom — WCAG 1.4.4 Resize Text.
   maximumScale: 5,
-  themeColor: '#1559a0',
+  // Matches the mark, so the browser chrome and the Android task switcher
+  // agree with the icon rather than contradicting it.
+  themeColor: '#0B4A34',
 };
 
 export default async function LanguageLayout({
@@ -81,42 +107,7 @@ export default async function LanguageLayout({
             {/* UI-010 / NFR-BAN-006: connectivity loss is surfaced, not silent. */}
             <OfflineBanner />
 
-            {/*
-             * The shell is full width; the measure is chosen per region. Header
-             * and footer sit on the wider landing measure so they line up with
-             * its full-bleed bands, while `main` keeps the narrower reading
-             * column that suits forms and lists. The landing breaks out of that
-             * column and re-centres itself on the same 5xl measure.
-             */}
-            <div className="flex min-h-screen w-full flex-col">
-              <header className="sticky top-0 z-40 border-b border-ink-300 bg-white/95 backdrop-blur-sm">
-                <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-                  <a
-                    href={`/${language}`}
-                    className="rounded-md"
-                    aria-label={t(language, 'common.appName')}
-                  >
-                    <Logo />
-                  </a>
-                  {/* UI-004: switchable from any screen. */}
-                  <LanguageSwitcher current={language} />
-                </div>
-              </header>
-
-              <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
-                {children}
-              </main>
-
-              <footer className="border-t border-ink-300">
-                <div className="mx-auto max-w-5xl px-4 py-6">
-                  <Logo size="sm" />
-                  {/* §1.2: a preparation service, not an examining body. */}
-                  <p className="mt-3 max-w-prose text-xs leading-relaxed text-ink-600">
-                    {t(language, 'common.notAnExamBody')}
-                  </p>
-                </div>
-              </footer>
-            </div>
+            {children}
           </AuthProvider>
         </I18nProvider>
       </body>

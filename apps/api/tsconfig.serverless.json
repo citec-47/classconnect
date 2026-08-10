@@ -1,0 +1,19 @@
+{
+  // The Vercel function entry point.
+  //
+  // It sits outside the main tsconfig on purpose: `rootDir` there is `src`, and
+  // `nest build` must not compile this file — Vercel does that itself. Without
+  // a tsconfig of its own it would be checked by nothing, which is how a
+  // deployment-only file rots unnoticed.
+  //
+  // Run by the root `npm run typecheck`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "incremental": false,
+    "tsBuildInfoFile": null
+  },
+  "include": ["api/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

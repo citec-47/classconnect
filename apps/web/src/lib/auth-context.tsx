@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, tokenStore, ApiError } from './api';
+import { clearApiCache } from './use-cached-api';
 import type { Language, Role } from '@classconnect/shared';
 
 export interface SessionUser {
@@ -26,7 +27,15 @@ export interface SessionUser {
 interface AuthValue {
   user: SessionUser | null;
   loading: boolean;
-  signIn: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
+  /**
+   * Returns the signed-in user, so the caller can route on their roles.
+   *
+   * Reading `user` from context immediately after would be a race: the state
+   * update has not been applied yet on the tick the caller resumes, so it would
+   * see the previous value — null — and send a signed-in administrator to the
+   * public landing page.
+   */
+  signIn: (tokens: { accessToken: string; refreshToken: string }) => Promise<SessionUser | null>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -44,19 +53,21 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<SessionUser | null> => {
     if (!tokenStore.access) {
       setUser(null);
       setLoading(false);
-      return;
+      return null;
     }
     try {
       const me = await api<SessionUser>('/auth/me', { language });
       setUser(me);
+      return me;
     } catch (error) {
       // A 401 here means the refresh token is gone or revoked (FR-AUT-006).
       if (error instanceof ApiError && error.status === 401) tokenStore.clear();
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -70,7 +81,7 @@ export function AuthProvider({
     async (tokens: { accessToken: string; refreshToken: string }) => {
       tokenStore.set(tokens);
       setLoading(true);
-      await load();
+      return load();
     },
     [load],
   );
@@ -83,12 +94,22 @@ export function AuthProvider({
       // Signing out must succeed locally even when the network does not.
     }
     tokenStore.clear();
+    // The next person at this keyboard must not inherit the last one's data.
+    clearApiCache();
     setUser(null);
     router.push(`/${language}/sign-in`);
   }, [language, router]);
 
   const value = useMemo(
-    () => ({ user, loading, signIn, signOut, refresh: load }),
+    () => ({
+      user,
+      loading,
+      signIn,
+      signOut,
+      refresh: async () => {
+        await load();
+      },
+    }),
     [user, loading, signIn, signOut, load],
   );
 

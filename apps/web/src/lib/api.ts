@@ -84,8 +84,20 @@ export const tokenStore = {
  * NFR-BAN-006 explicitly forbids ("no user-facing operation shall fail
  * silently on network error"). On the 3G target of §6.2 this is a normal
  * condition, not an edge case.
+ *
+ * 30s, not the 15s this started at, because §6.2's target network and a managed
+ * database are slow in ways that are not faults. A cold connection pool alone
+ * measured 6.6s on registration, and a mobile connection outside a city can
+ * spend longer than that on the round trip before the API has done anything at
+ * all. Cutting those off reports a *failure* for a request that was merely
+ * slow, and the user's remedy — retry — pays the same cost again on a link that
+ * is already struggling.
+ *
+ * The ceiling still has to exist, and still has to be well under the point
+ * where someone concludes the app is broken and reloads. A caller that knows
+ * its own operation is heavier can pass `timeoutMs`.
  */
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -94,6 +106,19 @@ interface RequestOptions {
   /** Set false for the auth endpoints themselves to avoid a refresh loop. */
   retryOnUnauthorised?: boolean;
   timeoutMs?: number;
+  /**
+   * Let the request outlive the page that made it.
+   *
+   * For the fire-and-forget call sent immediately before a deliberate
+   * navigation: the browser cancels in-flight fetches when the document goes
+   * away, so without this the request is abandoned before it reaches the API
+   * and the caller cannot tell, because it never waits for the answer.
+   *
+   * Only for small, response-less writes — the body is capped at 64KB across
+   * all keepalive requests in flight, and a rejection there is not something
+   * the caller is in a position to handle.
+   */
+  keepalive?: boolean;
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -103,6 +128,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     language = 'en',
     retryOnUnauthorised = true,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    keepalive = false,
   } = options;
 
   let response: Response;
@@ -115,6 +141,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
         ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(keepalive ? { keepalive: true } : {}),
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (caught) {

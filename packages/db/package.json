@@ -11,7 +11,9 @@
     "migrate:dev": "prisma migrate dev",
     "reset": "prisma migrate reset --force",
     "seed": "tsx prisma/seed.ts",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "local:start": "node scripts/local-postgres.mjs start",
+    "local:stop": "node scripts/local-postgres.mjs stop"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1"
@@ -21,7 +23,12 @@
     "prisma": "^6.2.1",
     "tsx": "^4.19.2"
   },
+  "//optionalDependencies": "PostgreSQL binaries for `npm run db:local`. Optional because they are platform-specific: npm fails a normal dependency outright when the platform does not match, which is what used to break the Linux install on Vercel. As optional dependencies the wrong-platform ones are skipped silently, and the deployed build — which never starts a database as a child process — is unaffected.",
   "optionalDependencies": {
-    "@embedded-postgres/windows-x64": "18.4.0-beta.17"
+    "@embedded-postgres/windows-x64": "18.4.0-beta.17",
+    "@embedded-postgres/darwin-arm64": "18.4.0-beta.17",
+    "@embedded-postgres/darwin-x64": "18.4.0-beta.17",
+    "@embedded-postgres/linux-x64": "18.4.0-beta.17",
+    "@embedded-postgres/linux-arm64": "18.4.0-beta.17"
   }
 }

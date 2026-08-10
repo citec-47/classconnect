@@ -81,13 +81,24 @@ export class CloudinaryService {
 
     // Cloudinary signs the alphabetically sorted, &-joined parameter list.
     // `api_key`, `file`, `resource_type` and `cloud_name` are excluded by spec.
+    /*
+     * `public_id` only — deliberately no `folder`.
+     *
+     * Cloudinary *prepends* `folder` to `public_id`. Our public_id already
+     * carries the full path, so sending both stored the asset at
+     * `classconnect/messages/…/classconnect/messages/…/<id>` while the confirm
+     * step looked for the path we asked for and found nothing. That surfaced as
+     * "we did not receive that file" for an upload that had in fact succeeded.
+     *
+     * One source of truth for the path, and it is `public_id`.
+     */
     const signed: Record<string, string | number> = {
-      folder: input.folder,
       public_id: input.publicId,
       timestamp,
       type: 'authenticated',
       upload_preset: this.uploadPreset,
     };
+    void input.folder;
 
     return {
       cloudName: this.cloudName,
@@ -95,12 +106,134 @@ export class CloudinaryService {
       timestamp,
       signature: this.sign(signed),
       uploadPreset: this.uploadPreset,
+      /*
+       * Returned for logging only — a client must NOT post this.
+       *
+       * It is not part of the signed set any more, so including it in the form
+       * would invalidate the signature. The path lives entirely in `publicId`.
+       */
       folder: input.folder,
       publicId: input.publicId,
       type: 'authenticated',
       resourceType: input.resourceType,
       uploadUrl: `https://api.cloudinary.com/v1_1/${this.cloudName}/${input.resourceType}/upload`,
     };
+  }
+
+  /**
+   * Uploads bytes to Cloudinary from the server.
+   *
+   * The browser used to POST straight to Cloudinary, which is the faster
+   * arrangement and the one SI-006 describes — but it puts the upload at the
+   * mercy of the browser's own network policy, and in practice it failed with a
+   * bare `NetworkError` that told nobody anything. Cloudinary was reachable; the
+   * cross-origin POST was not completing.
+   *
+   * Going through the API removes CORS, extension blocking and corporate
+   * filtering from the path entirely: the only connection that has to work is
+   * server-to-Cloudinary, which is the same one `getAsset` and the scan already
+   * depend on. The cost is that a file up to 25 MB passes through the API rather
+   * than going direct. At this scale, and for a team of four (CON07), an upload
+   * that works everywhere beats one that is cheaper and works on some networks.
+   */
+  async uploadBuffer(input: {
+    folder: string;
+    publicId: string;
+    resourceType: 'image' | 'raw' | 'video';
+    bytes: Buffer;
+    fileName: string;
+    mimeType: string;
+  }): Promise<{ publicId: string; bytes: number; type: string } | null> {
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // The same signed parameter set the browser used to send. Cloudinary
+    // verifies the signature covers exactly what arrives, so the folder and the
+    // authenticated delivery type still cannot be altered in transit.
+    /*
+     * `public_id` only — deliberately no `folder`.
+     *
+     * Cloudinary *prepends* `folder` to `public_id`. Our public_id already
+     * carries the full path, so sending both stored the asset at
+     * `classconnect/messages/…/classconnect/messages/…/<id>` while the confirm
+     * step looked for the path we asked for and found nothing. That surfaced as
+     * "we did not receive that file" for an upload that had in fact succeeded.
+     *
+     * One source of truth for the path, and it is `public_id`.
+     */
+    const signed: Record<string, string | number> = {
+      public_id: input.publicId,
+      timestamp,
+      type: 'authenticated',
+      upload_preset: this.uploadPreset,
+    };
+    void input.folder;
+
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(input.bytes)], { type: input.mimeType }), input.fileName);
+    form.append('api_key', this.apiKey);
+    for (const [key, value] of Object.entries(signed)) form.append(key, String(value));
+    form.append('signature', this.sign(signed));
+
+    const url = `https://api.cloudinary.com/v1_1/${this.cloudName}/${input.resourceType}/upload`;
+
+    this.logger.log(
+      `Uploading ${input.bytes.length} bytes to ${input.resourceType}/${input.publicId}`,
+    );
+
+    try {
+      /*
+       * NFR-DEP-001: every external call has a timeout.
+       *
+       * This one was missing it, and the consequence was the worst kind of
+       * failure: no error, no log line, the browser sat on "Sending…"
+       * indefinitely. A request that fails is information; a request that hangs
+       * is not.
+       *
+       * 60s rather than the 10s the requirement names, because this is a body
+       * transfer of up to 25 MB rather than a control call — the ceiling is
+       * there to bound a hang, not to bound a large legitimate upload.
+       */
+      const response = await fetch(url, {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(60_000),
+      });
+      const body = (await response.json()) as {
+        public_id?: string;
+        bytes?: number;
+        type?: string;
+        error?: { message?: string };
+      };
+
+      if (!response.ok) {
+        // Cloudinary's own message, logged rather than swallowed — it names the
+        // reason (a missing preset, an unsigned preset, a bad signature) far
+        // better than any message we could invent.
+        this.logger.error(
+          `Cloudinary upload refused (${response.status}): ${body?.error?.message ?? 'no message'}`,
+        );
+        return null;
+      }
+
+      this.logger.log(`Cloudinary stored ${body.public_id} (${body.bytes} bytes)`);
+
+      return {
+        publicId: body.public_id ?? input.publicId,
+        bytes: body.bytes ?? input.bytes.length,
+        type: body.type ?? 'authenticated',
+      };
+    } catch (error) {
+      const failure = error as Error;
+      if (failure.name === 'TimeoutError' || failure.name === 'AbortError') {
+        this.logger.error(
+          `Cloudinary upload timed out after 60s (${input.bytes.length} bytes). ` +
+            'The asset may or may not have been stored; the confirm step decides.',
+        );
+      } else {
+        this.logger.error(`Cloudinary upload failed: ${failure.message}`);
+      }
+      return null;
+    }
   }
 
   /**
@@ -146,9 +279,31 @@ export class CloudinaryService {
     const ttl = options.ttlSeconds ?? this.signedUrlTtl;
     const expiresAtEpoch = Math.floor(Date.now() / 1000) + ttl;
 
-    // Transformation components participate in the signature and must appear in
-    // the URL in the same order they were signed.
-    const parts: string[] = [`e_${expiresAtEpoch}`];
+    /*
+     * No `e_<epoch>` component.
+     *
+     * That was here to express expiry, and it is not what `e_` means: in a
+     * Cloudinary transformation `e_` is **effect**. The URL was asking for an
+     * effect named after a Unix timestamp, Cloudinary refused the delivery, and
+     * every image rendered as a broken `<img>` — with the upload, the storage
+     * and the scan all working perfectly behind it.
+     *
+     * ## What protects the asset now, and what does not
+     *
+     * The asset is stored as `authenticated`, so it has **no public URL at all**
+     * — FR-FIL-003's first requirement holds. Delivery needs this signature,
+     * derived from the API secret, which no client can produce. A URL is minted
+     * only when a thread participant opens the file, and only after the scan has
+     * passed.
+     *
+     * What is *not* enforced is Cloudinary-side expiry: a URL that leaks stays
+     * valid. Real expiry needs Cloudinary's token-based authentication, a paid
+     * add-on. `expiresAt` below is therefore honest about what it is — how long
+     * the client may cache the URL before asking for another — and the gap
+     * against FR-FIL-003's "short-lived" wording should be closed by enabling
+     * that feature before launch.
+     */
+    const parts: string[] = [];
     if (resourceType === 'image') {
       // FR-FIL-004: strip the metadata profile from delivered images.
       parts.push('fl_strip_profile');
@@ -156,7 +311,8 @@ export class CloudinaryService {
     if (options.download) parts.push('fl_attachment');
 
     const transformation = parts.join(',');
-    const toSign = `${transformation}/${publicId}`;
+    // Signed over exactly what appears in the path, in the same order.
+    const toSign = transformation ? `${transformation}/${publicId}` : publicId;
     const signature = createHash('sha1')
       .update(`${toSign}${this.apiSecret}`)
       .digest('base64')
@@ -166,7 +322,7 @@ export class CloudinaryService {
 
     const url =
       `https://res.cloudinary.com/${this.cloudName}/${resourceType}/authenticated/` +
-      `s--${signature}--/${transformation}/${publicId}`;
+      `s--${signature}--/${toSign}`;
 
     return { url, expiresAt: new Date(expiresAtEpoch * 1000) };
   }

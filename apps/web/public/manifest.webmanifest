@@ -4,10 +4,25 @@
   "description": "Learn with verified teachers, anywhere in Cameroon",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1559a0",
+  "background_color": "#F7F5F0",
+  "theme_color": "#0B4A34",
   "orientation": "portrait",
   "lang": "en",
-  "categories": ["education"],
-  "icons": []
+  "categories": [
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
 }

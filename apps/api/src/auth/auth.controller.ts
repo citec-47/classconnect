@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
@@ -11,11 +11,13 @@ import {
   passwordLoginSchema,
   refreshSchema,
   passwordResetConfirmSchema,
+  updatePreferredLanguageSchema,
   languageFromHeader,
   type RegisterInput,
   type RequestOtpInput,
   type VerifyOtpInput,
   type PasswordLoginInput,
+  type UpdatePreferredLanguageInput,
 } from '@classconnect/shared';
 import { AppError } from '../common/http-exception.filter';
 
@@ -90,6 +92,16 @@ export class AuthController {
   @Get('me')
   async me(@CurrentUser() user: AuthenticatedUser) {
     return this.auth.currentUser(user.id);
+  }
+
+  /** NFR-LOC-003: the language switcher persists the choice to the profile. */
+  @Patch('me/language')
+  @HttpCode(204)
+  async setLanguage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(zodBody(updatePreferredLanguageSchema)) body: UpdatePreferredLanguageInput,
+  ): Promise<void> {
+    await this.auth.setPreferredLanguage(user.id, body.preferredLanguage);
   }
 
   /** FR-AUT-009: enrol the second factor required of Admin and Support roles. */

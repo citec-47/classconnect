@@ -1,0 +1,193 @@
+# Deploying ClassConnect on Vercel
+
+Two Vercel projects from this one repository, plus a managed PostgreSQL. No
+Docker anywhere — not in development, not in CI, not in production.
+
+| Project | Root directory | What it is |
+| --- | --- | --- |
+| `classconnect-web` | `apps/web` | The Next.js app: learners, parents, teachers, and the admin surface. |
+| `classconnect-api` | `apps/api` | The NestJS API, as a single serverless function. |
+
+They are separate projects because they build differently and scale
+differently — and because a failed API deploy should not take the marketing
+page down with it.
+
+---
+
+## 1. The database
+
+Any managed PostgreSQL 15+ works. Neon is what this repository is configured
+against; Supabase and Vercel Postgres are equivalent.
+
+You need **two** connection strings to the same database:
+
+| Variable | Which connection | Why |
+| --- | --- | --- |
+| `DATABASE_URL` | **Pooled** | Every serverless instance opens its own connections. Without a pooler, a platform that scales out exhausts a small Postgres's connection limit within minutes. |
+| `DIRECT_DATABASE_URL` | **Direct** | `prisma migrate` takes an advisory lock and runs DDL. Neither survives PgBouncer's transaction mode — against the pooled host, migrations hang or fail with *"prepared statement already exists"*. |
+
+On Neon the pooled host carries `-pooler` in its name and the direct one does
+not. Everything else about the two strings is identical.
+
+Prisma requires `DIRECT_DATABASE_URL` to be set whenever the schema declares
+`directUrl` — including locally, where it should simply equal `DATABASE_URL`.
+
+### Apply the migrations
+
+From a machine that holds `DIRECT_DATABASE_URL` — **not** from the Vercel build:
+
+```bash
+npm run db:migrate
+npm run db:seed        # first deploy only: levels, subjects, plans, templates
+```
+
+This is deliberately not part of `vercel-build`. A build runs on every preview
+deployment and again on every rollback; migrations must be applied once,
+deliberately, against a known target.
+
+---
+
+## 2. The API project
+
+**Root directory:** `apps/api`. Enable *Include files outside the root
+directory* so the workspace packages resolve.
+
+`apps/api/vercel.json` already declares the build command, the function, the
+rewrite and the cron. What you set in the dashboard is the environment.
+
+### Required environment variables
+
+| Variable | Notes |
+| --- | --- |
+| `DATABASE_URL` | Pooled. |
+| `DIRECT_DATABASE_URL` | Direct. |
+| `JWT_ACCESS_SECRET` | 48 random bytes. Boot refuses the template placeholder. |
+| `JWT_REFRESH_SECRET` | A *different* 48 random bytes. |
+| `FIELD_ENCRYPTION_KEY` | 32 random bytes, base64. NFR-SEC-003. |
+| `CLOUDINARY_API_SECRET` + name, key, preset | SI-006. Boot refuses without the secret. |
+| `WEB_ORIGIN` | The exact web origin, e.g. `https://classconnect.vercel.app`. Boot refuses if it is missing or still says `localhost`. |
+| `CRON_SECRET` | Authenticates the scheduled billing pass. Setting it also makes Vercel attach it to cron calls automatically. |
+
+Generate the secrets:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"  # JWT x2
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"     # FIELD_ENCRYPTION_KEY
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"  # CRON_SECRET
+```
+
+Do **not** carry `DEV_EXPOSE_OTP`, `DEV_DISABLE_STAFF_MFA` or
+`FILE_SCAN_MODE=bypass_dev` across. The API refuses to start with any of them on
+deployed infrastructure, which is the point — a pasted-in laptop environment
+file fails loudly instead of quietly handing out one-time codes.
+
+---
+
+## 3. The web project
+
+**Root directory:** `apps/web`.
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | `https://<your-api-project>.vercel.app/api/v1` |
+
+This is read at **build** time and baked into the bundle, so changing it needs a
+redeploy, not just a restart. It also feeds the `connect-src` Content Security
+Policy directive in `next.config.mjs` — an API origin that does not match is
+blocked by the browser before the request leaves.
+
+Deploy the API first, so you know its URL.
+
+---
+
+## 4. What changes on serverless
+
+Two things behave differently on Vercel than on a long-running host. Both are
+handled; neither is a silent degradation.
+
+### Badge counts poll instead of pushing
+
+§3 specifies live sidebar badges over a WebSocket, reconciled by a poll every
+60 seconds (COM-002 / COM-003).
+
+A serverless function is invoked per request and frozen immediately after, so it
+cannot hold a socket open. `GET /admin/nav` therefore returns `pushEnabled:
+false` on Vercel and the client does not attempt a connection — rather than
+failing, backing off and retrying for the whole session.
+
+The 60-second poll is the authoritative path in **both** deployments, so this is
+a latency difference, not a lost feature: a badge is correct within a minute
+instead of immediately. Four operators working the same queue will occasionally
+open an item another has just actioned; the API refuses the second decision
+(`errors.approval.already_decided`), so the outcome is correct either way.
+
+To get instant push back, run `apps/api` on a host that keeps a process alive —
+Render, Railway, Fly — and set `NEXT_PUBLIC_API_URL` at it. Nothing else changes:
+`main.ts` and the Vercel entry point build the same application from
+`create-app.ts`.
+
+### The billing pass runs from Cron
+
+§5.3 needs a daily pass: mark instalments due and overdue, send the FR-PAY-019
+notices at 7 / 3 / 1 / 0 days, then freeze anything past its grace period.
+
+On a long-running host `BillingSchedulerService` does this hourly on a timer. On
+Vercel there is no timer, so `vercel.json` declares a cron that calls
+`GET /api/v1/jobs/billing-pass` at 05:00 UTC — 06:00 in Africa/Douala, early
+enough that a payer who acts on a notice has the whole working day.
+
+The endpoint is `@Public()` because cron has no user session, but it is not
+unauthenticated: it requires `CRON_SECRET` as a bearer token, compared in
+constant time. Without that, freezing a learner's account would be available to
+anyone who guessed the URL.
+
+The pass is idempotent — notices carry a per-instalment key and the freeze is
+guarded by a partial unique index — so an at-least-once cron delivery, or a
+retry after a timeout, sends nothing twice and freezes nobody twice.
+
+Check it is wired up:
+
+```bash
+curl https://<api>.vercel.app/api/v1/jobs/health
+# {"ok":true,"mode":"scheduled","cronSecretConfigured":true}
+```
+
+Run it by hand, or replay a day the schedule missed:
+
+```bash
+curl -X POST https://<api>.vercel.app/api/v1/jobs/billing-pass \
+  -H "Authorization: Bearer $CRON_SECRET"
+
+curl -X POST "https://<api>.vercel.app/api/v1/jobs/billing-pass?asOf=2026-09-04" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+---
+
+## 5. Known limitations of this topology
+
+Stated plainly rather than discovered later.
+
+**Rate limiting is per-instance.** `ThrottlerModule` keeps its counters in
+memory, and each serverless instance has its own. NFR-AVL-007's per-IP limits are
+therefore looser than they look under load. The limits that carry real security
+weight are unaffected: FR-AUT-004's per-number OTP limits are enforced in the
+database by `OtpService`, precisely because they must be per-number and must
+survive a restart. Closing the gap properly means a shared counter store
+(Upstash Redis) behind a custom `ThrottlerStorage`.
+
+**Reports read the primary.** FR-RPT-006 wants reporting queries on a read
+replica. `PrismaService` is the seam — a second client pointed at a replica URL,
+used by `DashboardService.operational/money` and `GovernanceService`. Until one
+is provisioned, a heavy report competes with live traffic.
+
+**Cold starts.** A first request after an idle period pays for Nest
+construction plus a Neon compute wake. `connect_timeout=30` in the connection
+string and `maxDuration: 30` in `vercel.json` exist to survive that; NFR-PER-003's
+600ms P95 applies to a warm instance. Neon's scale-to-zero can be disabled if
+the first-request latency matters more than the idle cost.
+
+**File uploads pass through the function.** Vercel caps a serverless request
+body at 4.5 MB, and FR-FIL-003 allows documents up to 10 MB. Uploads go directly
+to Cloudinary with a server-signed payload, so the file itself never crosses this
+boundary — but any future endpoint that accepts a body must respect that ceiling.

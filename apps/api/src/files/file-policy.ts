@@ -50,6 +50,51 @@ export const SUBMISSION_KINDS: readonly FileKind[] = [
 ];
 
 export const SUBMISSION_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * What may be attached to a message: photos, video, voice notes and documents.
+ *
+ * Wider than a submission because a conversation carries different things — a
+ * learner photographs their exercise book, a teacher sends a marked-up PDF, and
+ * either records a voice note when typing on a shared phone is slower than
+ * speaking.
+ *
+ * Magic bytes are empty for the ISO-BMFF family (MP4, MOV, M4A) for the same
+ * reason as HEIC: the identifying `ftyp` box sits at offset 4, not at the
+ * start, so a leading-bytes test cannot see it. Cloudinary re-derives the real
+ * resource type on confirm, which is the check that actually decides.
+ */
+export const MESSAGE_ATTACHMENT_KINDS: readonly FileKind[] = [
+  ...SUBMISSION_KINDS,
+
+  // Images a phone camera actually produces.
+  { mime: 'image/webp', extensions: ['webp'], magic: ['52494646'], resourceType: 'image' },
+  { mime: 'image/gif', extensions: ['gif'], magic: ['474946383961', '474946383761'], resourceType: 'image' },
+
+  // Video. MP4 and MOV are ISO-BMFF; WebM is Matroska and does have a signature.
+  { mime: 'video/mp4', extensions: ['mp4', 'm4v'], magic: [], resourceType: 'video' },
+  { mime: 'video/quicktime', extensions: ['mov'], magic: [], resourceType: 'video' },
+  { mime: 'video/webm', extensions: ['webm'], magic: ['1a45dfa3'], resourceType: 'video' },
+
+  /*
+   * Voice notes.
+   *
+   * `audio/webm` and `audio/ogg` are what Chrome and Firefox's MediaRecorder
+   * emit; `audio/mp4` is Safari's. All three are needed or in-browser recording
+   * works on some phones and not others — and the reference device is whatever
+   * the family owns.
+   *
+   * Cloudinary treats audio as `video`, which is why the resource type below
+   * looks wrong and is not.
+   */
+  { mime: 'audio/webm', extensions: ['webm'], magic: ['1a45dfa3'], resourceType: 'video' },
+  { mime: 'audio/ogg', extensions: ['ogg', 'oga'], magic: ['4f676753'], resourceType: 'video' },
+  { mime: 'audio/mp4', extensions: ['m4a', 'mp4'], magic: [], resourceType: 'video' },
+  { mime: 'audio/mpeg', extensions: ['mp3'], magic: ['494433', 'fffb', 'fff3', 'fff2'], resourceType: 'video' },
+];
+
+/** FR-HWK-003's ceiling, applied to attachments too. */
+export const MESSAGE_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 export const SUBMISSION_MAX_FILES = 10;
 
 /**

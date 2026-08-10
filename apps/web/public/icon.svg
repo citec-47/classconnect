@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="ClassConnect">
+  <title>ClassConnect</title>
+  <!--
+    The ClassConnect mark: two interwoven C-shaped arcs.
+
+    Two Cs for the name, offset and threaded through each other rather than
+    merely overlapping — an overlap reads as a Venn diagram, a weave reads as a
+    link, which is what the product is. They double as two signal arcs, which is
+    honest about a platform built for bad connections.
+
+    Drawn on a filled square rather than transparent, because a browser tab, an
+    Android home screen and a WhatsApp avatar all place it on backgrounds we do
+    not control, and a transparent mark disappears on half of them.
+
+    SVG rather than PNG: one file at every size, no raster set to keep in step,
+    and a few hundred bytes against the NFR-PER-002 payload budget.
+  -->
+  <rect width="120" height="120" rx="26" fill="#0B4A34"/>
+  <g fill="none" stroke-linecap="round" stroke-width="14">
+    <path d="M64.35 33.79 A32 32 0 1 0 64.35 86.21" stroke="#F7F5F0"/>
+    <path d="M55.65 86.21 A32 32 0 1 0 55.65 33.79" stroke="#E8A33D"/>
+    <!-- The weave: a short segment of the first arc redrawn over the second. -->
+    <path d="M54.28 29.09 A32 32 0 0 1 65.26 34.44" stroke="#F7F5F0" stroke-linecap="butt"/>
+  </g>
+</svg>

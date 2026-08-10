@@ -58,7 +58,21 @@ export function Field({
           className={`cc-field ${errorKey ? 'cc-field-invalid' : ''}`}
           aria-invalid={errorKey ? true : undefined}
           aria-describedby={describedBy || undefined}
+          /**
+           * Both, and they are not the same thing.
+           *
+           * `aria-required` tells a screen reader the field is required.
+           * `required` makes the browser actually refuse to submit without it,
+           * and say so, in the user's own language and its own words.
+           *
+           * `required` was previously destructured out and used only for the
+           * label's asterisk, so the field announced itself as required and was
+           * then submitted empty — the promise without the enforcement. It also
+           * meant a form could not safely rely on native validation, which is
+           * what pushed sign-in into disabling its own submit button instead.
+           */
           aria-required={required}
+          required={required}
           {...inputProps}
         />
         {trailing}

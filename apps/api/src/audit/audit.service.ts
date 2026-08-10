@@ -38,6 +38,70 @@ export type AuditAction =
   | 'teacher.more_info_required'
   | 'teacher.suspended'
   | 'teacher.reinstated'
+  /** FR-SCH-002: which band a teacher teaches, and so who may be assigned to them. */
+  | 'teacher.classified'
+  /**
+   * Watching lessons in progress.
+   *
+   * The *read* is the auditable event here, not an action taken afterwards. It
+   * names who looked at which live lessons — including one-to-one lessons
+   * between an adult and a child — which is what keeps FR-SAF-007's "authorised
+   * staff" reviewable rather than merely asserted.
+   */
+  | 'live.viewed'
+  // Learner approval (§4.2/§4.3)
+  | 'learner.approved'
+  | 'learner.rejected'
+  | 'learner.more_info_required'
+  // Billing and instalments (§5.1/§5.2)
+  | 'billing.schedule_created'
+  | 'billing.schedule_settled'
+  | 'billing.reminder_sent'
+  | 'billing.offline_payment_recorded'
+  | 'billing.refund_issued'
+  // Freezing (§5.3/§5.5). The trail carries the triggering instalment id for an
+  // automatic freeze, per FR-RBA-004.
+  | 'account.frozen'
+  | 'account.unfrozen'
+  // Earnings and payouts (§4.7.3/§4.7.4/§4.7.5)
+  | 'earnings.calculated'
+  | 'earnings.unallocated_decided'
+  | 'payout.approved'
+  | 'payout.batch_approved'
+  | 'payout.withheld'
+  | 'payout.released'
+  // Reconciliation (§4.7.6)
+  | 'reconciliation.run'
+  | 'reconciliation.item_matched'
+  | 'reconciliation.item_written_off'
+  | 'reconciliation.item_escalated'
+  // Support routing (§4.5)
+  /**
+   * Staff opening a learner's support conversation.
+   *
+   * The *read* is the auditable event, as with `live.viewed` and
+   * `safeguarding.viewed`. FR-RBA-004 requires every staff access to a learner's
+   * personal data to be recorded, and a child's messages are the most personal
+   * data on the platform. Naming the thread rather than reusing
+   * `staff.viewed_learner` is what makes the trail answerable to "who read
+   * *this* conversation".
+   */
+  | 'message.attachment_uploaded'
+  | 'message.attachment_quarantined'
+  | 'subscription.registered'
+  | 'payment.stage_adjusted'
+  | 'support.thread_read'
+  | 'support.replied'
+  | 'ticket.assigned'
+  | 'ticket.reassigned'
+  | 'ticket.escalated'
+  // Safeguarding (§4.6). FR-SAF-006: even *reading* this queue is recorded.
+  | 'safeguarding.viewed'
+  | 'safeguarding.report_created'
+  | 'safeguarding.first_response'
+  | 'safeguarding.actioned'
+  | 'safeguarding.closed'
+  | 'safeguarding.designation_changed'
   // Staff access to personal data
   | 'staff.viewed_learner'
   | 'staff.impersonation_started'

@@ -259,15 +259,52 @@ describe('i18n — NFR-LOC-001/002 and §9.2 acceptance criterion 8', () => {
     const identical: string[] = [];
     walk(catalogues.en, catalogues.fr, '', identical);
 
-    // A handful of strings are legitimately identical across languages:
-    // the product name, the language names as they appear in their own
-    // language, and a person's name in the sample verification record.
+    /**
+     * A handful of strings are legitimately identical across the two languages.
+     * Each is listed individually rather than matched by pattern, so a genuinely
+     * untranslated string can never hide behind a rule like "short strings are
+     * fine".
+     */
     const allowed = new Set([
+      // The product name, the language names as they appear in their own
+      // language, and a person's name in the sample verification record.
       'common.appName',
       'common.english',
       'common.french',
       'landing.recordTeacher',
       'teacher.application', // "Teaching application" / "Candidature d’enseignant" differ; guard anyway
+
+      // Payment brands. Translating "Orange Money" would make it unfindable in
+      // the app a payer actually holds (FR-PAY-011 lists these by name).
+      'payments.methodMtnMomo',
+      'payments.methodOrangeMoney',
+      'payments.methodVisa',
+      'payments.methodMastercard',
+      'support.channelWhatsapp',
+
+      // An acronym used unchanged in Cameroonian French banking (FR-ERN-010).
+      'payments.kycComplete',
+
+      // Words French spells exactly as English does. "Documents", "Agents",
+      // "Ticket" and "Action" are the correct French, not a missing translation.
+      'approvals.documents',
+      'approvals.documentsCount',
+      'support.agents',
+      'support.ticket',
+      'audit.filterAction',
+      // "Type" — as in the type of lesson. The same word, spelled the same way,
+      // in both languages.
+      'live.kind',
+
+      /*
+       * Learner-surface units. "min" is the same abbreviation either side of the
+       * language, and "question" is spelled identically in French. Listed
+       * individually rather than skipped by a rule like "short strings are
+       * fine", so a genuinely untranslated string still cannot hide here.
+       */
+      'student.unit.minutes',
+      'student.unit.questions',
+      'student.unit.oneQuestion',
     ]);
     const unexpected = identical.filter((path) => !allowed.has(path));
     expect(unexpected).toEqual([]);

@@ -21,5 +21,6 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "_comment_exclude": "Tests need the jest globals and jest-dom matchers, which the app build has no business knowing about. They are type-checked by tsconfig.spec.json, which the root typecheck script also runs. Kept as a string rather than a // comment because Next.js parses this file and it was strict JSON before.",
+  "exclude": ["node_modules", "**/*.spec.ts", "**/*.spec.tsx", "jest.setup.ts"]
 }

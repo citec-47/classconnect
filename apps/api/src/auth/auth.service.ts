@@ -15,6 +15,7 @@ import {
   CONFIG_KEYS,
   isMinor,
   requiresMfa,
+  type Language,
   type Role,
   type RegisterInput,
   type PasswordLoginInput,
@@ -356,6 +357,23 @@ export class AuthService {
       emailVerified: user.emailVerifiedAt !== null,
       mfaEnabled: user.mfaEnabled,
     };
+  }
+
+  /**
+   * NFR-LOC-003: persist an explicit language choice to the profile.
+   *
+   * The access token carries the language as a claim, and this deliberately
+   * does not reissue one — the claim only supplies a default for responses to
+   * requests that send no `Accept-Language`, the switcher sends one on every
+   * request after the change, and the claim corrects itself on the next
+   * refresh. Reissuing here would mean rotating a session's tokens for a
+   * preference change, which is a far larger hammer than the problem.
+   */
+  async setPreferredLanguage(userId: string, language: Language): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferredLanguage: language },
+    });
   }
 
   /**

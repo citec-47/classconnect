@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "github": { "silent": true },
+
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install --workspaces --include-workspace-root",
+
+  "functions": {
+    "api/index.ts": {
+      "//": "The Nest application is compiled ahead of time by `nest build`; the entry point only loads it. `includeFiles` is what carries that output and the Prisma query engine into the lambda — Vercel's dependency tracing follows static imports, and both are reached dynamically.",
+      "includeFiles": "{dist/**,../../node_modules/.prisma/**,../../node_modules/@prisma/client/**}",
+      "//maxDuration": "A cold start pays for Nest construction plus a Neon compute wake. 30s is the ceiling, not the budget — NFR-PER-003 still expects 600ms at P95 once warm.",
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+
+  "//rewrites": "Every path goes to the one function; Nest's router decides what it is. The API is versioned by path prefix (COM-002), so /api/v1/... arrives intact.",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+
+  "//crons": "§5.3: the daily billing pass — mark instalments due and overdue, send the FR-PAY-019 notices, then freeze anything past its grace period. A serverless function has no timer, so Vercel Cron drives it. 05:00 UTC is 06:00 Africa/Douala: early enough that a payer who acts on the notice has the whole working day, late enough not to send an SMS at midnight. Vercel authenticates the call with CRON_SECRET; the endpoint refuses without it.",
+  "crons": [{ "path": "/api/v1/jobs/billing-pass", "schedule": "0 5 * * *" }],
+
+  "env": {
+    "//CC_DISABLE_SCHEDULERS": "Belt and braces. BillingSchedulerService already refuses to start a timer when it detects a serverless runtime; this states the intent in the deployment configuration too, where an operator reading it can see why.",
+    "CC_DISABLE_SCHEDULERS": "true"
+  }
+}

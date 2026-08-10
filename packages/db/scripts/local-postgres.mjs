@@ -1,25 +1,19 @@
 /**
- * Local PostgreSQL for development, without Docker.
+ * Local PostgreSQL for development. No Docker, no system install.
  *
- * §2.4 specifies PostgreSQL 15+, and `docker compose up postgres` is the
- * documented way to get it. This script is the fallback for a workstation where
- * Docker Desktop is unavailable: it runs a real PostgreSQL server from the
- * official binaries as a child process, on the same port and with the same
- * credentials as docker-compose.yml, so DATABASE_URL is identical either way.
+ * §2.4 specifies PostgreSQL 15+. This runs a real PostgreSQL server from the
+ * official binaries as a child process of npm, which means a new contributor
+ * needs Node and nothing else.
  *
- * Development only. It is not a deployment mechanism and is never used by CI or
- * production, which use the managed PostgreSQL described in §2.4.
- *
- * The PostgreSQL binaries are platform-specific, so they are declared as
- * OPTIONAL dependencies in package.json. npm fails a normal dependency outright
- * when the platform does not match — that is what broke the Linux install on
- * Vercel. As optional dependencies they are skipped silently off-platform, and
- * this script simply will not run there, which is correct: nothing outside a
- * developer machine should be starting a database as a child process.
+ * Development only, and deliberately so. It is not a deployment mechanism: the
+ * deployed platform uses managed PostgreSQL (see docs/deployment.md), and
+ * nothing outside a developer machine should be starting a database as a child
+ * process. The binaries are optional dependencies in package.json, so on a
+ * hosting platform they are skipped and this script simply cannot run.
  *
  * Usage:
- *   node scripts/local-postgres.mjs start   # start and stay in the foreground
- *   node scripts/local-postgres.mjs stop    # stop a server started earlier
+ *   npm run db:local        # start and stay in the foreground
+ *   npm run db:local:stop   # stop a server started earlier
  */
 import EmbeddedPostgres from 'embedded-postgres';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +23,10 @@ import { mkdirSync, existsSync } from 'node:fs';
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(here, '..', '.pgdata');
 
-// Mirrors docker-compose.yml so DATABASE_URL does not change between the two.
+/**
+ * Port 5433 rather than 5432, so this never collides with a PostgreSQL a
+ * developer already has installed and running for something else.
+ */
 const options = {
   databaseDir: dataDir,
   user: 'classconnect',

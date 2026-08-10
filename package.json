@@ -12,17 +12,17 @@
     "dev:api": "npm run dev --workspace @classconnect/api",
     "dev:web": "npm run dev --workspace @classconnect/web",
     "build": "npm run build --workspace @classconnect/shared && npm run build --workspace @classconnect/db && npm run build --workspace @classconnect/api && npm run build --workspace @classconnect/web",
-    "db:up": "docker compose up -d postgres redis",
-    "db:down": "docker compose down",
+    "db:local": "npm run local:start --workspace @classconnect/db",
+    "db:local:stop": "npm run local:stop --workspace @classconnect/db",
     "db:generate": "npm run generate --workspace @classconnect/db",
     "db:migrate": "npm run migrate --workspace @classconnect/db",
     "db:seed": "npm run seed --workspace @classconnect/db",
     "db:reset": "npm run reset --workspace @classconnect/db",
-    "setup": "npm run db:up && npm run db:generate && npm run db:migrate && npm run db:seed",
-    "test": "npm run test --workspace @classconnect/api",
+    "setup": "npm run db:generate && npm run db:migrate && npm run db:seed",
+    "test": "npm run test --workspace @classconnect/api && npm run test --workspace @classconnect/web",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.serverless.json && tsc --noEmit -p apps/web/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.spec.json"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

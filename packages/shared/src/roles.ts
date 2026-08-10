@@ -75,6 +75,24 @@ export const PERMISSIONS = [
   'teacher:verification:read',
   'teacher:verification:decide',
   'teacher:suspend',
+  /**
+   * Classifying a teacher into a teaching band.
+   *
+   * Separate from verification: deciding that someone is who they say they are
+   * and is qualified is a different judgement from deciding which learners they
+   * should be put in front of, and FR-SCH-002 hangs assignment off the second.
+   */
+  'teacher:classify',
+
+  /**
+   * Watching lessons in progress — who is teaching, who is attending, and what.
+   *
+   * Its own permission because it is the most intrusive read on the platform: a
+   * one-to-one lesson between a teacher and a child. FR-SAF-004 already records
+   * those and tells everyone so; this is the live equivalent, and every use of
+   * it is written to the audit log (FR-RBA-004).
+   */
+  'live:watch',
 
   // Directory
   'teacher:browse',
@@ -83,25 +101,66 @@ export const PERMISSIONS = [
   'assignment:create',
   'assignment:respond:own',
 
+  // Learner approval (§4.2/§4.3) — an account is queued until an Admin decides.
+  'learner:approve',
+
+  // Support routing (§4.5, FR-SUP-001..007). `support:read:own` is the agent's
+  // own queue; `support:assign` is the routing screen itself.
+  'support:read:any',
+  'support:read:own',
+  'support:assign',
+
+  /**
+   * Safeguarding (§4.6, FR-SAF-005/006).
+   *
+   * Holding this permission is necessary but never sufficient: FR-SAF-006
+   * restricts the queue to *designated staff regardless of role level*, so the
+   * API checks the per-person designation as well. The permission answers "may
+   * this role ever be designated"; the designation answers "is this person".
+   */
+  'safeguarding:read',
+  'safeguarding:act',
+
   // Staff
   'audit:read',
   'user:read:any',
   'user:suspend',
   'impersonation:start',
   'config:write',
+  'reports:read',
+  /** §6: granting and revoking roles is the super admin's alone. */
+  'role:grant',
 
   // Finance
   'finance:read',
   'payout:approve',
+  /** §4.7.1/§4.7.2: discretionary money movements, Finance Admin only. */
+  'finance:refund',
+  'finance:record_payment',
+  'reconciliation:resolve',
+  /** FR-ERN-004: deciding what becomes of an unallocated pool balance. */
+  'unallocated:decide',
+
+  /** §5.5: manual freeze and unfreeze of a student or teacher account. */
+  'account:freeze',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
+/**
+ * What everyone who consumes instruction may do.
+ *
+ * `teacher:browse` is deliberately *not* here. FR-SCH-002 and §7 of the student
+ * brief forbid a minor browsing or booking teachers — assignment is an
+ * administrative action — and the brief is explicit that the prohibitions are
+ * enforced server-side rather than by hiding controls. A `student` holding the
+ * permission and being shown no button is exactly the arrangement it rules out.
+ * Parents and Adult Learners are granted it individually below.
+ */
 const LEARNER_BASE: Permission[] = [
   'catalogue:read',
   'profile:read:own',
   'profile:write:own',
-  'teacher:browse',
 ];
 
 /**
@@ -113,6 +172,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   // cannot create a Student account: `learner:create` is absent by design.
   parent: [
     ...LEARNER_BASE,
+    'teacher:browse',
     'learner:read:own',
     'learner:write:own',
     'learner:archive:own',
@@ -120,9 +180,17 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'guardian:invite',
   ],
 
+  /** FR-SCH-002: no teacher browsing, no self-serve booking. Minors are assigned. */
   student: [...LEARNER_BASE],
 
-  adult_learner: [...LEARNER_BASE, 'learner:read:own', 'learner:write:own'],
+  // FR-SCH-004: an Adult Learner is their own payer and books their own slots,
+  // so they get the browse permission a minor must not have.
+  adult_learner: [
+    ...LEARNER_BASE,
+    'teacher:browse',
+    'learner:read:own',
+    'learner:write:own',
+  ],
 
   teacher: [
     'catalogue:read',
@@ -136,6 +204,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'assignment:respond:own',
   ],
 
+  // §3: an agent works their own queue. They cannot route work, cannot approve
+  // anyone, and cannot see money.
   support_agent: [
     'catalogue:read',
     'profile:read:own',
@@ -143,6 +213,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'user:read:any',
     'teacher:browse',
     'impersonation:start',
+    'support:read:own',
+    'live:watch',
+    // Eligible for safeguarding designation; still gated on being designated.
+    'safeguarding:read',
+    'safeguarding:act',
   ],
 
   // The only role that can bring a Student or Teacher account into existence.
@@ -157,6 +232,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'teacher:verification:read',
     'teacher:verification:decide',
     'teacher:suspend',
+    'teacher:classify',
+    'live:watch',
     'assignment:create',
     'learner:create',
     'learner:read:own',
@@ -165,6 +242,18 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'user:suspend',
     'audit:read',
     'impersonation:start',
+    'learner:approve',
+    'support:read:any',
+    'support:read:own',
+    'support:assign',
+    'safeguarding:read',
+    'safeguarding:act',
+    'reports:read',
+    // §3: Ops sees the money screens but does not move money. `finance:read`
+    // without `payout:approve`, `finance:refund` or `finance:record_payment` is
+    // exactly the "read-only" cell in the role-visibility table.
+    'finance:read',
+    'account:freeze',
   ],
 
   admin_finance: [
@@ -174,6 +263,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'user:read:any',
     'finance:read',
     'payout:approve',
+    'finance:refund',
+    'finance:record_payment',
+    'reconciliation:resolve',
+    'unallocated:decide',
+    'account:freeze',
+    'reports:read',
     'audit:read',
   ],
 

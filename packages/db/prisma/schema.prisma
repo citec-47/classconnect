@@ -18,11 +18,40 @@ generator client {
   // No custom `output`: npm workspaces hoist @prisma/client to the repo root,
   // and that package resolves `.prisma/client` relative to itself. Redirecting
   // the generator elsewhere leaves the runtime importing an empty client.
+
+  /// The query engine is a native binary, and one is built per platform.
+  ///
+  /// `native` covers the developer machine that ran `prisma generate`. Vercel's
+  /// Node runtime is AWS Lambda on Amazon Linux 2023, which needs
+  /// `rhel-openssl-3.0.x`; without it the deployed function starts and then
+  /// fails on its first query with "Query engine library for current platform
+  /// not found" — at runtime, not at build time, so the deploy looks green.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+
+  /// The connection the application uses.
+  ///
+  /// On serverless this must point at a *pooler* (PgBouncer in transaction mode
+  /// — Neon's `-pooler` host, Supabase's port 6543, Vercel Postgres's pooled
+  /// URL). Every function instance opens its own connections, and a platform
+  /// that scales to dozens of instances will exhaust a small Postgres's
+  /// connection limit within minutes without one.
+  url = env("DATABASE_URL")
+
+  /// The connection migrations use.
+  ///
+  /// `prisma migrate` needs to create advisory locks and run DDL, neither of
+  /// which survives a transaction-mode pooler — it fails with "prepared
+  /// statement already exists" or hangs on the lock. This is the direct,
+  /// unpooled connection to the same database.
+  ///
+  /// Prisma requires this to be set whenever it is declared — there is no
+  /// implicit fallback to `url`. Locally, where `npm run db:local` has no pooler
+  /// in front of it, set it to the same value as DATABASE_URL.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -55,15 +84,22 @@ enum Language {
   fr
 }
 
-/// The two school types an Admin chooses between when creating an account.
+/// The teaching bands an Admin classifies people into.
 ///
 /// FR-PRO-001 lists six education levels; this groups them the way staff
-/// actually think about them. Lower and Upper Sixth sit under `secondary`, and
-/// the GCE examination tracks are secondary too — a learner preparing for GCE
-/// O/L or A/L is a secondary-school learner, not a separate school type.
+/// actually think about them, and the way teachers are actually hired.
+///
+/// Lower and Upper Sixth are their own band rather than the tail of secondary:
+/// the subjects diverge, the teaching is closer to examination coaching, and a
+/// Form 2 teacher is not automatically an Upper Sixth teacher. Splitting them
+/// lets an Admin classify a teacher for exactly the band they are qualified for.
+///
+/// The GCE examination tracks stay under `secondary` — a learner preparing for
+/// GCE O/L is a secondary-school learner sitting an exam, not a sixth-former.
 enum SchoolType {
   primary
   secondary
+  sixth_form
 }
 
 /// FR-TVR-003: teacher application lifecycle.
@@ -258,6 +294,108 @@ enum RightsStatus {
   originally_authored
 }
 
+/// §4.2: a learner account is queued for an Admin decision before it becomes
+/// active. Deliberately separate from `UserStatus`, because "approved" is a
+/// verification outcome while "active" is an account lifecycle state.
+enum LearnerApprovalState {
+  submitted
+  more_info_required
+  approved
+  rejected
+}
+
+/// §5.1 of the admin brief: the payer chooses one of these at enrolment.
+/// Paying in full is always offered and is the visually primary option.
+enum InstalmentPlanType {
+  full
+  three_instalments
+}
+
+/// §5.2: scheduled -> due -> paid, or scheduled -> due -> overdue -> paid.
+/// `cancelled` covers a settle-in-full, which clears all future instalments.
+enum InstalmentState {
+  scheduled
+  due
+  overdue
+  paid
+  cancelled
+}
+
+/// §5.5: a freeze applies either to a learner's service or to a teacher's account.
+enum FreezeScope {
+  learner
+  teacher
+}
+
+/// §5.5: a manual freeze outranks the automatic rule — paying an instalment
+/// lifts an `automatic` freeze but never a `manual` one.
+enum FreezeKind {
+  automatic
+  manual
+}
+
+enum FreezeCategory {
+  non_payment
+  safeguarding
+  abuse
+  dispute
+  other
+}
+
+/// §4.6: where a safeguarding concern came from.
+enum SafeguardingSource {
+  session
+  message_thread
+  teacher_profile
+  redaction_flag
+  other
+}
+
+/// FR-SAF-005: `open` starts a 4-hour first-response clock.
+enum SafeguardingState {
+  open
+  in_review
+  actioned
+  closed
+}
+
+/// FR-SAF-002: what a teacher repeatedly tried to share with a minor.
+enum RedactionKind {
+  phone
+  email
+  social_handle
+}
+
+/// FR-LDG-003: an item on a provider settlement report, matched or not.
+enum ReconciliationState {
+  unmatched
+  matched
+  written_off
+  escalated
+}
+
+/// FR-SUP-001: where a support request arrived from.
+enum TicketChannel {
+  in_app
+  whatsapp
+  email
+}
+
+enum AgentPresence {
+  online
+  away
+  offline
+}
+
+/// FR-ERN-004: a learner who attended nothing still funded a pool share. It goes
+/// here for an Admin decision and is never silently swept into platform revenue.
+enum UnallocatedDecision {
+  pending
+  released_to_teachers
+  retained_by_platform
+  carried_forward
+}
+
 // ---------------------------------------------------------------------------
 // §5.1 — Identity and access
 // ---------------------------------------------------------------------------
@@ -308,6 +446,10 @@ model User {
   sessionSeats     SessionParticipant[]
   guardianLinks    GuardianLearner[]  @relation("GuardianLink")
   materialsUploaded Material[]
+  publishRequests  MediaPublishRequest[]
+  recordingPlayback RecordingPlayback[]
+  threadSeats      ThreadParticipant[]
+  messagesSent     Message[]
 
   @@index([status])
   @@index([createdAt])
@@ -409,6 +551,16 @@ model Learner {
   targetExamDate       DateTime? @map("target_exam_date") @db.Date
 
   status    UserStatus @default(active)
+
+  /// §4.2: the approval queue. A learner may not transact or attend until an
+  /// Admin has approved them, and the deciding Admin is recorded (FR-AI-005).
+  approvalState  LearnerApprovalState @default(submitted) @map("approval_state")
+  submittedAt    DateTime?  @map("submitted_at") @db.Timestamptz(6)
+  approvedBy     String?    @map("approved_by") @db.Uuid
+  approvedAt     DateTime?  @map("approved_at") @db.Timestamptz(6)
+  /// Mandatory on reject and on request-more-information, and sent to the guardian.
+  decisionReason String?    @map("decision_reason") @db.Text
+
   /// FR-RBA-004: which Admin created this learner account.
   createdBy String?    @map("created_by") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -427,8 +579,13 @@ model Learner {
   submissions   Submission[]
   attempts      Attempt[]
   cohortSeats   CohortMember[]
+  freezes       AccountFreeze[]
+  redactionFlags RedactionFlag[]
+  messageThreads MessageThread[]
 
   @@index([levelId])
+  /// §4.2/§4.3: the approval queues select on state and order by submission.
+  @@index([approvalState, submittedAt])
   @@map("learners")
 }
 
@@ -517,8 +674,14 @@ model Teacher {
   payouts                Payout[]
   reviews                Review[]
   workAssignments        WorkAssignment[]
+  freezes                AccountFreeze[]
+  redactionFlags         RedactionFlag[]
+  safeguardingReports    SafeguardingReport[]
 
   @@index([verificationStatus])
+  /// The roster filters by band; unclassified teachers cannot be assigned a
+  /// learner (FR-SCH-002) and are the most-read subset of this column.
+  @@index([schoolType])
   @@map("teachers")
 }
 
@@ -789,11 +952,15 @@ model Session {
   participants SessionParticipant[]
   recordings   Recording[]
   reviews      Review[]
+  publishRequests MediaPublishRequest[]
 
   /// DAT-004: a teacher cannot hold two sessions at the same instant.
   @@unique([teacherId, startsAtUtc])
   @@index([startsAtUtc])
   @@index([status])
+  /// The live board and the weekly timetable both read a status and a window.
+  @@index([status, startsAtUtc])
+  @@index([startsAtUtc, teacherId])
   @@map("sessions")
 }
 
@@ -807,11 +974,23 @@ model SessionParticipant {
   lastLeaveAt     DateTime? @map("last_leave_at") @db.Timestamptz(6)
   /// The unit of revenue attribution (FR-ERN-003).
   attendedMinutes Int       @default(0) @map("attended_minutes")
+  /// §1.3 — reported to the learner, their guardian, the teacher and admin.
+  /// Never scored, never ranked, never shown to other learners.
+  micOnMinutes    Int       @default(0) @map("mic_on_minutes")
+  cameraOnMinutes Int       @default(0) @map("camera_on_minutes")
+  /// Null while the stream was on for some of the session. Set when it was off
+  /// throughout, and then it must say *why* — see `StreamOffReason`. Recording
+  /// "camera off" without the reason attributes FR-LIV-009's own bandwidth
+  /// decision to the learner, which §1.3 calls a defect.
+  micOffReason    StreamOffReason? @map("mic_off_reason")
+  cameraOffReason StreamOffReason? @map("camera_off_reason")
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id])
 
   @@unique([sessionId, userId])
+  /// Teacher hours aggregate attendance by user across every session.
+  @@index([userId])
   @@map("session_participants")
 }
 
@@ -825,9 +1004,15 @@ model Recording {
   availableUntil DateTime  @map("available_until") @db.Timestamptz(6)
   /// A safeguarding or dispute flag suspends the retention clock (§5.5).
   legalHold      Boolean   @default(false) @map("legal_hold")
+  /// §3: an audio-only rendition. On a metered 3G connection this is the
+  /// difference between using the feature and not (NFR-BAN-002), so it is a
+  /// stored artefact rather than a player setting over the full-size video.
+  audioKey       String?   @map("audio_key") @db.VarChar(500)
+  audioSizeBytes BigInt?   @map("audio_size_bytes")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session  Session             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  playback RecordingPlayback[]
 
   @@index([availableUntil])
   @@map("recordings")
@@ -1007,12 +1192,41 @@ model Attempt {
   perTopicJson Json?     @map("per_topic_json")
   timeTakenSec Int?      @map("time_taken_sec")
   autoSubmitted Boolean  @default(false) @map("auto_submitted")
+  /// §4.3. `flagged_for_review` is reached by three noise flags and means a
+  /// human will look; it does not mean the attempt ended. The attempt submits
+  /// normally and every answer is kept.
+  state        AttemptState @default(in_progress)
+  /// FR-ASM-010: an overridden mark is shown as overridden, never silently
+  /// swapped for the original.
+  overriddenBy String?   @map("overridden_by") @db.Uuid
+  overriddenAt DateTime? @map("overridden_at") @db.Timestamptz(6)
+  /// §4.2.1: a proctored attempt by a minor requires recorded guardian consent.
+  /// Null means the attempt was taken unproctored, which is the offered
+  /// alternative rather than a failure state.
+  proctored    Boolean   @default(false)
+  consentId    String?   @map("consent_id") @db.Uuid
+  /// The exam was stopped by the system — the third noise flag, or a mic or
+  /// camera that went off and stayed off.
+  ///
+  /// Stopping is not deciding. Everything answered up to this instant is
+  /// submitted and kept (FR-ASM-007), the attempt lands in `flagged_for_review`,
+  /// and what the paper is worth remains a human's call (FR-AI-005). There is
+  /// still no path by which the system zeroes or voids a script.
+  terminatedAt     DateTime? @map("terminated_at") @db.Timestamptz(6)
+  /// `noise_flag_limit` | `mic_off` | `camera_off`.
+  terminationReason String?  @map("termination_reason") @db.VarChar(30)
 
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  learner    Learner    @relation(fields: [learnerId], references: [id])
-  answers    Answer[]
+  assessment  Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  learner     Learner          @relation(fields: [learnerId], references: [id])
+  answers     Answer[]
+  deviceCheck ExamDeviceCheck?
+  proctorEvents ProctorEvent[]
+  proctorFlags  ProctorFlag[]
+  reviews       AttemptReview[]
 
   @@index([learnerId, assessmentId])
+  /// The review queue reads attempts by state, oldest first.
+  @@index([state, submittedAt])
   @@map("attempts")
 }
 
@@ -1103,6 +1317,9 @@ model Subscription {
   payer    User      @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
   plan     Plan      @relation(fields: [planId], references: [id])
   payments Payment[]
+  /// §5.1: instalments are a payment schedule attached to a subscription, reusing
+  /// the FR-PAY-007 state machine rather than inventing a parallel one.
+  schedule PaymentSchedule?
 
   /// DAT-004: one subscription per learner per period.
   @@unique([learnerId, periodStart])
@@ -1127,10 +1344,30 @@ model Payment {
   lastPolledAt   DateTime?     @map("last_polled_at") @db.Timestamptz(6)
   pollAttempts   Int           @default(0) @map("poll_attempts")
   settledAt      DateTime?     @map("settled_at") @db.Timestamptz(6)
+
+  /// §4.7.2: a Finance Admin may record a payment taken outside the platform.
+  /// Reason and evidence are mandatory at the API, and it still produces ledger
+  /// entries — it is a recorded collection, not a state edit.
+  recordedOffline Boolean  @default(false) @map("recorded_offline")
+  recordedBy      String?  @map("recorded_by") @db.Uuid
+  recordReason    String?  @map("record_reason") @db.Text
+  evidenceKey     String?  @map("evidence_key") @db.VarChar(500)
+
+  /// FR-PAY-017: a refund is its own payment row pointing at what it reverses,
+  /// so the collection history is never rewritten.
+  refundOfPaymentId String? @map("refund_of_payment_id") @db.Uuid
+  refundReason      String? @map("refund_reason") @db.Text
+  refundedBy        String? @map("refunded_by") @db.Uuid
+
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  refundOf     Payment?      @relation("PaymentRefund", fields: [refundOfPaymentId], references: [id])
+  refunds      Payment[]     @relation("PaymentRefund")
+  instalments  Instalment[]
+  invoice      Invoice?
+  reconciliationItems ReconciliationItem[]
 
   @@index([status, createdAt])
   @@index([providerRef])
@@ -1163,15 +1400,29 @@ model Earning {
   /// Accrual period as `YYYY-MM`.
   period          String   @db.VarChar(7)
   attendedMinutes Int      @map("attended_minutes")
+  /// §4.7.5: the one-to-one / group split, kept separately because the two carry
+  /// different configurable weights (FR-ERN-003).
+  oneToOneMinutes Int      @default(0) @map("one_to_one_minutes")
+  groupMinutes    Int      @default(0) @map("group_minutes")
   amountXaf       BigInt   @map("amount_xaf")
   deductionsXaf   BigInt   @default(0) @map("deductions_xaf")
+  /// Gross minus deductions. Stored rather than derived so a payout reconciles
+  /// against exactly the figure that was approved.
+  netPayableXaf   BigInt   @default(0) @map("net_payable_xaf")
+  /// OI-02: the split, the basis and the session weights are configuration read
+  /// at calculation time. The version used is stored on the record so a
+  /// historical calculation stays reproducible after the configuration changes.
+  configVersion   String   @map("config_version") @db.VarChar(64)
   /// FR-ERN-006: every figure traces to the sessions that produced it.
   basisJson       Json     @map("basis_json")
+  payoutId        String?  @map("payout_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   teacher Teacher @relation(fields: [teacherId], references: [userId])
+  payout  Payout? @relation(fields: [payoutId], references: [id])
 
   @@unique([teacherId, period])
+  @@index([period])
   @@map("earnings")
 }
 
@@ -1190,9 +1441,17 @@ model Payout {
   executedAt  DateTime?     @map("executed_at") @db.Timestamptz(6)
   failureReason String?     @map("failure_reason") @db.VarChar(500)
   withheldTaxXaf BigInt     @default(0) @map("withheld_tax_xaf")
+  providerFeeXaf BigInt     @default(0) @map("provider_fee_xaf")
+  /// §4.7.4: where a suspended teacher has accrued earnings the money is held,
+  /// not forfeited. A held payout waits for a named human decision (FR-AI-005).
+  heldReason  String?       @map("held_reason") @db.Text
+  /// The accrual period this payout settles, so §4.7.3 can link every figure
+  /// through to the sessions that produced it.
+  period      String?       @db.VarChar(7)
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  teacher Teacher @relation(fields: [teacherId], references: [userId])
+  teacher  Teacher   @relation(fields: [teacherId], references: [userId])
+  earnings Earning[]
 
   @@index([teacherId, status])
   @@map("payouts")
@@ -1267,10 +1526,22 @@ model Ticket {
   priority    TicketPriority @default(normal)
   status      TicketStatus   @default(open)
   subject     String         @db.VarChar(300)
+  /// FR-SUP-001: in-app chat, WhatsApp or email.
+  channel     TicketChannel  @default(in_app)
   assigneeId  String?        @map("assignee_id") @db.Uuid
+  assignedBy  String?        @map("assigned_by") @db.Uuid
+  assignedAt  DateTime?      @map("assigned_at") @db.Timestamptz(6)
   /// FR-SUP-004: context captured at creation time.
   contextJson Json?          @map("context_json")
   firstResponseAt DateTime?  @map("first_response_at") @db.Timestamptz(6)
+  /// FR-SUP-006: first-response and resolution targets are configurable, and the
+  /// deadline is stamped at creation so the countdown survives a config change.
+  firstResponseDueAt DateTime? @map("first_response_due_at") @db.Timestamptz(6)
+  resolutionDueAt    DateTime? @map("resolution_due_at") @db.Timestamptz(6)
+  escalatedAt        DateTime? @map("escalated_at") @db.Timestamptz(6)
+  /// FR-NOT-007 / R7: outside this instant a WhatsApp reply must use a
+  /// pre-approved template. Null for any other channel.
+  whatsappWindowEndsAt DateTime? @map("whatsapp_window_ends_at") @db.Timestamptz(6)
   resolvedAt  DateTime?      @map("resolved_at") @db.Timestamptz(6)
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1278,8 +1549,10 @@ model Ticket {
   requester User            @relation("TicketRequester", fields: [requesterId], references: [id])
   assignee  User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
   messages  TicketMessage[]
+  safeguardingReport SafeguardingReport?
 
   @@index([status, priority])
+  @@index([assigneeId, status])
   @@map("tickets")
 }
 
@@ -1360,6 +1633,8 @@ model Consent {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, consentType])
+  /// The approval checks look a consent up by guardian, learner and type.
+  @@index([userId, learnerId, consentType])
   @@map("consents")
 }
 
@@ -1377,6 +1652,266 @@ model ImpersonationGrant {
   @@map("impersonation_grants")
 }
 
+// ---------------------------------------------------------------------------
+// §5 of the admin brief — instalment billing and automatic account freezing
+// ---------------------------------------------------------------------------
+
+/// `payment_schedules` — how a subscription's total fee is to be collected.
+///
+/// §5.1: the payer chooses pay-in-full or pay-in-3. Instalment amounts and dates
+/// come from plan configuration and are visible before commitment (UI-007).
+model PaymentSchedule {
+  id             String             @id @default(uuid()) @db.Uuid
+  subscriptionId String             @unique @map("subscription_id") @db.Uuid
+  planType       InstalmentPlanType @map("plan_type")
+  /// CON-02: whole XAF. §5.1 requires the instalments to sum exactly to this.
+  totalXaf       BigInt             @map("total_xaf")
+  /// OI-03/Q3: a pay-in-full discount is configuration, defaulting to zero.
+  discountXaf    BigInt             @default(0) @map("discount_xaf")
+  /// §5.1: settling the balance clears all future instalments and lifts any
+  /// automatic freeze immediately.
+  settledInFullAt DateTime?         @map("settled_in_full_at") @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  instalments  Instalment[]
+
+  @@map("payment_schedules")
+}
+
+/// `instalments` — one part of a schedule. §5.2.
+model Instalment {
+  id         String          @id @default(uuid()) @db.Uuid
+  scheduleId String          @map("schedule_id") @db.Uuid
+  /// 1, 2 or 3. §5.3 applies the freeze rule independently at each.
+  sequence   Int
+  amountXaf  BigInt          @map("amount_xaf")
+  /// Stored as a date: a due date is a calendar fact in Africa/Douala, not an
+  /// instant. The grace deadline is derived from it at UTC midnight + offset.
+  dueOn      DateTime        @map("due_on") @db.Date
+  state      InstalmentState @default(scheduled)
+  paidAt     DateTime?       @map("paid_at") @db.Timestamptz(6)
+  /// Set when an Admin moved this instalment's state without a payment — a
+  /// correction, a waiver, a scholarship. Kept beside the state so the row
+  /// itself says it was adjusted rather than collected, and by whom.
+  adjustedBy       String? @map("adjusted_by") @db.Uuid
+  adjustmentReason String? @map("adjustment_reason") @db.VarChar(500)
+  paymentId  String?         @map("payment_id") @db.Uuid
+  /// FR-PAY-019 / §5.3: which of the 7/3/1/0/freeze-day notices have gone out,
+  /// so a restart or a re-run never sends the same notice twice.
+  noticesSentJson Json?      @map("notices_sent_json")
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  schedule PaymentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  payment  Payment?        @relation(fields: [paymentId], references: [id])
+  freezes  AccountFreeze[]
+
+  @@unique([scheduleId, sequence])
+  @@index([state, dueOn])
+  @@map("instalments")
+}
+
+/// `account_freezes` — a suspension of service, never a deletion of data (§5.4).
+///
+/// FR-RBA-004: every automatic and manual freeze and unfreeze is audited with
+/// actor, reason, timestamp and IP; the audit row carries the triggering
+/// instalment ID. This table is the operational state behind that trail.
+model AccountFreeze {
+  id       String         @id @default(uuid()) @db.Uuid
+  scope    FreezeScope
+  /// Exactly one of these is set, matching `scope`.
+  learnerId     String?   @map("learner_id") @db.Uuid
+  teacherUserId String?   @map("teacher_user_id") @db.Uuid
+
+  kind     FreezeKind
+  category FreezeCategory
+  /// Mandatory and free-text for a manual freeze; the rule text for an automatic one.
+  reason   String         @db.Text
+  /// §5.3: set for an automatic freeze so the trail names the missed instalment.
+  triggeringInstalmentId String? @map("triggering_instalment_id") @db.Uuid
+
+  /// §5.4: never freeze mid-session. A freeze that becomes due while the learner
+  /// is in a live class is written now and takes effect at session end, so the
+  /// decision is recorded at the moment it was made.
+  appliedAt     DateTime  @default(now()) @map("applied_at") @db.Timestamptz(6)
+  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(6)
+  deferredForSessionId String? @map("deferred_for_session_id") @db.Uuid
+
+  liftedAt     DateTime? @map("lifted_at") @db.Timestamptz(6)
+  liftedBy     String?   @map("lifted_by") @db.Uuid
+  liftReason   String?   @map("lift_reason") @db.Text
+  createdBy    String?   @map("created_by") @db.Uuid
+
+  learner    Learner?    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  teacher    Teacher?    @relation(fields: [teacherUserId], references: [userId], onDelete: Cascade)
+  instalment Instalment? @relation(fields: [triggeringInstalmentId], references: [id])
+
+  @@index([learnerId, liftedAt])
+  @@index([teacherUserId, liftedAt])
+  @@map("account_freezes")
+}
+
+// ---------------------------------------------------------------------------
+// §4.6 of the admin brief — safeguarding
+// ---------------------------------------------------------------------------
+
+/// `safeguarding_reports` — the restricted queue.
+///
+/// FR-SAF-006: visible only to designated staff, and nothing here is ever
+/// deleted by an operator. FR-SAF-005: first response within 4 hours.
+model SafeguardingReport {
+  id        String             @id @default(uuid()) @db.Uuid
+  source    SafeguardingSource
+  reporterId String?           @map("reporter_id") @db.Uuid
+  /// Who or what the report is about.
+  subjectTeacherId String?     @map("subject_teacher_id") @db.Uuid
+  subjectLearnerId String?     @map("subject_learner_id") @db.Uuid
+  relatedSessionId String?     @map("related_session_id") @db.Uuid
+  /// A safeguarding ticket never appears in the general support pool
+  /// (FR-SUP-007); when one arrives by ticket it is linked here and hidden there.
+  ticketId  String?            @unique @map("ticket_id") @db.Uuid
+
+  summary   String             @db.Text
+  /// Links to recordings, message threads and files. Retained in full.
+  evidenceJson Json?           @map("evidence_json")
+
+  state     SafeguardingState  @default(open)
+  assignedTo String?           @map("assigned_to") @db.Uuid
+  /// FR-SAF-005: stamped at creation from the configurable 4-hour target.
+  firstResponseDueAt DateTime  @map("first_response_due_at") @db.Timestamptz(6)
+  firstResponseAt    DateTime? @map("first_response_at") @db.Timestamptz(6)
+  /// A named human decision-maker, per FR-AI-005.
+  actionTaken   String?        @map("action_taken") @db.Text
+  decidedBy     String?        @map("decided_by") @db.Uuid
+  closedAt      DateTime?      @map("closed_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  teacher Teacher? @relation(fields: [subjectTeacherId], references: [userId])
+  ticket  Ticket?  @relation(fields: [ticketId], references: [id])
+
+  @@index([state, firstResponseDueAt])
+  @@map("safeguarding_reports")
+}
+
+/// `redaction_flags` — FR-SAF-002. Repeated attempts by a teacher to pass a
+/// phone number, email or social handle to a minor surface on the safeguarding
+/// queue. The excerpt is stored already redacted: the evidence is that a
+/// contact detail was sent, not the detail itself.
+model RedactionFlag {
+  id         String        @id @default(uuid()) @db.Uuid
+  teacherId  String        @map("teacher_id") @db.Uuid
+  learnerId  String?       @map("learner_id") @db.Uuid
+  kind       RedactionKind
+  excerptRedacted String   @map("excerpt_redacted") @db.Text
+  occurredAt DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  reportId   String?       @map("report_id") @db.Uuid
+
+  teacher Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  learner Learner? @relation(fields: [learnerId], references: [id])
+
+  @@index([teacherId, occurredAt])
+  @@map("redaction_flags")
+}
+
+// ---------------------------------------------------------------------------
+// §4.7.6 of the admin brief — reconciliation, and §4.7.1 — invoices
+// ---------------------------------------------------------------------------
+
+/// `reconciliation_runs` — one daily comparison against one provider's
+/// settlement report (FR-LDG-003).
+model ReconciliationRun {
+  id            String   @id @default(uuid()) @db.Uuid
+  provider      PaymentMethod
+  statementDate DateTime @map("statement_date") @db.Date
+  itemCount     Int      @default(0) @map("item_count")
+  unmatchedCount Int     @default(0) @map("unmatched_count")
+  unmatchedValueXaf BigInt @default(0) @map("unmatched_value_xaf")
+  /// FR-LDG-004: set when the run crossed the configurable alert threshold.
+  alertedAt     DateTime? @map("alerted_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  items ReconciliationItem[]
+
+  @@unique([provider, statementDate])
+  @@map("reconciliation_runs")
+}
+
+model ReconciliationItem {
+  id          String              @id @default(uuid()) @db.Uuid
+  runId       String              @map("run_id") @db.Uuid
+  provider    PaymentMethod
+  providerRef String              @map("provider_ref") @db.VarChar(200)
+  amountXaf   BigInt              @map("amount_xaf")
+  occurredAt  DateTime            @map("occurred_at") @db.Timestamptz(6)
+  paymentId   String?             @map("payment_id") @db.Uuid
+  state       ReconciliationState @default(unmatched)
+  note        String?             @db.Text
+  /// FR-AI-005: writing an item off is discretionary, so it names a human.
+  resolvedBy  String?             @map("resolved_by") @db.Uuid
+  resolvedAt  DateTime?           @map("resolved_at") @db.Timestamptz(6)
+
+  run     ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  payment Payment?          @relation(fields: [paymentId], references: [id])
+
+  @@index([state, occurredAt])
+  @@map("reconciliation_items")
+}
+
+/// `invoices` — FR-PAY-016: every successful collection produces a numbered
+/// invoice. The number is allocated from a gapless sequence, because a tax
+/// authority reads a gap as a deleted document.
+model Invoice {
+  id        String   @id @default(uuid()) @db.Uuid
+  number    String   @unique @db.VarChar(40)
+  paymentId String   @unique @map("payment_id") @db.Uuid
+  totalXaf  BigInt   @map("total_xaf")
+  taxXaf    BigInt   @default(0) @map("tax_xaf")
+  /// OI-07: the legal fields a Cameroonian invoice must carry are unresolved, so
+  /// they are held as configuration-driven JSON rather than fixed columns.
+  legalFieldsJson Json? @map("legal_fields_json")
+  storageKey String? @map("storage_key") @db.VarChar(500)
+  issuedAt  DateTime @default(now()) @map("issued_at") @db.Timestamptz(6)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("invoices")
+}
+
+/// `unallocated_pool` — FR-ERN-004.
+///
+/// Where a learner attended no sessions in a period, their pool share is not
+/// swept into platform revenue. It lands here with a balance and waits for a
+/// named Admin decision.
+model UnallocatedPool {
+  id        String              @id @default(uuid()) @db.Uuid
+  period    String              @unique @db.VarChar(7)
+  amountXaf BigInt              @map("amount_xaf")
+  /// Which learners contributed, so the decision is made on evidence.
+  basisJson Json                @map("basis_json")
+  decision  UnallocatedDecision @default(pending)
+  decidedBy String?             @map("decided_by") @db.Uuid
+  decidedAt DateTime?           @map("decided_at") @db.Timestamptz(6)
+  reason    String?             @db.Text
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("unallocated_pool")
+}
+
+/// `support_agent_profiles` — §4.5's agent panel needs a presence state and a
+/// workload ceiling that are not properties of the underlying user account.
+model SupportAgentProfile {
+  userId         String        @id @map("user_id") @db.Uuid
+  presence       AgentPresence @default(offline)
+  lastSeenAt     DateTime?     @map("last_seen_at") @db.Timestamptz(6)
+  maxOpenTickets Int           @default(25) @map("max_open_tickets")
+  /// FR-SAF-006: safeguarding visibility is a per-person designation, not a role
+  /// level. A super_admin who is not designated still does not see the queue.
+  safeguardingDesignated Boolean @default(false) @map("safeguarding_designated")
+
+  @@map("support_agent_profiles")
+}
+
 /// Runtime configuration. Anything the SRS calls "configurable" lives here so
 /// that changing it is a configuration change, not a deployment (CON-07).
 model PlatformConfig {
@@ -1387,4 +1922,314 @@ model PlatformConfig {
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("platform_config")
+}
+
+// ---------------------------------------------------------------------------
+// §4.5 live participation, §4.6 proctoring, §4.10 messaging
+//
+// OI-04 is still open, so nothing here names a media vendor. These models
+// record what the platform decided and what it observed; the provider that
+// enforces it sits behind a port in the API.
+// ---------------------------------------------------------------------------
+
+/// Why a microphone or camera was off.
+///
+/// The distinction is the whole point. FR-LIV-009 has the classroom disable
+/// learner video automatically as bandwidth falls, and FR-LIV-010 offers an
+/// audio-only save-data mode. A learner on 3G in a shared household is off
+/// camera because the platform switched it off, not because they chose to hide.
+/// Reporting the two as one number attributes a system decision to a child.
+enum StreamOffReason {
+  learner_choice
+  system_bandwidth
+  system_policy
+  device_failure
+}
+
+enum MediaPublishRequestState {
+  pending
+  approved
+  dismissed
+  withdrawn
+  revoked
+}
+
+/// FR-AI-005 forbids an automated final decision that materially affects a
+/// person. There is deliberately no `voided_by_system` member: the only route
+/// to a void is `voided_by_human`, which requires a named reviewer.
+enum AttemptState {
+  in_progress
+  submitted
+  flagged_for_review
+  under_review
+  released
+  voided_by_human
+}
+
+/// Degradations and interruptions during a proctored attempt, logged so a human
+/// reviewer sees what the conditions actually were.
+enum ProctorEventKind {
+  device_check_passed
+  camera_degraded_to_still_frames
+  camera_disabled
+  camera_failed
+  camera_restored
+  mic_failed
+  mic_disabled
+  mic_restored
+  bandwidth_drop
+  disconnected
+  resumed
+  /// The system stopped the exam. Logged so a reviewer sees the trigger.
+  terminated_by_system
+}
+
+enum ProctorFlagKind {
+  sustained_background_noise
+}
+
+/// FR-SAF-008: learner-to-learner is absent by construction. A thread has no
+/// kind that could express it, so the endpoint has nothing to route to.
+enum MessageThreadKind {
+  learner_teacher
+  learner_support
+  guardian_teacher
+}
+
+enum MessageState {
+  visible
+  deleted
+}
+
+/// `media_publish_requests` — "ask to speak" (FR-LIV-005/008, SI-005).
+///
+/// The row is the authority. A learner publishes because a teacher approved a
+/// request and the media service minted a token scoped to this session; no
+/// client-side flag grants it, so modified local state achieves nothing.
+model MediaPublishRequest {
+  id            String                   @id @default(uuid()) @db.Uuid
+  sessionId     String                   @map("session_id") @db.Uuid
+  learnerUserId String                   @map("learner_user_id") @db.Uuid
+  state         MediaPublishRequestState @default(pending)
+  /// FR-LIV-005: sharing a screen is a separate grant, not implied by speaking.
+  screenShare   Boolean                  @default(false) @map("screen_share")
+  requestedAt   DateTime                 @default(now()) @map("requested_at") @db.Timestamptz(6)
+  decidedAt     DateTime?                @map("decided_at") @db.Timestamptz(6)
+  /// The teacher who approved or dismissed. Never the learner.
+  decidedBy     String?                  @map("decided_by") @db.Uuid
+  revokedAt     DateTime?                @map("revoked_at") @db.Timestamptz(6)
+  revokedBy     String?                  @map("revoked_by") @db.Uuid
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  learner User    @relation(fields: [learnerUserId], references: [id])
+
+  /// The teacher's queue reads pending requests for one session, in order.
+  @@index([sessionId, state, requestedAt])
+  @@map("media_publish_requests")
+}
+
+/// `exam_device_checks` — FR-LIV-016, the §4.2 pre-exam gate.
+model ExamDeviceCheck {
+  id                String   @id @default(uuid()) @db.Uuid
+  attemptId         String   @unique @map("attempt_id") @db.Uuid
+  micWorking        Boolean  @map("mic_working")
+  cameraWorking     Boolean  @map("camera_working")
+  bandwidthKbps     Int?     @map("bandwidth_kbps")
+  /// The learner's acknowledgement of the §4.2.3 disclosure, with the version
+  /// of the wording they were actually shown.
+  disclosureVersion String   @map("disclosure_version") @db.VarChar(20)
+  acknowledgedAt    DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@map("exam_device_checks")
+}
+
+/// `proctor_events` — the degradation ladder of §4.3.
+model ProctorEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  attemptId  String           @map("attempt_id") @db.Uuid
+  kind       ProctorEventKind
+  occurredAt DateTime         @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// Measured cause, so a reviewer can tell a collapsing link from a covered lens.
+  detail     Json?
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, occurredAt])
+  @@map("proctor_events")
+}
+
+/// `proctor_flags` — noise flags. Three escalate to a human; none terminates.
+///
+/// `sequence` is the flag's ordinal within the attempt, which is what drives
+/// the §4.3 ladder. It is stored rather than counted at read time, so the
+/// notice a learner actually saw is reconstructable afterwards.
+model ProctorFlag {
+  id                 String          @id @default(uuid()) @db.Uuid
+  attemptId          String          @map("attempt_id") @db.Uuid
+  kind               ProctorFlagKind @default(sustained_background_noise)
+  sequence           Int
+  occurredAt         DateTime        @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// What actually tripped the detector, kept so Q1 can be calibrated against
+  /// real attempts rather than guessed a second time.
+  peakDb             Decimal?        @map("peak_db") @db.Decimal(6, 2)
+  sustainedMs        Int             @map("sustained_ms")
+  /// Short audio clip. FR-FIL-001 applies: nothing is served before it scans.
+  evidenceKey        String?         @map("evidence_key") @db.VarChar(500)
+  evidenceScanStatus String          @default("pending") @map("evidence_scan_status") @db.VarChar(20)
+  /// Q3: retention for proctoring evidence is undecided, so the expiry rides on
+  /// the row rather than being assumed from the recording policy.
+  evidenceUntil      DateTime?       @map("evidence_until") @db.Timestamptz(6)
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, sequence])
+  @@index([attemptId, occurredAt])
+  @@map("proctor_flags")
+}
+
+/// `attempt_reviews` — the human decision FR-AI-005 requires.
+model AttemptReview {
+  id               String    @id @default(uuid()) @db.Uuid
+  attemptId        String    @map("attempt_id") @db.Uuid
+  openedAt         DateTime  @default(now()) @map("opened_at") @db.Timestamptz(6)
+  reviewerId       String?   @map("reviewer_id") @db.Uuid
+  decidedAt        DateTime? @map("decided_at") @db.Timestamptz(6)
+  /// `upheld` | `dismissed` | `voided`. A void requires `reviewerId`.
+  outcome          String?   @db.VarChar(20)
+  rationale        String?   @db.Text
+  /// Q2: the learner is told a review is open and may respond before a decision.
+  learnerStatement String?   @map("learner_statement") @db.Text
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([decidedAt])
+  @@map("attempt_reviews")
+}
+
+/// `recording_playback` — resume where the learner stopped (§3).
+model RecordingPlayback {
+  recordingId String   @map("recording_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  positionSec Int      @default(0) @map("position_sec")
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recording Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([recordingId, userId])
+  @@map("recording_playback")
+}
+
+/// `message_threads` — FR-SAF-001: all contact stays inside the platform.
+model MessageThread {
+  id               String            @id @default(uuid()) @db.Uuid
+  kind             MessageThreadKind
+  /// The child the thread concerns, which is what gives a guardian its reach
+  /// (FR-SAF-003). Null only for a support thread opened by an adult.
+  learnerId        String?           @map("learner_id") @db.Uuid
+  teacherUserId    String?           @map("teacher_user_id") @db.Uuid
+  subjectId        String?           @map("subject_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastMessageAt    DateTime?         @map("last_message_at") @db.Timestamptz(6)
+  /// §5.4: a thread under investigation cannot have messages deleted from it.
+  safeguardingHold Boolean           @default(false) @map("safeguarding_hold")
+
+  learner      Learner?            @relation(fields: [learnerId], references: [id])
+  messages     Message[]
+  participants ThreadParticipant[]
+
+  @@index([learnerId, lastMessageAt])
+  @@index([teacherUserId, lastMessageAt])
+  @@map("message_threads")
+}
+
+model ThreadParticipant {
+  threadId String   @map("thread_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  /// A guardian is a participant for reading (FR-SAF-003) without being a party
+  /// to the conversation, so posting rights are explicit rather than implied.
+  mayPost  Boolean  @default(true) @map("may_post")
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  /// When this participant last opened the thread. Unread is everything after
+  /// it, so the count is derived rather than stored — a stored counter drifts
+  /// the first time a write fails halfway through.
+  lastReadAt DateTime? @map("last_read_at") @db.Timestamptz(6)
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, userId])
+  @@index([userId])
+  @@map("thread_participants")
+}
+
+/// `messages` — soft delete only.
+///
+/// DAT-006 and FR-SAF-006 make this append-only in effect: `state` hides a
+/// message from the conversation and nothing removes `body`. A silent deletion
+/// would let a teacher erase an inappropriate message from a child's view, or a
+/// learner erase evidence of harassment, which is exactly what the tombstone
+/// prevents. There is no hard-delete path for any role — erasure is a
+/// documented data-subject workflow with legal sign-off (NFR-PRV-004).
+model Message {
+  id           String       @id @default(uuid()) @db.Uuid
+  threadId     String       @map("thread_id") @db.Uuid
+  senderUserId String       @map("sender_user_id") @db.Uuid
+  /// What the recipient sees: FR-SAF-002 redaction already applied.
+  body         String       @db.Text
+  /// What was actually typed, retained as safeguarding evidence when redaction
+  /// changed something. Null when the two would be identical.
+  bodyOriginal String?      @map("body_original") @db.Text
+  state        MessageState @default(visible)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  editedAt     DateTime?    @map("edited_at") @db.Timestamptz(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy    String?      @map("deleted_by") @db.Uuid
+
+  thread      MessageThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender      User                @relation(fields: [senderUserId], references: [id])
+  attachments MessageAttachment[]
+  versions    MessageVersion[]
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+/// Edit history. The displayed message is marked edited; every prior body stays.
+model MessageVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  messageId  String   @map("message_id") @db.Uuid
+  body       String   @db.Text
+  replacedAt DateTime @default(now()) @map("replaced_at") @db.Timestamptz(6)
+
+  message Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, replacedAt])
+  @@map("message_versions")
+}
+
+model MessageAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Null between signing the upload and sending the message it belongs to.
+  /// Attaching at send time means a 20 MB video uploading over 3G does not
+  /// leave an empty bubble sitting in a child's conversation meanwhile.
+  messageId   String?  @map("message_id") @db.Uuid
+  fileName    String   @map("file_name") @db.VarChar(300)
+  storageKey  String   @map("storage_key") @db.VarChar(500)
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  sizeBytes   Int      @map("size_bytes")
+  /// FR-FIL-001: quarantined until it passes, and the uploader is told.
+  scanStatus  String   @default("pending") @map("scan_status") @db.VarChar(20)
+  /// Voice notes carry a duration so the §5.3 cap is enforceable and the
+  /// recipient sees the cost before playing it (NFR-BAN-002).
+  durationSec Int?     @map("duration_sec")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachments")
 }

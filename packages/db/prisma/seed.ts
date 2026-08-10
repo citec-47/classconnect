@@ -20,7 +20,7 @@ const LEVELS: {
   code: string;
   nameEn: string;
   nameFr: string;
-  schoolType: 'primary' | 'secondary';
+  schoolType: 'primary' | 'secondary' | 'sixth_form';
   category: string;
 }[] = [
   // Primary school — Class 1 to Class 6.
@@ -44,14 +44,14 @@ const LEVELS: {
     code: 'LOWER_SIXTH',
     nameEn: 'Lower Sixth',
     nameFr: 'Première',
-    schoolType: 'secondary' as const,
+    schoolType: 'sixth_form' as const,
     category: 'high_school',
   },
   {
     code: 'UPPER_SIXTH',
     nameEn: 'Upper Sixth',
     nameFr: 'Terminale',
-    schoolType: 'secondary' as const,
+    schoolType: 'sixth_form' as const,
     category: 'high_school',
   },
 

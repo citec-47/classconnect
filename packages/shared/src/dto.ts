@@ -50,8 +50,22 @@ export const otpCodeSchema = z.string().regex(/^\d{6}$/, 'errors.otp.format');
  * registration needs it first, and a `const` referenced before its declaration
  * throws when the module loads.
  */
-export const schoolTypeSchema = z.enum(['primary', 'secondary']);
+export const schoolTypeSchema = z.enum(['primary', 'secondary', 'sixth_form']);
 export type SchoolType = z.infer<typeof schoolTypeSchema>;
+
+/**
+ * The three bands, in the order they are taught and displayed.
+ *
+ * Exported as data so the filters, the pickers and the grouping on the admin
+ * screens all order them the same way, and so adding a fourth band later is one
+ * edit rather than a search for every hard-coded list.
+ */
+export const SCHOOL_TYPES: readonly SchoolType[] = ['primary', 'secondary', 'sixth_form'];
+
+/** Message key for a band label, resolved against the EN/FR catalogues. */
+export function schoolTypeLabelKey(schoolType: SchoolType): string {
+  return `schoolType.${schoolType === 'sixth_form' ? 'sixthForm' : schoolType}`;
+}
 
 // ---------------------------------------------------------------------------
 // Registration and authentication — FR-AUT-001..008
@@ -194,6 +208,20 @@ export const passwordResetConfirmSchema = z.object({
   code: otpCodeSchema.optional(),
   newPassword: passwordSchema,
 });
+
+/**
+ * NFR-LOC-003: an explicit language override, persisted to the profile and
+ * applied to every channel.
+ *
+ * The switcher already writes a cookie, which is enough for what the user can
+ * see. This is for everything they cannot: reminders, receipts and safeguarding
+ * notices are composed server-side from `preferredLanguage`, long after the
+ * browser that made the choice has gone.
+ */
+export const updatePreferredLanguageSchema = z.object({
+  preferredLanguage: languageSchema,
+});
+export type UpdatePreferredLanguageInput = z.infer<typeof updatePreferredLanguageSchema>;
 
 // ---------------------------------------------------------------------------
 // Family — FR-FAM-001..006

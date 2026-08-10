@@ -44,15 +44,84 @@ const nextConfig = {
   },
 
   async headers() {
-    const csp = [
-      "default-src 'self'",
+    const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+    /**
+     * COM-002: the admin badge stream is a WebSocket to the same API origin.
+     *
+     * CSP does not infer `ws:` from an `http:` source — an unlisted socket is
+     * refused by the browser before it reaches the network. So the API origin is
+     * listed under both schemes.
+     *
+     * This matters only where the API runs as a long-running process. On a
+     * serverless deployment there is no socket to open and the client is told so
+     * (`pushEnabled`), but the directive is harmless there and its absence would
+     * be a silent failure the moment the API moved to a host that has one.
+     */
+    const socketOrigin = apiOrigin.replace(/^http/, 'ws');
+
+    /**
+     * NFR-SEC-006 keeps a strict CSP in production. Development needs one more
+     * source, and only development.
+     *
+     * Next's dev server compiles modules with an eval-based source map so that
+     * hot module replacement can swap them. Under `script-src 'self'
+     * 'unsafe-inline'` the browser refuses that outright:
+     *
+     *   EvalError: Evaluating a string as JavaScript violates the following
+     *   Content Security Policy directive ...
+     *
+     * The consequence is not a warning in the console — it is that the client
+     * bundle never runs. React does not hydrate, so no `onClick` and no
+     * `onChange` is ever attached, on any page. Every control renders correctly
+     * and does nothing: the language switch ignores clicks, and a submit button
+     * disabled on empty state can never become enabled because typing updates no
+     * state. It reads exactly like a broken application, which is what makes it
+     * worth this much explanation.
+     *
+     * Production bundles are compiled, not evaluated, so the directive is added
+     * only when this is not a production build — the strict policy the
+     * requirement asks for is the one that ships.
+     */
+    const scriptSrc = [
+      "'self'",
       // Next.js injects inline bootstrap scripts; 'unsafe-inline' is scoped to
       // script-src only and paired with strict everything else.
-      "script-src 'self' 'unsafe-inline'",
+      "'unsafe-inline'",
+      ...(process.env.NODE_ENV === 'production' ? [] : ["'unsafe-eval'"]),
+    ].join(' ');
+
+    /*
+     * Message attachments are delivered from the storage CDN, so it has to be
+     * named here. NFR-SEC-006 asks for a strict policy, not an empty one — and
+     * a policy that blocks the product's own images is strict in the way a
+     * locked door with the key inside is secure.
+     *
+     * A constant, not read from the environment.
+     *
+     * The first attempt gated this on `CLOUDINARY_CLOUD_NAME` — but Next reads
+     * env files from `apps/web`, not from the monorepo root where that variable
+     * lives. It resolved to an empty string, the policy was unchanged, and the
+     * images stayed blocked with the config looking correct.
+     *
+     * Nothing is lost by hard-coding the host: assets are stored
+     * `authenticated`, so nothing at `res.cloudinary.com` is publicly fetchable
+     * — the CDN demands a signature no client can produce, whichever tenant the
+     * path belongs to.
+     *
+     * `media-src` is separate: video and voice notes come from the same host and
+     * `img-src` does not cover them.
+     */
+    const storageOrigin = 'https://res.cloudinary.com';
+
+    const csp = [
+      "default-src 'self'",
+      `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      `img-src 'self' data: blob: ${storageOrigin}`.trim(),
+      `media-src 'self' blob: ${storageOrigin}`.trim(),
       "font-src 'self' data:",
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}`,
+      `connect-src 'self' ${apiOrigin} ${socketOrigin}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

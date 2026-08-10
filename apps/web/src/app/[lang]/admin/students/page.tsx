@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
+import { useAutoRecover } from '@/lib/use-auto-recover';
 import { api, ApiError } from '@/lib/api';
 import { ErrorAlert, EmptyState } from '@/components/Alert';
 import type { SchoolType } from '@/components/SchoolTypePicker';
@@ -41,6 +42,13 @@ export default function AdminStudents() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+   * AS-08: a screen that failed while the API was restarting must not stay
+   * failed once it answers again. Retries on reconnect, on refocus, and
+   * slowly while the error stands.
+   */
+  useAutoRecover(load, error !== null);
 
   const name = (item: { nameEn: string; nameFr: string }) =>
     language === 'fr' ? item.nameFr : item.nameEn;

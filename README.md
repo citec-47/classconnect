@@ -122,7 +122,7 @@ this diagnosis if the permission is still missing.
 
 ### Prerequisites
 
-Node.js 20.11+ and either Docker or the no-Docker fallback below.
+Node.js 20.11+. Nothing else — no Docker, no system PostgreSQL.
 
 ### 1. Configuration
 
@@ -141,22 +141,32 @@ node -e "console.log('FIELD_ENCRYPTION_KEY='+require('crypto').randomBytes(32).t
 
 ### 2. Database
 
-PostgreSQL 16 and Redis 7, per §2.4. Either a managed instance (set
-`DATABASE_URL`) or locally:
+PostgreSQL 15+, per §2.4. Two options, and both need **`DATABASE_URL` and
+`DIRECT_DATABASE_URL`** set — Prisma requires the second whenever the schema
+declares `directUrl`, and there is no implicit fallback.
+
+**Managed** (what the deployed platform uses — Neon, Supabase or Vercel
+Postgres). `DATABASE_URL` is the **pooled** connection and `DIRECT_DATABASE_URL`
+the unpooled one. Migrations take an advisory lock and run DDL, neither of which
+survives a transaction-mode pooler.
+
+**Local**, in a separate terminal — real PostgreSQL binaries run as a child
+process of npm, so there is nothing to install and nothing to clean up:
 
 ```bash
-npm run db:up          # docker compose up -d postgres redis
+npm run db:local        # foreground; Ctrl+C to stop
 ```
 
-**Without Docker** (Windows workstations where Docker Desktop is unavailable) —
-runs the official PostgreSQL binaries as a child process on the same port and
-credentials, so `DATABASE_URL` is unchanged:
+Set both URLs to the same value for this one, since it has no pooler in front of
+it:
 
-```bash
-node packages/db/scripts/local-postgres.mjs start
+```
+DATABASE_URL=postgresql://classconnect:classconnect_dev@localhost:5433/classconnect?schema=public
+DIRECT_DATABASE_URL=postgresql://classconnect:classconnect_dev@localhost:5433/classconnect?schema=public
 ```
 
-Development only. It is not a deployment mechanism.
+Development only. It is not a deployment mechanism, and the binaries are
+optional dependencies so a hosting platform never installs them.
 
 ### 3. Migrate and seed
 
@@ -171,6 +181,20 @@ protections: `ledger_entries` and `audit_log` reject UPDATE and DELETE at the
 database, a deferred trigger asserts every ledger transaction nets to zero, and
 partial unique indexes prevent learner double-booking and overlapping active
 subscriptions.
+
+The fourth (`admin_dashboard`) adds the same kind of protection for the admin
+surface: safeguarding evidence cannot be deleted (FR-SAF-006), invoice numbers
+come from a gapless sequence (FR-PAY-016), a schedule's instalments must sum
+exactly to its total (FR-LDG-005), and an automatic freeze must name the
+instalment that caused it (§5.3).
+
+§8 requires those to be proven rather than asserted, so they have a suite of
+their own — none of them can be tested from application code, because the thing
+under test is the database refusing what the application asked for:
+
+```bash
+node apps/api/test/e2e/db-guards.e2e.mjs
+```
 
 ### 4. Create the first administrator
 

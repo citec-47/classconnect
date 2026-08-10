@@ -17,6 +17,24 @@
  * Raising these numbers to the NFR-MNT-002 targets means adding in-process
  * integration tests that boot the Nest application against a throwaway
  * database. That work is tracked as part of the verification matrix (§9.1).
+ *
+ * The admin surface widened that gap rather than closing it. Its *rules* are
+ * unit tested and its *services* are not:
+ *
+ *   covered   — the earnings pool and its distribution, instalment schedules,
+ *               the freeze rule, payout blocking, the role and badge tables.
+ *               These live in `@classconnect/shared` as pure functions
+ *               precisely so they can be tested without a database, which is
+ *               why they carry the acceptance criteria that name exact francs.
+ *   not yet   — the Nest services that persist those decisions. Whether paying
+ *               an instalment actually lifts an automatic freeze but not a
+ *               manual one, and whether the ledger and audit tables reject
+ *               UPDATE and DELETE, are database behaviours. §8 requires both to
+ *               be proven "by test, not by inspection", and proving them needs
+ *               a live Postgres in `test/e2e`.
+ *
+ * `collectCoverageFrom` covers `src/` only, so the shared engines' own coverage
+ * does not appear in these figures at all.
  */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
@@ -35,7 +53,7 @@ module.exports = {
     // path-thresholded files from this pool, so this figure covers the
     // as-yet-unintegration-tested service layer only. Ratchet it upwards as
     // integration tests land; never lower it to accommodate a regression.
-    global: { lines: 2.5, statements: 3, branches: 0.5, functions: 1.5 },
+    global: { lines: 6, statements: 5.9, branches: 4.7, functions: 4.8 },
     // FR-RBA-002/005 are fully unit tested, so this module already meets the
     // NFR-MNT-002 bar for authorisation and must not regress below it.
     './src/rbac/permissions.guard.ts': { lines: 95, statements: 95 },

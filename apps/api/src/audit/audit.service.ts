@@ -89,6 +89,7 @@ export type AuditAction =
   | 'message.attachment_uploaded'
   | 'message.attachment_quarantined'
   | 'subscription.registered'
+  | 'payment.schedule_updated'
   | 'payment.stage_adjusted'
   | 'support.thread_read'
   | 'support.replied'

@@ -10,6 +10,7 @@ import { PageHeader, Table, Th, Td, StateChip } from '@/components/admin/ui';
 import { RecordPaymentDialog } from '@/components/admin/RecordPaymentDialog';
 import { SetFeeStageDialog } from '@/components/admin/SetFeeStageDialog';
 import { RegisterLearnerDialog } from '@/components/admin/RegisterLearnerDialog';
+import { EditPlanDialog } from '@/components/admin/EditPlanDialog';
 import { LEVEL_ACCENT } from '@/lib/subject-accent';
 
 /**
@@ -55,6 +56,7 @@ interface FeeRow {
   totalXaf: string;
   outstandingXaf: string;
   nextDueOn: string | null;
+  parts: { sequence: number; state: string; amountXaf: string; dueOn: string | null }[];
 }
 
 /** Collapses the catalogue's sixteen levels into the four an operator thinks in. */
@@ -85,6 +87,7 @@ export default function StudentsFees() {
   const [recording, setRecording] = useState<FeeRow | null>(null);
   const [staging, setStaging] = useState<FeeRow | null>(null);
   const [registering, setRegistering] = useState<FeeRow | null>(null);
+  const [editingPlan, setEditingPlan] = useState<FeeRow | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -244,6 +247,13 @@ export default function StudentsFees() {
                         >
                           {t('payments.setStage')}
                         </button>
+                        <button
+                          type="button"
+                          className="text-left text-xs text-ink-600 underline"
+                          onClick={() => setEditingPlan(row)}
+                        >
+                          {t('payments.editPlan')}
+                        </button>
                       </span>
                     ) : (
                       <button
@@ -260,6 +270,23 @@ export default function StudentsFees() {
             </tbody>
           </Table>
         </div>
+      )}
+
+      {editingPlan && editingPlan.subscriptionId && (
+        <EditPlanDialog
+          row={{
+            subscriptionId: editingPlan.subscriptionId,
+            learner: editingPlan.learner,
+            totalXaf: editingPlan.totalXaf,
+            parts: editingPlan.parts ?? [],
+          }}
+          onClose={() => setEditingPlan(null)}
+          onSaved={(message) => {
+            setEditingPlan(null);
+            setDone(message);
+            void load();
+          }}
+        />
       )}
 
       {registering && (

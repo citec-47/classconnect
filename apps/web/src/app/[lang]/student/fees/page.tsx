@@ -116,14 +116,8 @@ export default function StudentFees() {
                       key={notice.id}
                       className="rounded-xl border-l-4 border-ink-300 border-l-brand-600 bg-white p-3.5"
                     >
-                      <p className="text-sm text-ink-900">
-                        {t(`notifications.${notice.eventType}.body`, {
-                          ...notice.params,
-                          ...(notice.params.stage
-                            ? { stage: t(`payments.stage.${String(notice.params.stage)}`) }
-                            : {}),
-                        })}
-                      </p>
+                      {/* The text the family was actually sent, verbatim. */}
+                      <p className="text-sm text-ink-900">{notice.body}</p>
                       <p className="mt-1 text-xs text-ink-600">
                         {fullDate(new Date(notice.at), language)}
                       </p>

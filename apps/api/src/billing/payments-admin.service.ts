@@ -705,6 +705,13 @@ export class PaymentsAdminService {
           outstandingXaf: outstanding.toString(),
           nextDueOn:
             instalments.find((i) => i.state !== 'paid' && i.state !== 'cancelled')?.dueOn ?? null,
+          // Enough for the plan editor to open without a second round trip.
+          parts: instalments.map((i) => ({
+            sequence: i.sequence,
+            state: i.state,
+            amountXaf: i.amountXaf.toString(),
+            dueOn: i.dueOn ? i.dueOn.toISOString().slice(0, 10) : null,
+          })),
         };
       })
       .filter(
@@ -1013,6 +1020,121 @@ export class PaymentsAdminService {
     });
 
     return { subscriptionId: subscription.id, scheduleId: schedule.id };
+  }
+
+
+  /**
+   * Edit the payment plan: what each part costs, and when it falls due.
+   *
+   * A plan set at registration is a starting point, not a contract carved in
+   * stone — families negotiate, a term is shortened, a sibling discount is
+   * agreed. Without this an operator's only recourse was to void and re-create,
+   * which loses the history.
+   *
+   * Three rules hold, and they are the reason this is not just an UPDATE:
+   *
+   *  1. **Parts must sum exactly to the total.** §5.1 requires it, and a plan
+   *     whose parts do not add up produces a balance nobody can explain.
+   *  2. **A settled part cannot be re-priced.** Money has already moved against
+   *     it; changing the figure afterwards would make the ledger disagree with
+   *     the schedule. Use Set status to reverse it first if that is really the
+   *     intent.
+   *  3. **Whole francs only** (CON-02). XAF has no subunit.
+   *
+   * The learner and the payer are told, because a due date moving is exactly the
+   * kind of change a family needs to hear about before it surprises them.
+   */
+  async updateSchedule(input: {
+    subscriptionId: string;
+    parts: { sequence: number; amountXaf: number; dueOn: string }[];
+    reason: string;
+    actorId: string;
+  }) {
+    const reason = input.reason.trim();
+    if (reason.length < 3) throw AppError.badRequest('errors.adjustment.reason_required');
+
+    const schedule = await this.prisma.paymentSchedule.findFirst({
+      where: { subscriptionId: input.subscriptionId },
+      select: {
+        id: true,
+        totalXaf: true,
+        instalments: {
+          orderBy: { sequence: 'asc' },
+          select: { id: true, sequence: true, state: true, amountXaf: true, dueOn: true },
+        },
+      },
+    });
+    if (!schedule) throw AppError.notFound();
+
+    // CON-02: integers, and nothing negative.
+    if (input.parts.some((part) => !Number.isInteger(part.amountXaf) || part.amountXaf < 0)) {
+      throw AppError.badRequest('errors.schedule.whole_francs');
+    }
+
+    const total = input.parts.reduce((sum, part) => sum + BigInt(part.amountXaf), 0n);
+    if (total !== schedule.totalXaf) {
+      throw AppError.badRequest('errors.schedule.must_sum_to_total', {
+        total: schedule.totalXaf.toString(),
+        given: total.toString(),
+      });
+    }
+
+    for (const part of input.parts) {
+      const existing = schedule.instalments.find((i) => i.sequence === part.sequence);
+      if (!existing) throw AppError.badRequest('errors.schedule.unknown_part');
+      if (existing.state === 'paid' && BigInt(part.amountXaf) !== existing.amountXaf) {
+        throw AppError.badRequest('errors.schedule.part_already_paid', {
+          number: part.sequence,
+        });
+      }
+    }
+
+    const before = schedule.instalments.map((i) => ({
+      sequence: i.sequence,
+      amountXaf: i.amountXaf.toString(),
+      dueOn: i.dueOn.toISOString().slice(0, 10),
+    }));
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const part of input.parts) {
+        const existing = schedule.instalments.find((i) => i.sequence === part.sequence)!;
+        await tx.instalment.update({
+          where: { id: existing.id },
+          data: {
+            amountXaf: BigInt(part.amountXaf),
+            dueOn: new Date(`${part.dueOn}T00:00:00.000Z`),
+            adjustedBy: input.actorId,
+            adjustmentReason: reason,
+          },
+        });
+      }
+    });
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: input.subscriptionId },
+      select: { payerUserId: true, learner: { select: { userId: true, fullName: true } } },
+    });
+    if (subscription) {
+      const targets = new Set(
+        [subscription.payerUserId, subscription.learner.userId].filter(Boolean) as string[],
+      );
+      for (const target of targets) {
+        await this.notifications
+          .notifyUser(target, 'fees.plan_changed', { learner: subscription.learner.fullName })
+          .catch(() => undefined);
+      }
+    }
+
+    await this.audit.record({
+      action: 'payment.schedule_updated',
+      entity: 'payment_schedule',
+      entityId: schedule.id,
+      actorId: input.actorId,
+      before: { parts: before },
+      after: { parts: input.parts, reason },
+    });
+
+    return { ok: true };
   }
 
 }

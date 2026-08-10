@@ -1,6 +1,6 @@
-# Fees page: amounts, and a design that answers the real question
+# Admin can edit the payment plan
 
-5 files. Unzip over the repository root.
+10 files. Unzip over the repository root.
 
 ```powershell
 npm run build --workspace @classconnect/shared
@@ -11,44 +11,43 @@ No migration.
 
 ---
 
-## Two bugs fixed
+## Edit plan
 
-**The notice rendered as `notifications.fees.registered.body`.** `t()` splits keys
-on dots, so it was looking for notifications → fees → registered → body while the
-catalogue held a single quoted key `'fees.registered'`. That path could never
-resolve. The keys are nested properly now.
+New **Edit plan** action on every registered row of Students — fees. Change what
+each part costs and when it falls due; the student's Fees page shows the new
+figures and dates immediately, and both the learner and the payer are notified.
 
-**No amounts anywhere.** Withheld deliberately — a bill is the payer's business
-and a child should not be handed one they cannot act on (FR-PAY-003). That stops
-making sense the moment guardians sign in through the learner's account, because
-the rule then guarantees the *payer* never sees what they owe. Amounts are shown.
+Three rules the server enforces, surfaced in the dialog **before** the save
+rather than after a rejection:
 
-The copy still names whose responsibility the money is, so a child reading their
-own screen is not left feeling it is theirs to solve.
+1. **The parts must add up to the total** (§5.1). A running sum is shown live and
+   Save stays disabled until it matches, so the constraint is visible while it is
+   being broken.
+2. **A settled part cannot be re-priced.** Money has already moved against it, and
+   changing the figure would make the ledger disagree with the schedule. Those
+   rows are locked and say why. Reverse it with Set status first if that is
+   genuinely the intent.
+3. **Whole francs only** (CON-02). XAF has no subunit.
 
-## The redesign
+A reason is required, and the change is audited with the before and after.
 
-Built around the question a reader actually has — not "what is my status" but
-**"how much is left, and when is it due?"**
+## Bug fixed: `{learner}` showing literally
 
-- **The outstanding amount is the headline**, in large figures.
-- **A progress bar** showing how far through the plan they are, with the same
-  fact in words underneath, since the bar alone is not readable to everyone
-  (UI-003).
-- **Each part carries its own amount and date.** Settled parts get a tick and the
-  amount struck through; the part that is due gets a brand border; an overdue one
-  gets a red border.
-- **Recent updates** below, with a coloured edge, newest first.
+`payloadJson` stores the **rendered** subject and body — the notification service
+interpolates before it stores, because the same text goes out by SMS and email
+where there is no client to render it.
 
-Money is `15 000 FCFA` throughout — whole francs, thousands separated (UI-009).
+I had been passing that payload as interpolation *parameters*, so `{learner}`
+had nothing to substitute. The page now shows the stored text verbatim, which is
+also a more honest record: it is exactly what the family was sent.
 
-## The trade I made, stated plainly
+## The three admin actions, and when to use which
 
-The safer long-term shape is a **guardian login of its own**: the payer sees full
-amounts, the child's view stays stage-only. `guardian_learners` already models
-it, and the SRS assumes it.
+| Action | Use when |
+|---|---|
+| **Record payment** | Money was actually received. Cash account, numbered invoice, instalments settled in sequence. |
+| **Edit plan** | The amounts or dates themselves are wrong or renegotiated. |
+| **Set status** | The status needs correcting without a payment — a waiver, a mistaken entry, fees recorded elsewhere. Posts a balancing ledger entry. |
 
-Showing amounts on the learner's screen is the right call *given* guardians share
-that login today — but it does mean a child on a frozen account sees a bill they
-cannot act on. Worth revisiting before launch rather than leaving as an accident.
-I can build the guardian surface whenever you want it.
+All three require `finance:record_payment`, all three demand a reason, and all
+three are audited.

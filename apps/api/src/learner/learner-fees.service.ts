@@ -143,21 +143,30 @@ export class LearnerFeesService {
       stages,
       payer: isOwnPayer ? 'self' : 'guardian',
       /*
-       * The event and its parameters, not rendered text.
+       * The message exactly as it was sent.
        *
-       * `Notification` stores a template reference and a payload rather than a
-       * finished string — right, because one event may go out on four channels.
-       * Rendering here would also freeze the message in whichever language was
-       * current when it was sent; rendering on the client means a guardian who
-       * switches to French sees French, including for messages sent last month
-       * (NFR-LOC-003).
+       * `payloadJson` holds the *rendered* subject and body — the notification
+       * service interpolates before it stores, because the same text goes out by
+       * SMS and email where there is no client to render it.
+       *
+       * So this returns that text rather than re-rendering. An earlier version
+       * passed the payload as interpolation parameters and produced a literal
+       * "{learner}" on screen, which is what happens when you assume a store
+       * holds inputs and it holds outputs.
+       *
+       * The trade: a message is frozen in the language it was sent in. That is
+       * arguably right for a record of what somebody was told, and it matches
+       * the SMS they received.
        */
-      notices: notices.map((notice) => ({
-        id: notice.id,
-        eventType: notice.eventType,
-        params: (notice.payloadJson ?? {}) as Record<string, string | number>,
-        at: notice.createdAt.toISOString(),
-      })),
+      notices: notices.map((notice) => {
+        const payload = (notice.payloadJson ?? {}) as { body?: string };
+        return {
+          id: notice.id,
+          eventType: notice.eventType,
+          body: payload.body ?? '',
+          at: notice.createdAt.toISOString(),
+        };
+      }),
     };
 
     dto.totalXaf = Number(schedule.totalXaf);

@@ -259,14 +259,14 @@ export interface FeeNoticeDto {
   /** e.g. `fees.status_changed`. Rendered client-side from `notifications.<eventType>.body`. */
   eventType: string;
   /**
-   * The values the message interpolates.
+   * The message as it was sent, already rendered.
    *
-   * The event and its parameters travel rather than a finished sentence, so a
-   * guardian who switches language sees the new one — including for messages
-   * sent weeks ago (NFR-LOC-003). A rendered string would be frozen in whatever
-   * language was current when it was sent.
+   * The notification service interpolates before storing, because the same text
+   * goes out by SMS and email where there is no client to render it. Returning
+   * it verbatim also makes this an accurate record of what the family was
+   * actually told.
    */
-  params: Record<string, string | number>;
+  body: string;
   at: IsoInstant;
 }
 

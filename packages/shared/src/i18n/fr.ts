@@ -801,6 +801,16 @@ export const fr: Messages = {
     startOn: 'Frais à partir du',
     registerConsequence:
       'Cela crée l’abonnement et son échéancier pour {total}. « Enregistrer le paiement » et « Modifier l’état » deviennent disponibles sur cette ligne.',
+    editPlan: 'Modifier le plan',
+    editPlanTitle: 'Modifier le plan de paiement',
+    planUpdated: 'Plan de paiement mis à jour pour {learner}.',
+    savePlan: 'Enregistrer le plan',
+    amount: 'Montant (FCFA)',
+    dueOn: 'Échéance',
+    partsSum: 'Les tranches totalisent {sum} sur {total}',
+    mustMatch: 'elles doivent correspondre exactement',
+    editPlanConsequence:
+      'Les tranches doivent totaliser le montant global. Une tranche déjà payée ne peut pas être modifiée. L’élève et le payeur sont prévenus, et la modification est enregistrée avec ton nom et ton motif.',
     feesTitle: 'Élèves — frais',
     feesSubtitle: 'Tous les élèves inscrits, et où en sont leurs frais.',
     student: 'Élève',
@@ -1203,6 +1213,12 @@ export const fr: Messages = {
       super_admin_only: 'Seul un super administrateur peut attribuer ou retirer des rôles.',
       cannot_remove_last_super_admin: 'Il doit rester au moins un super administrateur.',
     },
+    schedule: {
+      whole_francs: 'Les montants doivent être en francs entiers.',
+      must_sum_to_total: 'Les tranches totalisent {given}, alors que le total est {total}.',
+      unknown_part: 'Cette tranche ne fait pas partie de ce plan.',
+      part_already_paid: 'La tranche {number} est déjà payée et ne peut pas être modifiée.',
+    },
     subscription: {
       no_payer:
         'Cet élève n’a ni tuteur associé ni compte personnel : il n’y a personne à facturer. Associe d’abord un tuteur, ou convertis-le en apprenant adulte.',
@@ -1240,6 +1256,10 @@ export const fr: Messages = {
       status_changed: {
         subject: 'État des frais mis à jour',
         body: 'L’état des frais de {learner} est maintenant {stage}.',
+      },
+      plan_changed: {
+        subject: 'Plan de paiement modifié',
+        body: 'Le plan de paiement de {learner} a été mis à jour. Les nouvelles dates et montants sont sur la page Frais.',
       },
       payment_received: {
         subject: 'Paiement reçu',

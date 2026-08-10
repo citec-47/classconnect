@@ -824,6 +824,16 @@ export const en = {
     startOn: 'Fees start from',
     registerConsequence:
       'This creates the subscription and its payment schedule for {total}. Record payment and Set status become available on this row.',
+    editPlan: 'Edit plan',
+    editPlanTitle: 'Edit the payment plan',
+    planUpdated: 'Payment plan updated for {learner}.',
+    savePlan: 'Save plan',
+    amount: 'Amount (FCFA)',
+    dueOn: 'Due date',
+    partsSum: 'Parts add up to {sum} of {total}',
+    mustMatch: 'they must match exactly',
+    editPlanConsequence:
+      'The parts must add up to the total. A part that has already been paid cannot be re-priced. The student and the payer are told when the plan changes, and the change is recorded with your name and reason.',
     feesTitle: 'Students — fees',
     feesSubtitle: 'Every registered student, and where their fees stand.',
     student: 'Student',
@@ -1211,6 +1221,12 @@ export const en = {
       super_admin_only: 'Only a super admin can grant or revoke roles.',
       cannot_remove_last_super_admin: 'There has to be at least one super admin.',
     },
+    schedule: {
+      whole_francs: 'Amounts must be whole francs.',
+      must_sum_to_total: 'The parts add up to {given}, but the total is {total}.',
+      unknown_part: 'That part is not in this plan.',
+      part_already_paid: 'Part {number} has already been paid and cannot be re-priced.',
+    },
     subscription: {
       /*
        * Registration errors.
@@ -1254,6 +1270,10 @@ export const en = {
       status_changed: {
         subject: 'Fee status updated',
         body: 'The fee status for {learner} is now {stage}.',
+      },
+      plan_changed: {
+        subject: 'Payment plan changed',
+        body: 'The payment plan for {learner} has been updated. The new dates and amounts are on the Fees page.',
       },
       payment_received: {
         subject: 'Payment received',

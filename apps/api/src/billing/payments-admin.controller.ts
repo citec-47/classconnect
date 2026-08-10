@@ -111,6 +111,23 @@ export class PaymentsAdminController {
     });
   }
 
+  /** Edit the plan: what each part costs and when it falls due. */
+  @Post('subscriptions/:subscriptionId/schedule')
+  @RequirePermissions('finance:record_payment')
+  async updateSchedule(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('subscriptionId') subscriptionId: string,
+    @Body()
+    body: { parts: { sequence: number; amountXaf: number; dueOn: string }[]; reason: string },
+  ) {
+    return this.payments.updateSchedule({
+      subscriptionId,
+      parts: body.parts ?? [],
+      reason: body.reason ?? '',
+      actorId: actor.id,
+    });
+  }
+
   @Get('students/fees')
   @RequirePermissions('finance:read')
   async studentsFees(@Query() query: Record<string, string>) {

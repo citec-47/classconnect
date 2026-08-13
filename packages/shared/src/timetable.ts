@@ -13,9 +13,19 @@
  * then refused, nor warned about a clash the server would have allowed.
  */
 
-/** 1 = Monday … 5 = Friday. The school week the brief describes. */
-export const TIMETABLE_DAYS = [1, 2, 3, 4, 5] as const;
+/**
+ * 1 = Monday … 7 = Sunday.
+ *
+ * Every day the column can hold. Which of them a *class* timetable may use is
+ * `SCHOOL_WEEK_DAYS` in `PlatformConfig` — 5 for the 24/5 default, 6 or 7 when
+ * the platform is set that way — so switching the school week is a
+ * configuration change and not a migration.
+ */
+export const TIMETABLE_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 export type TimetableDay = (typeof TIMETABLE_DAYS)[number];
+
+/** The default: Monday to Friday. */
+export const DEFAULT_SCHOOL_WEEK_DAYS = 5;
 
 /** Message-key suffixes under `timetable.day.` — never day names in code. */
 export const TIMETABLE_DAY_KEYS: Record<TimetableDay, string> = {
@@ -24,9 +34,65 @@ export const TIMETABLE_DAY_KEYS: Record<TimetableDay, string> = {
   3: 'wednesday',
   4: 'thursday',
   5: 'friday',
+  6: 'saturday',
+  7: 'sunday',
 };
 
-export type TimetableSlotState = 'proposed' | 'confirmed' | 'rejected';
+/** The days a class timetable may use, given the configured week length. */
+export function schoolWeekDays(weekDays: number): readonly TimetableDay[] {
+  const days = Math.min(Math.max(Math.trunc(weekDays), 1), 7);
+  return TIMETABLE_DAYS.slice(0, days);
+}
+
+export type TimetableSlotState = 'proposed' | 'confirmed' | 'rejected' | 'on_hold';
+
+/** The three grids a period can sit in. See the Prisma enum for why. */
+export type TimetableSession = 'day' | 'evening' | 'private';
+
+/**
+ * The wall-clock bounds of each session.
+ *
+ * `private` spans the whole day because it is 24/7 by definition — a private
+ * arrangement is timetabled at whatever hour suits the learner and the tutor,
+ * which is the entire point of it.
+ */
+export const TIMETABLE_SESSIONS: Record<
+  TimetableSession,
+  { startMinute: number; endMinute: number }
+> = {
+  day: { startMinute: 8 * 60, endMinute: 15 * 60 },
+  evening: { startMinute: 17 * 60, endMinute: 21 * 60 },
+  private: { startMinute: 0, endMinute: 24 * 60 },
+};
+
+/** One period. Every class grid is built from these. */
+export const TIMETABLE_PERIOD_MINUTES = 45;
+
+/**
+ * FR-TMT: a subject is taught twice a week to a class, and one teacher holds at
+ * most those two periods of it.
+ *
+ * Both numbers are the same rule seen from two sides — the class gets two
+ * periods of Mathematics, and the teacher who claims them cannot claim a third.
+ */
+export const PERIODS_PER_SUBJECT_PER_WEEK = 2;
+
+/** Which session a wall-clock minute falls in, for a non-private class. */
+export function sessionForMinute(startMinute: number): TimetableSession | null {
+  if (
+    startMinute >= TIMETABLE_SESSIONS.day.startMinute &&
+    startMinute < TIMETABLE_SESSIONS.day.endMinute
+  ) {
+    return 'day';
+  }
+  if (
+    startMinute >= TIMETABLE_SESSIONS.evening.startMinute &&
+    startMinute < TIMETABLE_SESSIONS.evening.endMinute
+  ) {
+    return 'evening';
+  }
+  return null;
+}
 
 /** The shape the clash rule needs, and nothing more. */
 export interface TimetableInterval {
@@ -45,7 +111,17 @@ export interface TimetableInterval {
  * child's lesson in the middle of the night on somebody's screen.
  */
 export const TIMETABLE_DAY_START_MINUTE = 7 * 60;
-export const TIMETABLE_DAY_END_MINUTE = 19 * 60;
+/**
+ * 21:00, not the 19:00 this started at.
+ *
+ * The evening session runs 17:00–21:00, so a period beginning at 20:15 is an
+ * ordinary evening lesson — and the old bound refused it as "outside the
+ * teaching day", which would have made the evening grid unusable after seven.
+ *
+ * The private session is exempt: it is 24/7 by definition, and
+ * `validateTimetableSlot` takes the session so it can say so.
+ */
+export const TIMETABLE_DAY_END_MINUTE = 21 * 60;
 
 /** The shortest and longest a single slot may be. */
 export const TIMETABLE_MIN_SLOT_MINUTES = 30;
@@ -99,14 +175,27 @@ export type TimetableProblem =
  * the form render the same sentence in the user's own language (NFR-LOC-001)
  * without either of them owning the wording.
  */
-export function validateTimetableSlot(slot: TimetableInterval): TimetableProblem | null {
+export function validateTimetableSlot(
+  slot: TimetableInterval,
+  session: TimetableSession = 'day',
+): TimetableProblem | null {
   if (!TIMETABLE_DAYS.includes(slot.dayOfWeek as TimetableDay)) {
     return 'errors.timetable.day_out_of_range';
   }
   if (slot.endMinute <= slot.startMinute) return 'errors.timetable.reversed';
+  /*
+   * The private session keeps no hours.
+   *
+   * It exists precisely for learners taught outside school time — an early
+   * morning before work, a Sunday evening — so the bound that protects a class
+   * timetable from a 03:00 typo would be the thing preventing the arrangement
+   * the session is for. The admin sets these slots, so there is a person
+   * choosing the hour rather than a form to mis-key.
+   */
   if (
-    slot.startMinute < TIMETABLE_DAY_START_MINUTE ||
-    slot.endMinute > TIMETABLE_DAY_END_MINUTE
+    session !== 'private' &&
+    (slot.startMinute < TIMETABLE_DAY_START_MINUTE ||
+      slot.endMinute > TIMETABLE_DAY_END_MINUTE)
   ) {
     return 'errors.timetable.outside_teaching_day';
   }

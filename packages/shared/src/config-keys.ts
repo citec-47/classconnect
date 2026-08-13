@@ -68,6 +68,14 @@ export const CONFIG_KEYS = {
    */
   EARNING_MIN_SESSION_MINUTES: 'earnings.min_session_minutes',
   /**
+   * How many days a class timetable runs: 5 for the 24/5 default, 6 or 7.
+   *
+   * Configuration rather than a constant because the brief asks to be able to
+   * switch later without a deployment. It bounds the *class* grids only — the
+   * private session is 24/7 by definition and ignores this.
+   */
+  SCHOOL_WEEK_DAYS: 'timetable.school_week_days',
+  /**
    * How long a learner must attend before they may rate the teacher.
    *
    * The brief says forty minutes. FR-RAT-* gives the rating its meaning: someone
@@ -222,6 +230,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, unknown> = {
    */
   [CONFIG_KEYS.TEACHER_HOURLY_RATE_XAF]: 2000,
   [CONFIG_KEYS.EARNING_MIN_SESSION_MINUTES]: 30, // the brief's 30-minute floor
+  [CONFIG_KEYS.SCHOOL_WEEK_DAYS]: 5, // 24/5 by default; 6 or 7 without a deploy
   [CONFIG_KEYS.RATING_MIN_ATTENDED_MINUTES]: 40, // the brief's 40-minute rule
 
   [CONFIG_KEYS.QUIET_HOURS_START]: '21:00', // FR-NOT-004

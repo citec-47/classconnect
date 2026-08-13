@@ -2,9 +2,12 @@ import { Injectable } from '@nestjs/common';
 import {
   findClashes,
   validateTimetableSlot,
+  PERIODS_PER_SUBJECT_PER_WEEK,
+  CONFIG_KEYS,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
 } from '@classconnect/shared';
+import { PlatformConfigService } from '../common/platform-config.service';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -40,6 +43,7 @@ export class TimetableService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly config: PlatformConfigService,
   ) {}
 
   /** The signed-in teacher's own week, proposed and confirmed alike. */
@@ -86,8 +90,20 @@ export class TimetableService {
    * and it runs on a client that may be lying.
    */
   async propose(user: AuthenticatedUser, input: ProposeTimetableSlotInput) {
-    const problem = validateTimetableSlot(input);
+    const problem = validateTimetableSlot(input, input.session ?? 'day');
     if (problem) throw AppError.badRequest(problem);
+
+    /*
+     * The configured school week, checked here rather than in the schema.
+     *
+     * Zod cannot read `PlatformConfig`, so the DTO accepts 1–7 and this decides
+     * whether Saturday is a teaching day today. That is what makes 24/5 → 24/6
+     * a settings change instead of a deployment.
+     */
+    const weekDays = this.config.getNumber(CONFIG_KEYS.SCHOOL_WEEK_DAYS);
+    if (input.dayOfWeek > weekDays) {
+      throw AppError.badRequest('errors.timetable.outside_school_week', { days: weekDays });
+    }
 
     /*
      * A teacher may only timetable a subject they were verified to teach.
@@ -119,6 +135,50 @@ export class TimetableService {
       throw AppError.conflict('errors.timetable.clash', { count: clashes.length });
     }
 
+    /*
+     * The slot must still be free in this class.
+     *
+     * The clash check above answers "is this teacher already busy"; it says
+     * nothing about the period itself. Claiming now takes effect immediately,
+     * so two teachers who claim the same period seconds apart would both appear
+     * on the class timetable with no staff step in between to notice.
+     *
+     * Read-then-write is not airtight against a simultaneous claim — the unique
+     * index added alongside this is what actually decides — but it turns the
+     * ordinary case into a clear message rather than a constraint error.
+     */
+    const taken = await this.prisma.timetableSlot.findFirst({
+      where: {
+        levelId: input.levelId,
+        dayOfWeek: input.dayOfWeek,
+        startMinute: input.startMinute,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+      },
+      select: { id: true },
+    });
+    if (taken) throw AppError.conflict('errors.timetable.slot_taken');
+
+    /*
+     * FR: a subject is taught twice a week, and one teacher holds at most those
+     * two periods of it.
+     *
+     * Counted across the whole week for this level and subject, not per day —
+     * "twice a week" is a weekly allowance, and two periods on Monday is a
+     * legitimate way to spend it.
+     */
+    const alreadyHeld = await this.prisma.timetableSlot.count({
+      where: {
+        levelId: input.levelId,
+        subjectId: input.subjectId,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+      },
+    });
+    if (alreadyHeld >= PERIODS_PER_SUBJECT_PER_WEEK) {
+      throw AppError.conflict('errors.timetable.subject_full', {
+        max: PERIODS_PER_SUBJECT_PER_WEEK,
+      });
+    }
+
     const slot = await this.prisma.timetableSlot.create({
       data: {
         teacherId: user.id,
@@ -128,7 +188,22 @@ export class TimetableService {
         dayOfWeek: input.dayOfWeek,
         startMinute: input.startMinute,
         endMinute: input.endMinute,
-        state: 'proposed',
+        session: input.session ?? 'day',
+        /*
+         * Claimed, not proposed.
+         *
+         * A teacher picking an empty period is the decision — it shows on every
+         * timetable for that class at once, and it is earning-eligible from
+         * then on. The admin's control is after the fact: they can change the
+         * teacher on any slot, or put the period on hold.
+         *
+         * `proposed` remains in the enum for the slots recorded before this and
+         * for the private grid, where the admin fills the period and a
+         * teacher's own claim is not what creates it.
+         */
+        state: 'confirmed',
+        confirmedBy: user.id,
+        confirmedAt: new Date(),
       },
       select: SLOT_SELECT,
     });
@@ -156,11 +231,24 @@ export class TimetableService {
     return slot;
   }
 
-  /** A teacher withdraws a proposal nobody has decided yet. */
+  /**
+   * A teacher gives up a period they claimed.
+   *
+   * Claims now take effect immediately, so this is the only way back out — and
+   * without it a mis-clicked period would be permanent. It also covers the
+   * brief's "he can drop the session before joining, depending on the other
+   * subject he wants to teach".
+   *
+   * A period an admin has put on hold is not theirs to withdraw: the hold is a
+   * decision about the class, and releasing it belongs to whoever made it.
+   */
   async withdraw(user: AuthenticatedUser, slotId: string) {
     const slot = await this.prisma.timetableSlot.findUnique({ where: { id: slotId } });
     if (!slot || slot.teacherId !== user.id) throw AppError.notFound();
-    if (slot.state !== 'proposed') {
+    if (slot.state === 'on_hold') {
+      throw AppError.conflict('errors.timetable.on_hold');
+    }
+    if (slot.state === 'rejected') {
       throw AppError.conflict('errors.timetable.already_decided');
     }
 
@@ -185,7 +273,23 @@ export class TimetableService {
   async decide(staff: AuthenticatedUser, slotId: string, input: DecideTimetableSlotInput) {
     const slot = await this.prisma.timetableSlot.findUnique({ where: { id: slotId } });
     if (!slot) throw AppError.notFound();
-    if (slot.state !== 'proposed') {
+
+    /*
+     * What staff may do depends on where the slot already is.
+     *
+     * A teacher's claim arrives `confirmed` rather than `proposed`, so the old
+     * "must be proposed" guard would have made every live period untouchable —
+     * including by the hold power the brief gives the admin explicitly.
+     *
+     *   proposed   → confirm, refuse, or hold   (private grid, and older rows)
+     *   confirmed  → hold, or refuse outright
+     *   on_hold    → confirm, which lifts the hold and puts the class back
+     *   rejected   → nothing; the slot is finished
+     */
+    if (slot.state === 'rejected') {
+      throw AppError.conflict('errors.timetable.already_decided');
+    }
+    if (slot.state === 'confirmed' && input.decision === 'confirmed') {
       throw AppError.conflict('errors.timetable.already_decided');
     }
 

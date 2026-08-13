@@ -1251,7 +1251,10 @@ export const en = {
     validation: 'Please check the highlighted fields.',
     timetable: {
       clash: 'That overlaps {count} hour(s) you already have. Choose a different time.',
-      day_out_of_range: 'Choose a day from Monday to Friday.',
+      /* No longer names Friday: the school week is configurable, so the day
+         that is out of range depends on the setting. `outside_school_week`
+         below is the one that can state the actual limit. */
+      day_out_of_range: 'That is not a day of the week.',
       outside_teaching_day: 'Classes run between 07:00 and 19:00.',
       reversed: 'The end time must be after the start time.',
       too_short: 'A class must be at least 30 minutes.',
@@ -1259,6 +1262,12 @@ export const en = {
       not_your_subject: 'You are not approved to teach that subject at that level.',
       already_decided: 'That hour has already been decided.',
       note_required: 'Give a reason when refusing an hour.',
+      /* Raised where a period is claimed, not merely proposed. */
+      slot_taken: 'Another teacher has just taken that period. Choose a different one.',
+      subject_full:
+        'That class already has its {max} periods of this subject for the week. Choose another subject or another class.',
+      on_hold: 'An admin has put that period on hold. Ask them to release it.',
+      outside_school_week: 'Classes run on the first {days} days of the week.',
     },
 
     /** BUILD-PLAN Phase 3 — group exercises. */
@@ -1561,7 +1570,10 @@ export const en = {
      */
     teacherVerificationPending: {
       subject: 'A teacher is waiting for verification',
-      body: '{applicant} has sent a teaching application for review. Open Approvals → Teachers to check it.',
+      /* `>` not `→`: this body goes out over SMS, and the arrow is outside
+         GSM-7 — one character would push the whole message into UCS-2 and
+         halve what fits in a segment. */
+      body: '{applicant} has sent a teaching application for review. Open Approvals > Teachers to check it.',
     },
     /* Named and explained: a file that simply vanishes gets re-sent unchanged. */
     teacherDocumentRemoved: {

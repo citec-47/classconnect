@@ -112,8 +112,28 @@ describe('roles — FR-RBA-001 and FR-AUT-009', () => {
     expect(hasPermission(['admin_finance'], 'teacher:verification:decide')).toBe(false);
   });
 
-  it('never lets a support agent decide a verification', () => {
-    expect(hasPermission(['support_agent'], 'teacher:verification:decide')).toBe(false);
+  /*
+   * Customer service reviews teacher applications alongside Ops.
+   *
+   * This asserted the opposite until the desk was asked to share the queue: an
+   * applicant waiting on a single team waits days, and verification was the
+   * bottleneck. The control that protects learners is not *who* clicks approve
+   * — it is FR-TVR-005, which still requires every mandatory checklist item to
+   * be recorded affirmatively, one applicant at a time, with findings, and no
+   * bulk action anywhere on the screen. Every decision stays attributed and
+   * audited (FR-TVR-010).
+   *
+   * What a support agent still may not do is below, and that is the line that
+   * matters: they cannot pay anyone, suspend anyone, or change configuration.
+   */
+  it('lets a support agent decide a verification, but touch nothing financial', () => {
+    expect(hasPermission(['support_agent'], 'teacher:verification:read')).toBe(true);
+    expect(hasPermission(['support_agent'], 'teacher:verification:decide')).toBe(true);
+
+    expect(hasPermission(['support_agent'], 'payout:approve')).toBe(false);
+    expect(hasPermission(['support_agent'], 'finance:read')).toBe(false);
+    expect(hasPermission(['support_agent'], 'teacher:suspend')).toBe(false);
+    expect(hasPermission(['support_agent'], 'config:write')).toBe(false);
   });
 
   it('gives the super admin every permission', () => {

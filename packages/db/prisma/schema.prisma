@@ -706,10 +706,28 @@ model Teacher {
 /// Confirmation is what makes a slot count: earnings are counted inside a
 /// confirmed slot, and a live session starts from one. A `proposed` slot is a
 /// teacher saying when they can teach; it timetables nobody until staff agree.
+/// The three grids a period can sit in.
+///
+/// `private` is not a time of day — it is a different arrangement altogether:
+/// 24/7, filled by an admin rather than claimed by a teacher, for learners who
+/// are taught at hours that suit them.
+enum TimetableSession {
+  day
+  evening
+  private
+}
+
 enum TimetableSlotState {
+  /// Retained for the slots already recorded under the propose-then-confirm
+  /// flow, and for the private timetable, where the admin fills the grid and a
+  /// teacher's own claim is not what creates the slot.
   proposed
   confirmed
   rejected
+  /// An admin has suspended this period. Students and teachers in the class see
+  /// it as a Free Period: the room still opens, nobody is timetabled to teach,
+  /// and nothing accrues against it.
+  on_hold
 }
 
 /// `timetable_slots` — the timetabled teaching week.
@@ -730,8 +748,21 @@ model TimetableSlot {
   teacherId String @map("teacher_id") @db.Uuid
   subjectId String @map("subject_id") @db.Uuid
 
-  /// 1 = Monday … 5 = Friday. The school week the brief describes.
+  /// 1 = Monday … 7 = Sunday.
+  ///
+  /// Was 1–5. Widened because the school week is configurable — 24/5 by
+  /// default, 24/6 or 24/7 when the platform is set that way — and because the
+  /// private session runs 24/7 regardless of what the school week is set to.
+  /// `SCHOOL_WEEK_DAYS` in `PlatformConfig` decides which of these a class
+  /// timetable may use; the column simply has to be able to hold Sunday.
   dayOfWeek Int @map("day_of_week") @db.SmallInt
+
+  /// Which of the three sessions this period belongs to.
+  ///
+  /// Derivable from `startMinute`, and stored anyway: the private session
+  /// overlaps both of the others in wall-clock terms (it is 24/7), so the time
+  /// alone cannot say which grid a slot belongs to.
+  session TimetableSession @default(day)
 
   /// Minutes from midnight, not a `time`.
   ///

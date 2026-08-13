@@ -522,9 +522,16 @@ export const proposeTimetableSlotSchema = z.object({
   subjectId: z.string().uuid(),
   /** A private arrangement has no cohort. */
   cohortId: z.string().uuid().optional(),
-  dayOfWeek: z.number().int().min(1).max(5),
+  /**
+   * 1–7. Which of these a class may actually use is `SCHOOL_WEEK_DAYS`, checked
+   * by the service — the schema cannot read configuration, and hard-coding 5
+   * here would make switching to a 24/6 week a code change.
+   */
+  dayOfWeek: z.number().int().min(1).max(7),
   startMinute: z.number().int().min(0).max(1440),
   endMinute: z.number().int().min(0).max(1440),
+  /** Day or evening. `private` is filled by an admin, never claimed here. */
+  session: z.enum(['day', 'evening']).optional(),
 });
 export type ProposeTimetableSlotInput = z.infer<typeof proposeTimetableSlotSchema>;
 
@@ -537,7 +544,13 @@ export type ProposeTimetableSlotInput = z.infer<typeof proposeTimetableSlotSchem
  */
 export const decideTimetableSlotSchema = z
   .object({
-    decision: z.enum(['confirmed', 'rejected']),
+    /*
+     * `on_hold` suspends a period that is already timetabled.
+     *
+     * A note is required for it as it is for a refusal: the class sees this as
+     * a Free Period and both the teacher and the learners are owed the reason.
+     */
+    decision: z.enum(['confirmed', 'rejected', 'on_hold']),
     note: z.string().max(500).optional(),
   })
   .refine((d) => d.decision === 'confirmed' || (d.note?.trim().length ?? 0) > 0, {

@@ -1199,7 +1199,8 @@ export const fr: Messages = {
     validation: 'Veuillez vérifier les champs signalés.',
     timetable: {
       clash: 'Cela chevauche {count} heure(s) que vous avez déjà. Choisissez un autre horaire.',
-      day_out_of_range: 'Choisissez un jour du lundi au vendredi.',
+      /* Ne nomme plus vendredi : la semaine scolaire est configurable. */
+      day_out_of_range: 'Ce n’est pas un jour de la semaine.',
       outside_teaching_day: 'Les cours ont lieu entre 07:00 et 19:00.',
       reversed: 'L’heure de fin doit être après l’heure de début.',
       too_short: 'Un cours doit durer au moins 30 minutes.',
@@ -1207,6 +1208,12 @@ export const fr: Messages = {
       not_your_subject: 'Vous n’êtes pas approuvé pour enseigner cette matière à ce niveau.',
       already_decided: 'Cette heure a déjà été traitée.',
       note_required: 'Indiquez un motif pour refuser une heure.',
+      /* Voir en.ts : une période est réservée, et non simplement proposée. */
+      slot_taken: 'Un autre enseignant vient de prendre cette période. Choisissez-en une autre.',
+      subject_full:
+        'Cette classe a déjà ses {max} périodes de cette matière pour la semaine. Choisissez une autre matière ou une autre classe.',
+      on_hold: 'Un administrateur a suspendu cette période. Demandez-lui de la libérer.',
+      outside_school_week: 'Les cours ont lieu les {days} premiers jours de la semaine.',
     },
 
     /** BUILD-PLAN phase 3 — exercices de groupe. */
@@ -1504,7 +1511,8 @@ export const fr: Messages = {
     /** Destiné au personnel, pas au candidat. Voir en.ts. */
     teacherVerificationPending: {
       subject: 'Un enseignant attend une vérification',
-      body: '{applicant} a envoyé une candidature à examiner. Ouvrez Approbations → Enseignants pour la consulter.',
+      /* `>` et non `→` — voir en.ts : hors GSM-7. */
+      body: '{applicant} a envoyé une candidature à examiner. Ouvrez Approbations > Enseignants pour la consulter.',
     },
     /* Nommé et expliqué : un fichier qui disparaît est renvoyé à l’identique. */
     teacherDocumentRemoved: {

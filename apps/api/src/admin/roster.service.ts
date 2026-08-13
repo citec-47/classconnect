@@ -524,6 +524,15 @@ export class RosterService {
       approvalState: learner.approvalState,
       status: learner.status,
       hasOwnSignIn: Boolean(learner.userId),
+      /*
+       * The account behind the learner, where there is one.
+       *
+       * Needed because deletion acts on a *user*, not on a learner profile —
+       * and a Parent-managed minor has no sign-in of their own, so this is null
+       * for them and the roster must offer no delete for that row rather than
+       * sending a request that cannot mean anything.
+       */
+      userId: learner.userId,
       guardian: learner.guardianName
         ? { fullName: learner.guardianName, phone: learner.guardianPhone }
         : null,

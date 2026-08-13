@@ -1188,6 +1188,31 @@ export const fr: Messages = {
       'Essayez de retirer un filtre, ou revenez bientôt. Nous vérifions de nouveaux enseignants chaque semaine.',
   },
 
+  /** Le dialogue catégorie → classe → matière, partagé par les deux listes. */
+  assign: {
+    teacherTitle: 'Classes et matières',
+    teacherHint:
+      'Choisissez chaque classe où enseigne cet enseignant, et les matières dans chacune. La même matière dans plusieurs classes est normale. Seules celles-ci apparaîtront dans son emploi du temps.',
+    learnerTitle: 'Classe et matières',
+    learnerHint:
+      'Choisissez la classe de cet élève, puis les matières qu’il suit. Cocher une matière d’une autre classe le déplace dans cette classe.',
+    noSubjects: 'Aucune matière n’est encore configurée pour cette classe.',
+    selectedCount: '{count} sélectionnée(s)',
+    open: 'Classes et matières',
+  },
+  /** Sélection de lignes en vue d’une suppression groupée. */
+  bulk: {
+    select: 'Sélectionner',
+    done: 'Terminé',
+    selectedCount: '{count} sélectionné(s)',
+    deleteSelected: 'Supprimer la sélection',
+    confirmTitle: 'Supprimer {count} compte(s) ?',
+    confirmBody:
+      'Ils seront déconnectés et retirés de toutes les listes, et ne pourront plus se connecter. Leurs actions restent dans le journal d’audit.',
+    reasonLabel: 'Pourquoi supprimez-vous ces comptes ?',
+    deleted: '{count} compte(s) supprimé(s).',
+  },
+
   errors: {
     generic: 'Un problème est survenu de notre côté. Veuillez réessayer.',
     network: 'Nous n’avons pas pu joindre ClassConnect. Vérifiez votre connexion et réessayez.',

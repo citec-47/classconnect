@@ -1241,6 +1241,31 @@ export const en = {
     noTeachersBody: 'Try removing a filter, or check back soon. We verify new teachers every week.',
   },
 
+  /** The category → class → subject dialog, shared by both rosters. */
+  assign: {
+    teacherTitle: 'Classes and subjects',
+    teacherHint:
+      'Choose every class this teacher takes, and the subjects in each. The same subject in several classes is normal. Only these appear when they set their timetable.',
+    learnerTitle: 'Class and subjects',
+    learnerHint:
+      'Choose the class this student is in, then the subjects they offer. Picking a subject in a different class moves them to that class.',
+    noSubjects: 'No subjects are set up for this class yet.',
+    selectedCount: '{count} selected',
+    open: 'Classes and subjects',
+  },
+  /** Selecting rows on a roster in order to delete them together. */
+  bulk: {
+    select: 'Select',
+    done: 'Done',
+    selectedCount: '{count} selected',
+    deleteSelected: 'Delete selected',
+    confirmTitle: 'Delete {count} account(s)?',
+    confirmBody:
+      'They will be signed out and removed from every roster, and will not be able to sign in again. What they did stays in the audit record.',
+    reasonLabel: 'Why are you deleting these?',
+    deleted: '{count} account(s) deleted.',
+  },
+
   errors: {
     generic: 'Something went wrong on our side. Please try again.',
     network: 'We could not reach ClassConnect. Check your connection and try again.',

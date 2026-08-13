@@ -13,6 +13,8 @@ import { useAdminShell } from '@/lib/admin-badges';
 import { useAuth } from '@/lib/auth-context';
 import { ErrorAlert, EmptyState, SuccessAlert } from '@/components/Alert';
 import { BandFilter, type BandFilterValue } from '@/components/admin/BandFilter';
+import { AssignSubjectsDialog } from '@/components/admin/AssignSubjectsDialog';
+import { BulkDeleteBar } from '@/components/admin/BulkDeleteBar';
 import {
   Banner,
   ConfirmDialog,
@@ -113,6 +115,17 @@ export default function TeacherRoster() {
   const canClassify =
     user?.roles.some((r) => ['admin_ops', 'super_admin'].includes(r)) ?? false;
 
+  /*
+   * `user:delete` is the admin's alone, so customer service sees no Select
+   * control at all rather than one that fails on submit. The API refuses it
+   * either way — this only keeps the screen honest about what is on offer.
+   */
+  const canDelete = canClassify;
+
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [assigning, setAssigning] = useState<TeacherRow | null>(null);
+
   // Called after a classification, which changes both the roster and the counts.
   const load = useCallback(async () => {
     await Promise.all([teachersQuery.refresh(), countsQuery.refresh()]);
@@ -186,6 +199,40 @@ export default function TeacherRoster() {
 
       <BandFilter value={band} onChange={setBand} counts={counts} />
 
+      {/*
+       * Selection is off until asked for.
+       *
+       * A checkbox on every row of a screen people mostly read invites the one
+       * mis-click this list cannot afford, so the column appears only after
+       * Select — the same shape the brief describes.
+       */}
+      {canDelete && (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setSelecting((on) => !on);
+              setSelected(new Set());
+            }}
+            className="cc-btn-secondary"
+          >
+            {selecting ? t('bulk.done') : t('bulk.select')}
+          </button>
+        </div>
+      )}
+
+      {selecting && (
+        <BulkDeleteBar
+          selected={[...selected]}
+          onClear={() => setSelected(new Set())}
+          onDeleted={(count) => {
+            setDone(t('bulk.deleted', { count }));
+            setSelecting(false);
+            void load();
+          }}
+        />
+      )}
+
       {rows.length === 0 ? (
         <EmptyState title={t('teachers.emptyTitle')} body={t('teachers.emptyBody')} />
       ) : (
@@ -193,6 +240,7 @@ export default function TeacherRoster() {
           <Table>
             <thead>
               <tr>
+                {selecting && <Th>{t('bulk.select')}</Th>}
                 <Th>{t('approvals.applicant')}</Th>
                 <Th>{t('teachers.band')}</Th>
                 <Th>{t('teachers.subjectsTaught')}</Th>
@@ -209,11 +257,44 @@ export default function TeacherRoster() {
                 return (
                   <Fragment key={row.teacherId}>
                     <Tr>
+                      {selecting && (
+                        <Td>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            aria-label={row.fullName}
+                            checked={selected.has(row.teacherId)}
+                            onChange={() =>
+                              setSelected((current) => {
+                                const next = new Set(current);
+                                if (next.has(row.teacherId)) next.delete(row.teacherId);
+                                else next.add(row.teacherId);
+                                return next;
+                              })
+                            }
+                          />
+                        </Td>
+                      )}
                       <Td>
                         <span className="font-medium">{row.fullName}</span>
                         <span className="block text-xs text-ink-600">
                           {row.highestQualification ?? t('common.notRecorded')}
                         </span>
+                        {/*
+                         * The assignment lives on the row, not behind the
+                         * expander: it is what decides whether this teacher can
+                         * timetable anything at all, and a teacher with no
+                         * subjects is the case an admin is looking for.
+                         */}
+                        {canClassify && (
+                          <button
+                            type="button"
+                            onClick={() => setAssigning(row)}
+                            className="mt-1 block text-xs font-medium text-brand-700 underline"
+                          >
+                            {t('assign.open')}
+                          </button>
+                        )}
                       </Td>
                       <Td>
                         {row.schoolType ? (
@@ -274,7 +355,7 @@ export default function TeacherRoster() {
 
                     {isOpen && (
                       <tr>
-                        <td colSpan={8} className="border-b border-ink-300 bg-ink-100/50 px-3 py-4">
+                        <td colSpan={selecting ? 9 : 8} className="border-b border-ink-300 bg-ink-100/50 px-3 py-4">
                           {!detail ? (
                             <p className="text-sm text-ink-600">{t('common.loading')}</p>
                           ) : (
@@ -444,6 +525,18 @@ export default function TeacherRoster() {
         onConfirm={() => void classify()}
         onCancel={() => setClassifying(null)}
       />
+
+      {assigning && (
+        <AssignSubjectsDialog
+          mode="teacher"
+          subjectId={assigning.teacherId}
+          onClose={() => setAssigning(null)}
+          onSaved={() => {
+            setDone(t('teachers.classified'));
+            void load();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -1211,7 +1211,9 @@ export const fr: Messages = {
       /* Voir en.ts : une période est réservée, et non simplement proposée. */
       slot_taken: 'Un autre enseignant vient de prendre cette période. Choisissez-en une autre.',
       subject_full:
-        'Cette classe a déjà ses {max} périodes de cette matière pour la semaine. Choisissez une autre matière ou une autre classe.',
+        'Vous avez déjà vos {max} périodes de cette matière dans cette classe. Choisissez une autre matière, ou une autre classe.',
+      subject_days_full:
+        'Vous enseignez déjà cette matière {max} jours cette semaine. Ajoutez la période à l’un de ces jours, ou demandez l’autorisation à un administrateur.',
       on_hold: 'Un administrateur a suspendu cette période. Demandez-lui de la libérer.',
       outside_school_week: 'Les cours ont lieu les {days} premiers jours de la semaine.',
     },

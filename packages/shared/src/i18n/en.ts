@@ -1265,7 +1265,9 @@ export const en = {
       /* Raised where a period is claimed, not merely proposed. */
       slot_taken: 'Another teacher has just taken that period. Choose a different one.',
       subject_full:
-        'That class already has its {max} periods of this subject for the week. Choose another subject or another class.',
+        'You already have your {max} periods of this subject in this class. Choose another subject, or another class.',
+      subject_days_full:
+        'You already teach this subject on {max} days this week. Add the period to one of those days, or ask an admin for permission.',
       on_hold: 'An admin has put that period on hold. Ask them to release it.',
       outside_school_week: 'Classes run on the first {days} days of the week.',
     },

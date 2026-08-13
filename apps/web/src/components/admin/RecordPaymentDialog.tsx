@@ -73,7 +73,15 @@ export function RecordPaymentDialog({
         scheduleSettled: boolean;
         invoiceNumber: string;
         unfroze: boolean;
-      }>('/payments/offline', {
+      /*
+       * `/admin/payments/offline`, not `/payments/offline`.
+       *
+       * `PaymentsAdminController` is mounted at `admin/payments`, so the short
+       * path has never existed — recording a cash payment would have 404'd.
+       * Caught by `api-contract.spec.ts`, which compares the paths the web app
+       * asks for against the routes the API declares.
+       */
+      }>('/admin/payments/offline', {
         method: 'POST',
         body: {
           subscriptionId: row.subscriptionId,

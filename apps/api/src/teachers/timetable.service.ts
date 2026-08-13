@@ -3,6 +3,8 @@ import {
   findClashes,
   validateTimetableSlot,
   PERIODS_PER_SUBJECT_PER_WEEK,
+  DAYS_PER_SUBJECT_PER_TEACHER,
+  periodsFor,
   CONFIG_KEYS,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
@@ -159,23 +161,49 @@ export class TimetableService {
     if (taken) throw AppError.conflict('errors.timetable.slot_taken');
 
     /*
-     * FR: a subject is taught twice a week, and one teacher holds at most those
-     * two periods of it.
+     * Two periods of this subject, across at most two days — per teacher.
      *
-     * Counted across the whole week for this level and subject, not per day —
-     * "twice a week" is a weekly allowance, and two periods on Monday is a
-     * legitimate way to spend it.
+     * Counted for *this* teacher rather than for the class: an earlier version
+     * counted every period of a subject in a class whoever held it, which
+     * stopped a second teacher taking the same subject with a different set.
+     *
+     * A teacher with two subjects in one class gets two periods of each, and
+     * the second subject starts from a fresh allowance — which is exactly the
+     * "he can still set another period in that same class, under a different
+     * subject" case.
+     *
+     * `periodAllowance` on the assignment is the admin's special permission,
+     * granted for one teacher, subject and class at a time.
      */
-    const alreadyHeld = await this.prisma.timetableSlot.count({
+    const allowance = teaches.periodAllowance ?? PERIODS_PER_SUBJECT_PER_WEEK;
+
+    const held = await this.prisma.timetableSlot.findMany({
       where: {
+        teacherId: user.id,
         levelId: input.levelId,
         subjectId: input.subjectId,
         state: { in: ['proposed', 'confirmed', 'on_hold'] },
       },
+      select: { dayOfWeek: true },
     });
-    if (alreadyHeld >= PERIODS_PER_SUBJECT_PER_WEEK) {
-      throw AppError.conflict('errors.timetable.subject_full', {
-        max: PERIODS_PER_SUBJECT_PER_WEEK,
+
+    if (held.length >= allowance) {
+      throw AppError.conflict('errors.timetable.subject_full', { max: allowance });
+    }
+
+    /*
+     * The separate half of the rule: those periods may not be spread across
+     * more than two days. Adding a period on a day already used is always fine
+     * — it is opening a *third* day that the rule refuses.
+     */
+    const daysUsed = new Set(held.map((slot) => slot.dayOfWeek));
+    if (
+      !daysUsed.has(input.dayOfWeek) &&
+      daysUsed.size >= DAYS_PER_SUBJECT_PER_TEACHER &&
+      teaches.periodAllowance === null
+    ) {
+      throw AppError.conflict('errors.timetable.subject_days_full', {
+        max: DAYS_PER_SUBJECT_PER_TEACHER,
       });
     }
 
@@ -229,6 +257,116 @@ export class TimetableService {
       .catch(() => undefined);
 
     return slot;
+  }
+
+  /**
+   * One class's day, period by period, with what is free and what is not.
+   *
+   * The brief asks the teacher to be shown "the remaining periods available for
+   * that class for that day" while he is choosing. A bare count would not help:
+   * he needs to know *which* periods, and a period already holding his own
+   * lesson reads very differently from one holding somebody else's.
+   *
+   * The grid comes from `periodsFor`, so the break is already absent — there is
+   * no period at 12:00 to mark unavailable, because there is no period there.
+   */
+  async dayGrid(
+    user: AuthenticatedUser,
+    levelId: string,
+    dayOfWeek: number,
+    session: 'day' | 'evening',
+  ) {
+    const [slots, mySubjects] = await Promise.all([
+      this.prisma.timetableSlot.findMany({
+        where: {
+          levelId,
+          dayOfWeek,
+          session,
+          state: { in: ['proposed', 'confirmed', 'on_hold'] },
+        },
+        select: {
+          id: true,
+          startMinute: true,
+          endMinute: true,
+          state: true,
+          teacherId: true,
+          subject: { select: { id: true, nameEn: true, nameFr: true } },
+          teacher: { select: { user: { select: { fullName: true } } } },
+        },
+      }),
+      /*
+       * Exactly the subjects an admin assigned this teacher for this class.
+       *
+       * "Only the subjects the admin selected for him will pop up" — so the
+       * choices come from the assignment rather than from the whole catalogue,
+       * and a teacher cannot claim a period in a subject nobody gave him.
+       */
+      this.prisma.teacherSubject.findMany({
+        where: { teacherId: user.id, levelId },
+        select: {
+          periodAllowance: true,
+          subject: { select: { id: true, nameEn: true, nameFr: true } },
+        },
+      }),
+    ]);
+
+    const taken = new Map(slots.map((slot) => [slot.startMinute, slot]));
+
+    const periods = periodsFor(session).map((period) => {
+      const slot = taken.get(period.startMinute);
+      return {
+        index: period.index,
+        startMinute: period.startMinute,
+        endMinute: period.endMinute,
+        /*
+         * A period on hold is not free. The class sees a Free Period and may
+         * use the room, but nobody may timetable a lesson into it — that is the
+         * difference between suspended and empty.
+         */
+        available: !slot,
+        slot: slot
+          ? {
+              id: slot.id,
+              state: slot.state,
+              mine: slot.teacherId === user.id,
+              subject: slot.subject,
+              teacherName: slot.teacher.user.fullName,
+            }
+          : null,
+      };
+    });
+
+    /*
+     * How much of each subject's allowance is left, so the screen can grey a
+     * subject out before it is chosen rather than refusing it afterwards.
+     */
+    const held = await this.prisma.timetableSlot.groupBy({
+      by: ['subjectId'],
+      where: {
+        teacherId: user.id,
+        levelId,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+      },
+      _count: { _all: true },
+    });
+    const usedBySubject = new Map(held.map((row) => [row.subjectId, row._count._all]));
+
+    return {
+      dayOfWeek,
+      session,
+      periods,
+      remaining: periods.filter((period) => period.available).length,
+      subjects: mySubjects.map((row) => {
+        const allowance = row.periodAllowance ?? PERIODS_PER_SUBJECT_PER_WEEK;
+        const used = usedBySubject.get(row.subject.id) ?? 0;
+        return {
+          ...row.subject,
+          periodsUsed: used,
+          periodsAllowed: allowance,
+          exhausted: used >= allowance,
+        };
+      }),
+    };
   }
 
   /**

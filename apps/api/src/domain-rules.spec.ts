@@ -325,6 +325,50 @@ describe('i18n — NFR-LOC-001/002 and §9.2 acceptance criterion 8', () => {
       'student.unit.minutes',
       'student.unit.questions',
       'student.unit.oneQuestion',
+
+      /*
+       * The teacher surface, on the same principle as the entries above.
+       *
+       * "Actions", "Classes", "Messages", "Coefficient", "Total", "Photo" and
+       * "Parent" are each spelled identically in French — the correct French,
+       * not an oversight. "Question" likewise, inside the interpolated string.
+       */
+      'common.actions',
+      'teacher.classes.title',
+      'teacherNav.classes',
+      'teacherNav.messages',
+      'adminNav.messages',
+      'adminMessages.title',
+      'teacherReports.coefficient',
+      'teacherExams.question',
+      'student.tab.messages',
+      'student.messages.title',
+      'student.fees.total',
+      'student.messages.attachPhoto',
+      'teacherMessages.role.guardian',
+
+      /*
+       * Not words at all, so there is nothing to translate: the product name,
+       * two marking glyphs, an em dash standing for "no mark yet", and a
+       * placeholder that is substituted before anyone reads it.
+       */
+      'teacherMessages.role.admin',
+      'student.messages.support',
+      'teacherExams.correctMark',
+      'teacherExams.wrongMark',
+      'teacherReports.notYet',
+      'student.messages.attachmentSize',
+
+      /*
+       * Units. `min`, `minutes` and `questions` are the same abbreviation and
+       * the same words in French; only the surrounding number changes.
+       */
+      'teacherRecordings.length',
+      'student.attendance.minutes',
+      'student.classes.minutes',
+      'student.recordings.duration',
+      'student.exams.durationMin',
+      'student.exams.questions',
     ]);
     const unexpected = identical.filter((path) => !allowed.has(path));
     expect(unexpected).toEqual([]);

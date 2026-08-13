@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { z } from 'zod';
 import {
   proposeTimetableSlotSchema,
   decideTimetableSlotSchema,
@@ -6,7 +7,14 @@ import {
   type DecideTimetableSlotInput,
 } from '@classconnect/shared';
 import { TimetableService } from './timetable.service';
-import { zodBody, uuidParam } from '../common/zod-validation.pipe';
+import { zodBody, uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
+
+/** Which day, and which of the two claimable grids. */
+const gridQuerySchema = z.object({
+  dayOfWeek: z.coerce.number().int().min(1).max(7),
+  session: z.enum(['day', 'evening']).default('day'),
+});
+type GridQuery = z.infer<typeof gridQuerySchema>;
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 
 /**
@@ -73,6 +81,27 @@ export class AdminTimetableController {
   @RequirePermissions('teacher:verification:read')
   async forLevel(@Param('levelId', uuidParam()) levelId: string) {
     return this.timetable.levelSlots(levelId);
+  }
+
+  /**
+   * The grid for one class on one day, with each period marked free or taken.
+   *
+   * "The system must show him the remaining periods available for that class
+   * for that day" — so this answers with the whole day rather than a count, and
+   * says *why* a period is unavailable. A teacher who can see that period 3 is
+   * Chemistry and period 4 is his own does not have to guess at a number.
+   *
+   * Open to any teacher: choosing an hour means seeing the class's day, and a
+   * timetable is not a confidential document.
+   */
+  @Get('grid/:levelId')
+  @RequirePermissions('teacher:classes:read:own')
+  async grid(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('levelId', uuidParam()) levelId: string,
+    @Query(new ZodValidationPipe(gridQuerySchema)) query: GridQuery,
+  ) {
+    return this.timetable.dayGrid(user, levelId, query.dayOfWeek, query.session);
   }
 
   @Post(':slotId/decision')

@@ -69,13 +69,88 @@ export const TIMETABLE_SESSIONS: Record<
 export const TIMETABLE_PERIOD_MINUTES = 45;
 
 /**
- * FR-TMT: a subject is taught twice a week to a class, and one teacher holds at
- * most those two periods of it.
+ * Break: 12:00 for one hour, morning session only.
  *
- * Both numbers are the same rule seen from two sides — the class gets two
- * periods of Mathematics, and the teacher who claims them cannot claim a third.
+ * The evening session and private classes have none.
+ */
+export const TIMETABLE_BREAK_START_MINUTE = 12 * 60;
+export const TIMETABLE_BREAK_END_MINUTE = 13 * 60;
+
+/**
+ * The periods of a session, as a fixed grid.
+ *
+ * 45 minutes does not tile either session exactly, and the leftover is left as
+ * a gap rather than absorbed into a longer last period:
+ *
+ *   morning    08:00 → 11:45 in five periods, then 15 minutes before the break
+ *   break      12:00 → 13:00
+ *   afternoon  13:00 → 14:30 in two periods, then 30 minutes to the day's end
+ *   evening    17:00 → 20:45 in five periods, then 15 minutes to 21:00
+ *
+ * Stretching the last period to reach 15:00 would make one lesson a different
+ * length from every other, and silently truncating it would timetable a class
+ * that ends mid-period. A short gap at the end of a session is what a real
+ * school day looks like anyway.
+ *
+ * `private` returns nothing: it is 24/7 and the admin sets the hour directly,
+ * so there is no grid to lay out.
+ */
+export function periodsFor(
+  session: TimetableSession,
+): readonly { index: number; startMinute: number; endMinute: number }[] {
+  if (session === 'private') return [];
+
+  const bounds = TIMETABLE_SESSIONS[session];
+  const periods: { index: number; startMinute: number; endMinute: number }[] = [];
+
+  let cursor = bounds.startMinute;
+  let index = 1;
+
+  while (cursor + TIMETABLE_PERIOD_MINUTES <= bounds.endMinute) {
+    // Step over the break rather than teaching through it.
+    if (
+      session === 'day' &&
+      cursor < TIMETABLE_BREAK_END_MINUTE &&
+      cursor + TIMETABLE_PERIOD_MINUTES > TIMETABLE_BREAK_START_MINUTE
+    ) {
+      cursor = TIMETABLE_BREAK_END_MINUTE;
+      continue;
+    }
+
+    periods.push({
+      index: index++,
+      startMinute: cursor,
+      endMinute: cursor + TIMETABLE_PERIOD_MINUTES,
+    });
+    cursor += TIMETABLE_PERIOD_MINUTES;
+  }
+
+  return periods;
+}
+
+/** Does this interval sit inside the morning break? */
+export function isBreak(startMinute: number): boolean {
+  return (
+    startMinute >= TIMETABLE_BREAK_START_MINUTE && startMinute < TIMETABLE_BREAK_END_MINUTE
+  );
+}
+
+/**
+ * Two periods of a subject, and across at most two days.
+ *
+ * Scoped to the *teacher* in a class, not to the class as a whole — the earlier
+ * rule counted every period of a subject in a class regardless of who held it,
+ * which stopped a second teacher taking the same subject with a different set.
+ *
+ * A teacher who teaches two subjects in one class gets two periods of each; the
+ * limit is per subject, so the second subject starts from a fresh allowance.
+ *
+ * `DAYS_PER_SUBJECT_PER_TEACHER` is the separate half of the rule: those two
+ * periods may not be spread across three different days. Both can be lifted for
+ * one teacher and subject by an admin — see `TeacherSubject.periodAllowance`.
  */
 export const PERIODS_PER_SUBJECT_PER_WEEK = 2;
+export const DAYS_PER_SUBJECT_PER_TEACHER = 2;
 
 /** Which session a wall-clock minute falls in, for a non-private class. */
 export function sessionForMinute(startMinute: number): TimetableSession | null {

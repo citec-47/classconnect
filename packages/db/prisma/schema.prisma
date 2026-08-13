@@ -920,6 +920,22 @@ model TeacherSubject {
   subjectId String @map("subject_id") @db.Uuid
   levelId   String @map("level_id") @db.Uuid
 
+  /// The admin's "special permission" to exceed the two-period limit.
+  ///
+  /// Null means the standard allowance. A number overrides it for this teacher,
+  /// subject and class only — granted deliberately, one assignment at a time,
+  /// rather than by loosening the rule for everyone.
+  periodAllowance Int? @map("period_allowance") @db.SmallInt
+
+  /// Which staff member assigned this, and when.
+  ///
+  /// A teacher's subjects came only from their own application; an admin now
+  /// assigns them too, and the timetable shows a teacher exactly these. Knowing
+  /// who granted a subject is the difference between an approved credential and
+  /// a mistake somebody made in a dialog.
+  assignedBy String?   @map("assigned_by") @db.Uuid
+  assignedAt DateTime? @map("assigned_at") @db.Timestamptz(6)
+
   teacher Teacher @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   level   Level   @relation(fields: [levelId], references: [id], onDelete: Cascade)

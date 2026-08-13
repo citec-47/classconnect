@@ -119,6 +119,13 @@ enum TeacherDocumentType {
   degree_certificate
   diploma
   teaching_authorisation
+  /// A short spoken introduction, recorded by the applicant.
+  ///
+  /// A certificate says what somebody studied; it says nothing about whether
+  /// they can hold a Form 3 class's attention. It is also the cheapest check
+  /// against a stolen identity — the face and voice on the video either match
+  /// the ID document or they do not (FR-TVR-005).
+  intro_video
   other
 }
 
@@ -445,11 +452,15 @@ model User {
   reviewsWritten   Review[]           @relation("ReviewRater")
   sessionSeats     SessionParticipant[]
   guardianLinks    GuardianLearner[]  @relation("GuardianLink")
+  timetableConfirmed TimetableSlot[]  @relation("TimetableSlotConfirmer")
   materialsUploaded Material[]
   publishRequests  MediaPublishRequest[]
   recordingPlayback RecordingPlayback[]
   threadSeats      ThreadParticipant[]
   messagesSent     Message[]
+  exercisesUnlocked WorkAssignment[]  @relation("ExerciseUnlocker")
+  groupScoresAwarded GroupScore[]     @relation("GroupScoreAwarder")
+  reportCardsGenerated ReportCard[]   @relation("ReportCardGenerator")
 
   @@index([status])
   @@index([createdAt])
@@ -582,6 +593,8 @@ model Learner {
   freezes       AccountFreeze[]
   redactionFlags RedactionFlag[]
   messageThreads MessageThread[]
+  reportCards    ReportCard[]
+  termMarks      SubjectTermMark[]
 
   @@index([levelId])
   /// §4.2/§4.3: the approval queues select on state and order by submission.
@@ -677,12 +690,80 @@ model Teacher {
   freezes                AccountFreeze[]
   redactionFlags         RedactionFlag[]
   safeguardingReports    SafeguardingReport[]
+  timetableSlots         TimetableSlot[]
+  reportCardLines        ReportCardLine[]
+  termMarks              SubjectTermMark[]
 
   @@index([verificationStatus])
   /// The roster filters by band; unclassified teachers cannot be assigned a
   /// learner (FR-SCH-002) and are the most-read subset of this column.
   @@index([schoolType])
   @@map("teachers")
+}
+
+/// The state a proposed teaching hour is in.
+///
+/// Confirmation is what makes a slot count: earnings are counted inside a
+/// confirmed slot, and a live session starts from one. A `proposed` slot is a
+/// teacher saying when they can teach; it timetables nobody until staff agree.
+enum TimetableSlotState {
+  proposed
+  confirmed
+  rejected
+}
+
+/// `timetable_slots` — the timetabled teaching week.
+///
+/// Distinct from `AvailabilityRule`, and the difference matters: availability is
+/// when a teacher is *free*, this is what they are *timetabled to teach*. The
+/// two were conflated in an earlier draft and the result was a timetable that
+/// showed every teacher as teaching every hour they had not blocked out.
+///
+/// A slot belongs to a level (Class One … Upper Sixth) and optionally to one
+/// cohort within it — a private arrangement is a slot with no cohort. Students
+/// read their timetable from the slots for their level, so "only the people in
+/// that class see it" is a `where`, not a filter applied in the UI.
+model TimetableSlot {
+  id        String @id @default(uuid()) @db.Uuid
+  levelId   String @map("level_id") @db.Uuid
+  cohortId  String? @map("cohort_id") @db.Uuid
+  teacherId String @map("teacher_id") @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+
+  /// 1 = Monday … 5 = Friday. The school week the brief describes.
+  dayOfWeek Int @map("day_of_week") @db.SmallInt
+
+  /// Minutes from midnight, not a `time`.
+  ///
+  /// The clash rule is interval arithmetic, and integers compare and subtract
+  /// without a timezone anywhere near them. A `time` column invites the
+  /// database's session timezone into a question that has nothing to do with
+  /// one — the school day is local wall-clock by definition.
+  startMinute Int @map("start_minute") @db.SmallInt
+  endMinute   Int @map("end_minute") @db.SmallInt
+
+  state       TimetableSlotState @default(proposed)
+  /// FR-TVR-004-style attribution: who agreed this, and when.
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  /// Why a proposal was refused, shown to the teacher who made it.
+  decisionNote String?  @map("decision_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  level     Level    @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  cohort    Cohort?  @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  teacher   Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  confirmer User?    @relation("TimetableSlotConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  /// Lessons actually taught in this slot. FR-ERN-003 counts against these.
+  sessions  Session[]
+
+  /// The two reads this table exists for: a teacher's week, and a class's week.
+  @@index([teacherId, dayOfWeek])
+  @@index([levelId, dayOfWeek])
+  @@map("timetable_slots")
 }
 
 /// `teacher_documents` — credential evidence (FR-TVR-002/007).
@@ -753,6 +834,10 @@ model Level {
   cohorts       Cohort[]
   materials     Material[]
   pastPapers    PastPaper[]
+  timetableSlots TimetableSlot[]
+  assessments   Assessment[]
+  reportCards   ReportCard[]
+  termMarks     SubjectTermMark[]
 
   @@map("levels")
 }
@@ -775,10 +860,13 @@ model Subject {
   assignments     Assignment[]
   sessions        Session[]
   cohorts         Cohort[]
+  timetableSlots  TimetableSlot[]
   materials       Material[]
   workAssignments WorkAssignment[]
   assessments     Assessment[]
   pastPapers      PastPaper[]
+  reportCardLines ReportCardLine[]
+  termMarks       SubjectTermMark[]
 
   @@map("subjects")
 }
@@ -905,6 +993,9 @@ model Cohort {
   level   Level          @relation(fields: [levelId], references: [id])
   members CohortMember[]
   sessions Session[]
+  timetableSlots TimetableSlot[]
+  assessments    Assessment[]
+  groupScores    GroupScore[]
 
   @@map("cohorts")
 }
@@ -937,6 +1028,14 @@ model Session {
   status       SessionStatus @default(scheduled)
   /// SI-005: the media server room this session maps to.
   roomId       String?       @map("room_id") @db.VarChar(200)
+  /// The confirmed timetable slot this session was claimed against, recorded when
+  /// it went live.
+  ///
+  /// FR-ERN-003 pays for timetabled teaching and the brief lets a teacher go live
+  /// at any time, so the two facts differ and both matter. Deriving the slot
+  /// afterwards by matching a start time against the week is guesswork the moment
+  /// a slot is edited; this records what was true at the instant of going live.
+  timetableSlotId String?    @map("timetable_slot_id") @db.Uuid
   /// FR-SAF-004: minor one-to-one sessions default to recording enabled.
   recordingEnabled Boolean   @default(false) @map("recording_enabled")
   endedAt      DateTime?     @map("ended_at") @db.Timestamptz(6)
@@ -949,6 +1048,7 @@ model Session {
   learner      Learner?             @relation(fields: [learnerId], references: [id])
   cohort       Cohort?              @relation(fields: [cohortId], references: [id])
   subject      Subject              @relation(fields: [subjectId], references: [id])
+  timetableSlot TimetableSlot?      @relation(fields: [timetableSlotId], references: [id])
   participants SessionParticipant[]
   recordings   Recording[]
   reviews      Review[]
@@ -958,6 +1058,8 @@ model Session {
   @@unique([teacherId, startsAtUtc])
   @@index([startsAtUtc])
   @@index([status])
+  /// The teacher's own live board: "am I live right now".
+  @@index([teacherId, status])
   /// The live board and the weekly timetable both read a status and a window.
   @@index([status, startsAtUtc])
   @@index([startsAtUtc, teacherId])
@@ -1060,14 +1162,52 @@ model WorkAssignment {
   instructions String   @db.Text
   dueAt        DateTime @map("due_at") @db.Timestamptz(6)
   maxScore     Int      @map("max_score")
+  /// The deadline that closes submission entirely, distinct from `dueAt`.
+  ///
+  /// Work can be handed in after `dueAt` and is marked late (FR-HWK-004). Once
+  /// `locksAt` passes nothing can be handed in at all, which is the brief's
+  /// "the group automatically locks". Null means the exercise never locks.
+  locksAt      DateTime? @map("locks_at") @db.Timestamptz(6)
+  /// Reopening is an act with an owner. Only a teacher who set the exercise or an
+  /// admin may do it, and the audit trail carries both.
+  unlockedBy   String?   @map("unlocked_by") @db.Uuid
+  unlockedAt   DateTime? @map("unlocked_at") @db.Timestamptz(6)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   teacher     Teacher      @relation(fields: [teacherId], references: [userId])
   subject     Subject      @relation(fields: [subjectId], references: [id])
   submissions Submission[]
+  unlocker    User?        @relation("ExerciseUnlocker", fields: [unlockedBy], references: [id])
+  groupScores GroupScore[]
 
   @@index([dueAt])
+  @@index([locksAt])
   @@map("assignments_work")
+}
+
+/// `group_scores` — one mark awarded to a whole group for a shared exercise.
+///
+/// Not a `Grade`: a `Grade` hangs off a `Submission`, which is one learner's
+/// work. Writing a group mark as a Grade per member would mean inventing a
+/// Submission for every learner who handed nothing in, turning "did not submit"
+/// into "submitted, empty" for the whole cohort.
+model GroupScore {
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @db.Uuid
+  cohortId     String   @db.Uuid
+  score        Int
+  note         String?  @db.Text
+  awardedBy    String   @db.Uuid
+  awardedAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  assignment WorkAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  cohort     Cohort         @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  awarder    User           @relation("GroupScoreAwarder", fields: [awardedBy], references: [id])
+
+  /// Re-marking updates the mark rather than stacking a second one nobody can
+  /// choose between.
+  @@unique([assignmentId, cohortId])
+  @@map("group_scores")
 }
 
 model Submission {
@@ -1127,6 +1267,11 @@ model Grade {
 model Assessment {
   id              String         @id @default(uuid()) @db.Uuid
   subjectId       String         @map("subject_id") @db.Uuid
+  /// Which class this is set for. Null for the past-paper library, which is
+  /// offered to anyone taking the subject rather than set by a teacher.
+  levelId         String?        @map("level_id") @db.Uuid
+  /// Narrower still: one group inside the level.
+  cohortId        String?        @map("cohort_id") @db.Uuid
   title           String         @db.VarChar(300)
   type            AssessmentType
   durationMin     Int?           @map("duration_min")
@@ -1135,14 +1280,116 @@ model Assessment {
   attemptsAllowed  Int           @default(1) @map("attempts_allowed")
   /// `immediate` | `deferred`
   releasePolicy    String        @default("immediate") @map("release_policy") @db.VarChar(20)
+  opensAt          DateTime?     @map("opens_at") @db.Timestamptz(6)
+  closesAt         DateTime?     @map("closes_at") @db.Timestamptz(6)
+  /// Null while the teacher is still writing it. A draft exam is invisible to
+  /// every learner, and a timestamp answers "published when" as well as
+  /// "published at all" — which a boolean cannot.
+  publishedAt      DateTime?     @map("published_at") @db.Timestamptz(6)
+  /// FR-ASM-004: a deferred exam is marked but withheld until the teacher has
+  /// read the structural answers and released the lot.
+  resultsReleasedAt DateTime?    @map("results_released_at") @db.Timestamptz(6)
   createdBy        String        @map("created_by") @db.Uuid
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   subject   Subject    @relation(fields: [subjectId], references: [id])
+  level     Level?     @relation(fields: [levelId], references: [id])
+  cohort    Cohort?    @relation(fields: [cohortId], references: [id])
   questions Question[]
   attempts  Attempt[]
 
+  @@index([levelId, publishedAt])
+  @@index([createdBy])
   @@map("assessments")
+}
+
+/// `report_cards` — a termly report for one learner.
+///
+/// The one concept BUILD-PLAN named as genuinely absent. `Grade` is a single mark
+/// for a single piece of work; this is many subjects with coefficients, a
+/// weighted average and a position in the class.
+model ReportCard {
+  id           String   @id @default(uuid()) @db.Uuid
+  learnerId    String   @db.Uuid
+  levelId      String   @db.Uuid
+  /// `term_1` | `term_2` | `term_3`. A varchar rather than an enum: not every
+  /// Cameroonian school runs three terms, and an enum would need a migration to
+  /// find that out.
+  term         String   @db.VarChar(20)
+  academicYear String   @db.VarChar(20)
+  /// Stored, not recomputed on read. The average a family was shown in December
+  /// must not change because a mark was edited in March — a regeneration writes
+  /// the row again, deliberately and with an owner.
+  averageMark  Decimal? @db.Decimal(5, 2)
+  totalCoefficient Int  @default(0)
+  classPosition    Int?
+  classSize        Int?
+  remark       String?  @db.Text
+  generatedBy  String?  @db.Uuid
+  generatedAt  DateTime @default(now()) @db.Timestamptz(6)
+  /// Generated and published are separate acts: a report card is checked before a
+  /// family sees it.
+  publishedAt  DateTime? @db.Timestamptz(6)
+
+  learner   Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  level     Level            @relation(fields: [levelId], references: [id])
+  generator User?            @relation("ReportCardGenerator", fields: [generatedBy], references: [id])
+  lines     ReportCardLine[]
+
+  @@unique([learnerId, term, academicYear])
+  @@index([levelId, term, academicYear])
+  @@map("report_cards")
+}
+
+model ReportCardLine {
+  id           String   @id @default(uuid()) @db.Uuid
+  reportCardId String   @db.Uuid
+  subjectId    String   @db.Uuid
+  mark         Decimal  @db.Decimal(5, 2)
+  /// The Cameroonian coefficient: Maths at 4 counts four times a subject at 1.
+  coefficient  Int      @default(1)
+  teacherId    String?  @db.Uuid
+  comment      String?  @db.Text
+  submittedAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id])
+  teacher    Teacher?   @relation(fields: [teacherId], references: [userId])
+
+  @@unique([reportCardId, subjectId])
+  @@map("report_card_lines")
+}
+
+/// `subject_term_marks` — a mark a teacher has entered, before any report card
+/// exists.
+///
+/// The brief's "after all the teachers have submitted their reports, one click
+/// generates every report card" needs somewhere for a mark to sit in between, and
+/// it is not the report card: generating one is a whole-class calculation that
+/// cannot run until every subject is in.
+model SubjectTermMark {
+  id           String   @id @default(uuid()) @db.Uuid
+  learnerId    String   @db.Uuid
+  subjectId    String   @db.Uuid
+  teacherId    String   @db.Uuid
+  levelId      String   @db.Uuid
+  term         String   @db.VarChar(20)
+  academicYear String   @db.VarChar(20)
+  mark         Decimal  @db.Decimal(5, 2)
+  coefficient  Int      @default(1)
+  comment      String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  level   Level   @relation(fields: [levelId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, subjectId, term, academicYear])
+  @@index([levelId, term, academicYear])
+  @@index([teacherId])
+  @@map("subject_term_marks")
 }
 
 model Question {
@@ -1666,6 +1913,14 @@ model PaymentSchedule {
   planType       InstalmentPlanType @map("plan_type")
   /// CON-02: whole XAF. §5.1 requires the instalments to sum exactly to this.
   totalXaf       BigInt             @map("total_xaf")
+  /// The one-off registration fee, separate from tuition.
+  ///
+  /// Registration and tuition are different debts: a family pays to enrol, then
+  /// pays to be taught. Folding the first into the instalments made "Part 1"
+  /// mean two different things and made the plan total unexplainable to the
+  /// person paying it. `total_xaf` is tuition only; this sits beside it.
+  registrationFeeXaf BigInt   @default(0) @map("registration_fee_xaf")
+  registrationPaidAt DateTime? @map("registration_paid_at") @db.Timestamptz(6)
   /// OI-03/Q3: a pay-in-full discount is configuration, defaulting to zero.
   discountXaf    BigInt             @default(0) @map("discount_xaf")
   /// §5.1: settling the balance clears all future instalments and lifts any
@@ -1994,6 +2249,10 @@ enum MessageThreadKind {
   learner_teacher
   learner_support
   guardian_teacher
+  /// A teacher and ClassConnect. Deliberately not `learner_support`: that queue
+  /// is about a child, carries a `learner_id` and is worked under safeguarding
+  /// rules, and a teacher asking about a payout does not belong in it.
+  teacher_support
 }
 
 enum MessageState {

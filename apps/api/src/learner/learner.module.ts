@@ -40,6 +40,15 @@ import { LearnerAttendanceService } from './learner-attendance.service';
     LearnerContactsService,
     LearnerAttendanceService,
   ],
-  exports: [LearnerService],
+  /*
+   * `LearnerMessagingService` is exported for the teacher surface.
+   *
+   * Its `thread` and `send` are keyed on the caller being a `ThreadParticipant`
+   * and on nothing else, so a teacher reads and writes their own conversations
+   * through the same code — which keeps one copy of FR-SAF-002 redaction, the
+   * append-only write, and the `RedactionFlag` that fires when a teacher tries to
+   * move a child onto WhatsApp. See `teacher-messaging.service.ts`.
+   */
+  exports: [LearnerService, LearnerMessagingService],
 })
 export class LearnerModule {}

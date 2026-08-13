@@ -23,7 +23,23 @@ export interface FileKind {
  * JPG, PNG or HEIC, up to 10 MB per file.
  */
 export const TEACHER_DOCUMENT_KINDS: readonly FileKind[] = [
-  { mime: 'application/pdf', extensions: ['pdf'], magic: ['25504446'], resourceType: 'raw' },
+  /*
+   * PDFs are delivered as `image`, not `raw`.
+   *
+   * Cloudinary treats a PDF as a multi-page image and will happily store it
+   * either way — but `raw` is the delivery type most often disabled on an
+   * account, and it fails exactly like a permission error: authenticated, then
+   * refused. `image` is enabled wherever photos work, which on this platform is
+   * everywhere, because ID photographs are the common case.
+   *
+   * It is also better for the reviewer: as an `image`, Cloudinary can render a
+   * page as a thumbnail, so a verification queue can show the certificate
+   * rather than a filename.
+   *
+   * The magic bytes still identify it as a PDF, so nothing is loosened about
+   * what may be uploaded — only about how it is stored.
+   */
+  { mime: 'application/pdf', extensions: ['pdf'], magic: ['25504446'], resourceType: 'image' },
   { mime: 'image/jpeg', extensions: ['jpg', 'jpeg'], magic: ['ffd8ff'], resourceType: 'image' },
   { mime: 'image/png', extensions: ['png'], magic: ['89504e470d0a1a0a'], resourceType: 'image' },
   // HEIC is an ISO-BMFF container: bytes 4..8 are 'ftyp', then a brand.
@@ -31,6 +47,28 @@ export const TEACHER_DOCUMENT_KINDS: readonly FileKind[] = [
 ];
 
 export const TEACHER_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024; // FR-TVR-002: 10 MB
+
+/**
+ * The applicant's spoken introduction.
+ *
+ * Separate from the document kinds because it is the one upload that is
+ * deliberately video, and because 10 MB would not hold three minutes of it.
+ *
+ * The ceiling is 60 MB rather than something larger: the recorder caps the
+ * bitrate at roughly 600 kbps, which puts three minutes near 13 MB. The
+ * headroom is for a phone that ignores the hint, not an invitation to upload a
+ * 4K clip from Cameroon on a metered connection.
+ */
+export const TEACHER_VIDEO_KINDS: readonly FileKind[] = [
+  { mime: 'video/webm', extensions: ['webm'], magic: ['1a45dfa3'], resourceType: 'video' },
+  { mime: 'video/mp4', extensions: ['mp4', 'm4v'], magic: [], resourceType: 'video' },
+  { mime: 'video/quicktime', extensions: ['mov'], magic: [], resourceType: 'video' },
+];
+
+export const TEACHER_VIDEO_MAX_BYTES = 60 * 1024 * 1024;
+
+/** FR-TVR-002 in spirit: long enough to judge, short enough to watch a queue of. */
+export const TEACHER_VIDEO_MAX_SECONDS = 180;
 
 /**
  * FR-HWK-003: up to 10 files and 25 MB per submission, including photographs of
@@ -50,6 +88,31 @@ export const SUBMISSION_KINDS: readonly FileKind[] = [
 ];
 
 export const SUBMISSION_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * A lesson: what a teacher publishes to a class.
+ *
+ * The brief asks for "a PDF, Word document, image or video". Video is the
+ * reason this is its own list rather than `SUBMISSION_KINDS` — a recorded
+ * explanation is a lesson in a way it is never a homework submission, and the
+ * ceiling below has to accommodate one.
+ */
+export const LESSON_KINDS: readonly FileKind[] = [
+  ...SUBMISSION_KINDS,
+  { mime: 'video/webm', extensions: ['webm'], magic: ['1a45dfa3'], resourceType: 'video' },
+  { mime: 'video/mp4', extensions: ['mp4', 'm4v'], magic: [], resourceType: 'video' },
+  { mime: 'audio/mpeg', extensions: ['mp3'], magic: ['494433', 'fffb', 'fff3', 'fff2'], resourceType: 'video' },
+];
+
+/**
+ * 100 MB — larger than any other ceiling here, and deliberately.
+ *
+ * §6.2's target is a mobile connection, and a teacher who cannot upload a
+ * recorded lesson simply does not publish one. The download side is where the
+ * bandwidth is actually spent, and the brief explicitly wants a learner to be
+ * able to keep a lesson offline rather than stream it repeatedly.
+ */
+export const LESSON_MAX_BYTES = 100 * 1024 * 1024;
 
 /**
  * What may be attached to a message: photos, video, voice notes and documents.
@@ -186,6 +249,28 @@ export function kindFor(
   return kinds.find(
     (kind) => kind.mime === mimeType.toLowerCase() && kind.extensions.includes(extension),
   );
+}
+
+/**
+ * The kind for a stored file, from its MIME type alone.
+ *
+ * `kindFor` needs the file name because the extension and the declared type must
+ * *agree* — that is the check that catches a PDF renamed to `.png`. Once a file
+ * is stored, that check has already passed, and some tables here do not keep the
+ * original name: `Material` holds a teacher-authored title, which may well end
+ * in a full stop rather than `.pdf`.
+ *
+ * So this is for the later steps — confirming, reading, deleting — where the
+ * only thing being decided is which Cloudinary resource type the asset lives
+ * under. Where a MIME appears twice in a list (`video/webm` and `audio/webm`),
+ * both entries carry the same resource type, so the first match is not a guess.
+ */
+export function kindForMime(
+  mimeType: string,
+  kinds: readonly FileKind[],
+): FileKind | undefined {
+  const mime = mimeType.toLowerCase();
+  return kinds.find((kind) => kind.mime === mime);
 }
 
 /**

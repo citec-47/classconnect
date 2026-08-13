@@ -1,9 +1,15 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { MessageAttachmentsService } from './message-attachments.service';
 import { zodBody, uuidParam } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
-import { signTeacherDocumentSchema, isStaff, type SignTeacherDocumentInput } from '@classconnect/shared';
+import {
+  signTeacherDocumentSchema,
+  removeTeacherDocumentSchema,
+  isStaff,
+  type SignTeacherDocumentInput,
+  type RemoveTeacherDocumentInput,
+} from '@classconnect/shared';
 
 /** SI-006 / FR-TVR-002 / FR-FIL-001..005. */
 @Controller('files')
@@ -103,6 +109,21 @@ export class FilesController {
   }
 
   /** Step 3: confirm against what storage actually received, then scan. */
+  /**
+   * The bytes. Raw body: one file per request, its type declared at signing.
+   */
+  @Post('teacher-documents/:id/upload')
+  @RequirePermissions('profile:read:own')
+  async uploadDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', uuidParam()) id: string,
+    @Req() request: RawBodyRequest,
+  ) {
+    const preParsed = Buffer.isBuffer(request.body) ? request.body : null;
+    const bytes = preParsed ?? (await readBody(request, 60 * 1024 * 1024));
+    return this.files.uploadDocument(user, id, bytes);
+  }
+
   @Post('teacher-documents/:id/confirm')
   @RequirePermissions('teacher:document:upload:own')
   async confirm(@CurrentUser() user: AuthenticatedUser, @Param('id', uuidParam()) id: string) {
@@ -116,6 +137,29 @@ export class FilesController {
   @Get('teacher-documents/:id/download-url')
   async downloadUrl(@CurrentUser() user: AuthenticatedUser, @Param('id', uuidParam()) id: string) {
     return this.files.getDownloadUrl(user, id, isStaff(user.roles));
+  }
+
+  /**
+   * FR-TVR-004: a reviewer removes a document that does not belong on the
+   * application — the wrong file, a duplicate, something sent by mistake.
+   *
+   * Gated on `teacher:verification:decide`, not on a general file permission:
+   * whoever may approve or reject an application is exactly who may tidy the
+   * evidence it is judged on. The applicant cannot use this on their own
+   * documents — replacing an upload is their route, and it keeps the original.
+   *
+   * A reason is required. This destroys a file, the audit entry is the only
+   * thing that survives it, and "deleted by an admin" with no cause is not a
+   * record anybody can act on later.
+   */
+  @Delete('teacher-documents/:id')
+  @RequirePermissions('teacher:verification:decide')
+  async removeTeacherDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', uuidParam()) id: string,
+    @Body(zodBody(removeTeacherDocumentSchema)) body: RemoveTeacherDocumentInput,
+  ) {
+    return this.files.removeTeacherDocument(user, id, body.reason);
   }
 }
 

@@ -37,7 +37,7 @@ export default async function AdminLayout({
          * to its content width and the whole shell gains a horizontal
          * scrollbar, instead of the table scrolling inside its own container.
          */}
-        <main id="main" className="min-w-0 flex-1 bg-ink-100/40 px-4 py-5 lg:px-6">
+        <main id="main" className="min-w-0 flex-1 cc-surface px-4 py-5 lg:px-6">
           <div className="mx-auto max-w-[1440px]">{children}</div>
         </main>
 

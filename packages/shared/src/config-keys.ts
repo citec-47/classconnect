@@ -45,6 +45,35 @@ export const CONFIG_KEYS = {
   SESSION_TYPE_FACTOR_GROUP: 'earnings.session_factor.group',
   EARNING_MIN_PRESENCE_PERCENT: 'earnings.min_presence_percent',
   PAYOUT_MINIMUM_XAF: 'earnings.payout_minimum_xaf',
+  /**
+   * The brief's "the initial earning per hour will be set by the admin".
+   *
+   * An *indicative* rate, and the word matters. What a teacher is actually paid
+   * comes from `distributePool` in `earnings.ts` — a share of a revenue pool, by
+   * attended minutes — and that is the figure the ledger balances against. This
+   * rate is what the teacher's own screen values their accrued teaching hours at
+   * before Finance runs the period, which is the number the brief is asking to
+   * put in front of them.
+   *
+   * Keeping the two apart is deliberate: inserting hourly-rate rows straight into
+   * `Earning` would break the identity `sum(teacher shares) + unallocated == pool`
+   * that the distribution asserts on every run.
+   */
+  TEACHER_HOURLY_RATE_XAF: 'earnings.teacher_hourly_rate_xaf',
+  /**
+   * FR-ERN / the brief: "after 30 minutes of classes the earning will display".
+   *
+   * A live lesson shorter than this accrues nothing. It is a floor against a room
+   * opened and closed again, not a rounding rule — minutes past it count in full.
+   */
+  EARNING_MIN_SESSION_MINUTES: 'earnings.min_session_minutes',
+  /**
+   * How long a learner must attend before they may rate the teacher.
+   *
+   * The brief says forty minutes. FR-RAT-* gives the rating its meaning: someone
+   * who saw ten minutes of a lesson is rating the connection, not the teaching.
+   */
+  RATING_MIN_ATTENDED_MINUTES: 'ratings.min_attended_minutes',
 
   // --- FR-NOT-004/008: notifications ---
   QUIET_HOURS_START: 'notifications.quiet_hours_start',
@@ -185,6 +214,15 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, unknown> = {
   [CONFIG_KEYS.SESSION_TYPE_FACTOR_GROUP]: 1.0, // FR-ERN-003
   [CONFIG_KEYS.EARNING_MIN_PRESENCE_PERCENT]: 80, // FR-ERN-005
   [CONFIG_KEYS.PAYOUT_MINIMUM_XAF]: 10000, // FR-ERN-007 — value not fixed by the SRS
+  /*
+   * 2 000 FCFA an hour — a placeholder, and the admin screen is where it is set.
+   *
+   * Chosen so the teacher's screen shows a plausible figure on a fresh install
+   * rather than zero, which reads as a bug. It is not a commercial commitment.
+   */
+  [CONFIG_KEYS.TEACHER_HOURLY_RATE_XAF]: 2000,
+  [CONFIG_KEYS.EARNING_MIN_SESSION_MINUTES]: 30, // the brief's 30-minute floor
+  [CONFIG_KEYS.RATING_MIN_ATTENDED_MINUTES]: 40, // the brief's 40-minute rule
 
   [CONFIG_KEYS.QUIET_HOURS_START]: '21:00', // FR-NOT-004
   [CONFIG_KEYS.QUIET_HOURS_END]: '06:00', // FR-NOT-004

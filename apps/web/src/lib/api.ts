@@ -191,6 +191,57 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return payload as T;
 }
 
+/**
+ * A file upload that survives an expired access token.
+ *
+ * The three-step upload path sends raw bytes, not JSON, so it could not go
+ * through `api()` and was written as a bare `fetch` instead — which quietly
+ * cost it the one thing `api()` does that matters most here: rotate the access
+ * token on a 401 and replay the request.
+ *
+ * An access token lives 15 minutes. Recording a three-minute introduction,
+ * watching it back and re-recording it comfortably outlives that, and the
+ * refresh token is good for 30 days — so the session had not ended at all. The
+ * upload simply refused, permanently, at the last step of an application the
+ * applicant had already finished. That is the failure that reads as "it logged
+ * me out" when nothing of the sort happened.
+ *
+ * Same rotate-once-and-replay as `api()`; a second 401 is a real one.
+ */
+export async function apiUpload(
+  path: string,
+  file: File,
+  options: { timeoutMs?: number; retryOnUnauthorised?: boolean } = {},
+): Promise<Response> {
+  const { timeoutMs = 120_000, retryOnUnauthorised = true } = options;
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase()}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        ...(tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {}),
+      },
+      body: file,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (caught) {
+    const timedOut = caught instanceof DOMException && caught.name === 'TimeoutError';
+    throw new ApiError(0, timedOut ? 'errors.timeout' : 'errors.network');
+  }
+
+  if (response.status === 401 && retryOnUnauthorised && tokenStore.refresh) {
+    const rotated = await tryRefresh();
+    if (rotated) {
+      return apiUpload(path, file, { ...options, retryOnUnauthorised: false });
+    }
+    tokenStore.clear();
+  }
+
+  return response;
+}
+
 async function tryRefresh(): Promise<boolean> {
   const refreshToken = tokenStore.refresh;
   if (!refreshToken) return false;

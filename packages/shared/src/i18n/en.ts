@@ -17,6 +17,8 @@ export const en = {
     cancel: 'Cancel',
     save: 'Save',
     saving: 'Saving…',
+    /** For a form that is submitted somewhere, not stored — an application. */
+    sending: 'Sending…',
     edit: 'Edit',
     close: 'Close',
     loading: 'Loading…',
@@ -30,6 +32,8 @@ export const en = {
     required: 'Required',
     optional: 'Optional',
     signOut: 'Sign out',
+    /* The way back to your own surface from a public page. */
+    myDashboard: 'My dashboard',
     language: 'Language',
     english: 'English',
     french: 'Français',
@@ -235,6 +239,124 @@ export const en = {
   },
 
   teacher: {
+    home: {
+      title: 'Welcome, {name}',
+      description: 'Your teaching at a glance.',
+      classes: 'Classes you teach',
+      learners: 'Students you teach',
+      viewClasses: 'View classes',
+      /* FR-HWK-008: the one figure here that is a job rather than a summary. */
+      awaitingMarking: 'Waiting to be marked',
+      goMark: 'Go and mark it',
+    },
+    /**
+     * The progress bar.
+     *
+     * Measured against the confirmed timetable — hours taught over hours agreed —
+     * because that is a figure a teacher can check. See
+     * `teacher-progress.service.ts` for why that measure rather than an invented
+     * score.
+     */
+    progress: {
+      title: 'Your week',
+      hours: '{taught} of {timetabled} hours',
+      percent: '{percent}% of your timetabled week',
+      extra: 'Plus {hours} hours taught outside your timetable.',
+      /*
+       * No confirmed hours means no denominator. A 0% bar would read as "you have
+       * taught none of your week" rather than "your week is not agreed yet", which
+       * is the real state and the one with something to do about it.
+       */
+      noTimetable: 'You have no confirmed hours this week. Offer some from your timetable.',
+      awaitingConfirmation:
+        '{count} hours are waiting for an admin to confirm. Your week starts counting once they do.',
+      rating: 'Rated {average} out of 5 by {count} students.',
+      ratingPending:
+        '{count} of {needed} ratings so far. We show an average once there are enough for it to mean something.',
+    },
+    /**
+     * The waiting room, before an Admin has approved the application.
+     *
+     * Each status says where the application actually stands, because "pending"
+     * covers four situations a teacher would act on differently — one needs
+     * them to finish the form, one needs them to do nothing, and one needs them
+     * to correct something and send it back.
+     */
+    profile: {
+      description: 'What we hold about you, and what an Admin verified.',
+      account: 'Your account',
+      teaching: 'Your teaching record',
+      verified: 'Verified',
+      unverified: 'Not verified yet',
+      changeHint: 'To change any of this, open',
+    },
+    /** FR-ERN-006: the teacher's own view of what they have earned. */
+    earnings: {
+      description: 'What you have earned, by month.',
+      net: 'Net payable',
+      gross: 'Gross',
+      deductions: 'Deductions',
+      awaiting: 'Awaiting payout',
+      taught: 'Time taught',
+      period: 'Month',
+      state: 'State',
+      paid: 'In a payout',
+      pending: 'Not yet paid',
+      /*
+       * The brief's daily/weekly/monthly figures, and they are a different kind of
+       * number from the tiles above — teaching done, valued at the admin's rate,
+       * before Finance has run a period. Called indicative because it is.
+       */
+      accrualTitle: 'Teaching so far — indicative',
+      rate: 'At {rate} XAF an hour, set by the admin',
+      accrualHint:
+        'Lessons you have taught inside a confirmed timetable slot, valued at the current rate. A lesson under {minutes} minutes does not count. What you are actually paid is worked out at the end of the month, from the figures above.',
+      window: { today: 'Today', thisWeek: 'This week', thisMonth: 'This month' },
+      belowFloor:
+        '{count} lesson(s) this month were under {minutes} minutes, so they are not counted here.',
+      emptyTitle: 'Nothing earned yet',
+      emptyBody:
+        'Once you have taught sessions, what you earn from them appears here each month.',
+      /* FR-ERN-010: says what "in a payout" does and does not mean. */
+      footnote:
+        '“In a payout” means the amount has been approved for payment, not that it has arrived. Payments go to the mobile money number on your profile once Finance has confirmed it.',
+    },
+    locked: {
+      title: 'Finish your verification',
+      description: 'Your teaching tools open once we have checked who you are.',
+      action: 'Go to verification',
+      status: {
+        draft:
+          'Your application is not finished yet. Add your details and documents, then send it for approval.',
+        submitted:
+          'Your application is with our team. We will let you know as soon as it has been checked — you do not need to do anything.',
+        under_review:
+          'Someone is going through your application now. We will let you know as soon as there is a decision.',
+        more_info_required:
+          'We need something more before we can approve you. Open your verification to see what is missing.',
+        rejected:
+          'Your application was not approved. Open your verification to see the reason.',
+        approved: 'You are approved.',
+      },
+    },
+    classes: {
+      title: 'Classes',
+      description: 'Choose a group to see the classes you teach in it.',
+      bandEmpty: 'You do not teach any classes in this group yet.',
+      learnerCount: '{count} students',
+      band: {
+        primary: 'Primary (Class One to Class Six)',
+        secondary: 'Secondary (Form One to Form Five)',
+        sixth_form: 'Lower and Upper Sixth',
+        private: 'Private classes',
+      },
+      column: {
+        name: 'Class',
+        level: 'Level',
+        subject: 'Subject',
+        students: 'Students',
+      },
+    },
     myAccount: 'My teaching account',
     detailsManagedByAdmin:
       'These details were recorded by ClassConnect staff. Contact support if anything is wrong.',
@@ -263,10 +385,14 @@ export const en = {
       degree_certificate: 'Degree certificate',
       diploma: 'Diploma',
       teaching_authorisation: 'Teaching authorisation',
+      intro_video: 'Introduction video',
       other: 'Other document',
     },
     payoutDetails: 'Where we send your earnings',
     payoutHint: 'Only our finance team can see this. Learners and parents never see it.',
+    /* We hold the number but cannot show it — see the field for why. */
+    payoutOnFile:
+      'We have {number} on file. It is stored encrypted, so we cannot show it in full — type it again to confirm, or enter a different number.',
     submitApplication: 'Submit application',
     statusDraft: 'Draft',
     statusSubmitted: 'Submitted',
@@ -295,6 +421,37 @@ export const en = {
     checklist: 'Verification checklist',
     checklistHint:
       'Confirm each item yourself. Every item records who checked it and when.',
+    /**
+     * The applicant's files, shown where the decision is made.
+     *
+     * FR-FIL-003 keeps every link short-lived, so these are fetched per file
+     * when the reviewer asks for them rather than held on the page.
+     */
+    review: {
+      documents: 'What the applicant sent',
+      openDocument: 'Open',
+      removeDocument: 'Remove',
+      /**
+       * Clearing an application out of the queue.
+       *
+       * Worded as "remove from the queue" rather than "delete", because that is
+       * exactly what it does — the record is retained (FR-TVR-010) and the
+       * database will not permit otherwise. Calling it delete would promise
+       * something that does not happen.
+       */
+      removeFromQueue: 'Remove from queue',
+      removeFromQueueConfirm: 'Remove {name} from the queue?',
+      removeFromQueueHint:
+        'This closes the application as not approved and takes it off this list. The record is kept, and the applicant is told the reason.',
+      removeFromQueueReason: 'Reason — the applicant will see this',
+      removeFromQueueAction: 'Remove it',
+      removeConfirm: 'Remove “{fileName}”? This deletes the file for good.',
+      removeReason: 'Why are you removing it? The applicant will be told.',
+      removeConfirmAction: 'Remove it',
+      watchIntro: 'The applicant’s introduction video',
+      noDocuments:
+        'This applicant has not uploaded any documents yet. There is nothing here to verify — ask for what you need rather than approving.',
+    },
     checkIdentity: 'Identity document matches the applicant',
     checkQualification: 'Qualification certificate is genuine and legible',
     checkInstitution: 'Awarding institution is recognised',
@@ -819,21 +976,26 @@ export const en = {
     register: 'Register',
     registerTitle: 'Register student',
     registered: '{learner} registered. Fee status can now be set.',
-    plan: 'Plan',
+    choosePlan: 'Plan',
     howToPay: 'How the fees will be paid',
     startOn: 'Fees start from',
     registerConsequence:
       'This creates the subscription and its payment schedule for {total}. Record payment and Set status become available on this row.',
+    registrationFee: 'Registration fee (FCFA)',
+    registrationFeeHint: 'A one-off enrolment fee, separate from tuition. Enter 0 if there is none.',
+    tuitionParts: 'Tuition, split into parts',
+    tuitionTotal: 'Tuition total',
+    contractTotal: 'Total to pay',
     editPlan: 'Edit plan',
     editPlanTitle: 'Edit the payment plan',
     planUpdated: 'Payment plan updated for {learner}.',
     savePlan: 'Save plan',
     amount: 'Amount (FCFA)',
-    dueOn: 'Due date',
+    partDueOn: 'Due date',
     partsSum: 'Parts add up to {sum} of {total}',
     mustMatch: 'they must match exactly',
     editPlanConsequence:
-      'The parts must add up to the total. A part that has already been paid cannot be re-priced. The student and the payer are told when the plan changes, and the change is recorded with your name and reason.',
+      'The tuition total is whatever the parts add up to. A part that has already been paid cannot be re-priced. The student and the payer are told when the plan changes, and the change is recorded with your name and reason.',
     feesTitle: 'Students — fees',
     feesSubtitle: 'Every registered student, and where their fees stand.',
     student: 'Student',
@@ -1087,6 +1249,93 @@ export const en = {
     forbidden: 'You do not have access to this.',
     notFound: 'We could not find that.',
     validation: 'Please check the highlighted fields.',
+    timetable: {
+      clash: 'That overlaps {count} hour(s) you already have. Choose a different time.',
+      day_out_of_range: 'Choose a day from Monday to Friday.',
+      outside_teaching_day: 'Classes run between 07:00 and 19:00.',
+      reversed: 'The end time must be after the start time.',
+      too_short: 'A class must be at least 30 minutes.',
+      too_long: 'A single class cannot be longer than 4 hours.',
+      not_your_subject: 'You are not approved to teach that subject at that level.',
+      already_decided: 'That hour has already been decided.',
+      note_required: 'Give a reason when refusing an hour.',
+    },
+
+    /** BUILD-PLAN Phase 3 — group exercises. */
+    exercise: {
+      locks_before_due: 'The lock time cannot be before the due time.',
+      never_locks: 'That exercise has no lock time, so there is nothing to reopen.',
+      score_above_max: 'The score cannot be more than {maxScore}.',
+      locked: 'This exercise is locked. Ask your teacher to reopen it.',
+    },
+    group: {
+      over_capacity: 'That is more learners than the group holds ({capacity}).',
+      learner_not_at_level: 'One of those learners is not in this class.',
+      not_this_exercise: 'That exercise was not set to this group.',
+    },
+
+    /** BUILD-PLAN Phase 4 — exams. */
+    exam: {
+      needs_options: 'A multiple-choice question needs at least two answers.',
+      no_correct_option: 'Tick the correct answer, or nobody can score on this question.',
+      single_answer_only: 'A one-answer question can only have one correct answer.',
+      structural_has_options: 'A structural question has no answers to choose from.',
+      closes_before_opens: 'The closing time must be after the opening time.',
+      no_questions: 'Add at least one question before publishing.',
+      not_your_group: 'That group is not yours.',
+      answer_not_in_attempt: 'That answer does not belong to this script.',
+      mark_above_question: 'That question is only worth {max} marks.',
+      unmarked_remain: '{unmarked} structural answers are still unmarked.',
+    },
+
+    /** BUILD-PLAN Phase 6 — report cards. */
+    report: {
+      bad_year: 'Write the academic year as 2026-2027.',
+      learner_not_at_level: 'One of those learners is not in this class.',
+      no_marks: 'No marks have been entered for that class and term yet.',
+    },
+
+    /** BUILD-PLAN Phase 5 — live. */
+    live: {
+      one_audience: 'A lesson is either for a group or for one learner, not both.',
+      already_live: 'You are already teaching a lesson. End it before starting another.',
+      subject_mismatch: 'That group does not study that subject.',
+      not_your_learner: 'You are not assigned to teach that learner.',
+      slot_not_confirmed: 'That timetable slot is not yours, or has not been confirmed.',
+    },
+
+    /*
+     * The server names the field that failed; these say what was wrong with it.
+     *
+     * `ZodValidationPipe` falls back to `errors.field.<zod code>` for any issue
+     * without a message key of its own. Without these, `t()` returned the key
+     * itself and the applicant read "errors.field.too_small" on the page.
+     */
+    field: {
+      too_small: 'This is too short.',
+      too_big: 'This is too long.',
+      invalid_type: 'This is required.',
+      invalid_string: 'Please check the format.',
+      invalid_enum_value: 'Please choose one of the options.',
+      invalid_union: 'Please check this value.',
+      invalid_date: 'Please give a valid date.',
+      not_multiple_of: 'Please check this value.',
+      custom: 'Please check this value.',
+    },
+    /** Human names for the fields the server can reject, keyed by its path. */
+    fieldName: {
+      highestQualification: 'Highest qualification',
+      institution: 'Institution',
+      qualificationYear: 'Year qualified',
+      yearsExperience: 'Years of experience',
+      payoutWallet: 'Mobile money number',
+      payoutMethod: 'Payout method',
+      languages: 'Teaching languages',
+      subjects: 'Subjects and levels',
+      nationalId: 'Identity number',
+      bio: 'About you',
+      address: 'Address',
+    },
     phone: {
       invalid: 'That does not look like a valid phone number. Example: 6XX XXX XXX.',
       not_mobile: 'Please use a mobile number. We need to send you an SMS.',
@@ -1130,6 +1379,11 @@ export const en = {
       not_approved: 'Only approved teachers can be assigned learners.',
       already_applied: 'You already have an application in progress.',
       application_closed: 'This application is closed.',
+      noRecord:
+        'Your teaching profile has not been set up yet. Ask an administrator to complete it.',
+    },
+    class: {
+      notFound: 'We could not find that class, or it is not one you teach.',
     },
     student: {
       subjects_required: 'Choose at least one subject for this student.',
@@ -1222,6 +1476,7 @@ export const en = {
       cannot_remove_last_super_admin: 'There has to be at least one super admin.',
     },
     schedule: {
+      tuition_required: 'Tuition must be more than zero.',
       whole_francs: 'Amounts must be whole francs.',
       must_sum_to_total: 'The parts add up to {given}, but the total is {total}.',
       unknown_part: 'That part is not in this plan.',
@@ -1251,7 +1506,18 @@ export const en = {
       type_blocked: 'We cannot accept ".{extension}" files for safety reasons.',
       type_not_allowed: 'Please use one of these file types: {allowed}.',
       upload_rejected: 'Storage would not accept that file. Please try again.',
+      /*
+       * Says the fault is ours, because it is. The previous message for this
+       * case blamed the file, and an applicant with a perfectly good document
+       * has no way to act on that — so they change the file, which cannot help.
+       */
+      storage_unavailable:
+        'We could not reach our file storage just now. Your details are saved — please try the upload again in a moment.',
       already_uploaded: 'That file has already been sent.',
+      no_teacher_profile:
+        'Your teaching account is not set up yet. Sign out, sign in again, and open the teaching page before uploading.',
+      could_not_record:
+        'We could not record that file. The reference is in the server log — tell whoever runs the platform.',
       upload_not_found: 'We did not receive that file. Please try uploading it again.',
       rejected: 'We could not accept that file. Please try uploading it again.',
       quarantined:
@@ -1285,6 +1551,22 @@ export const en = {
     teacherApplicationSubmitted: {
       subject: 'We received your application',
       body: 'Hello {name}, we have your teaching application and will review it shortly.',
+    },
+    /**
+     * To staff, not to the applicant.
+     *
+     * Names the applicant: a queue notice reading "a teacher applied" tells
+     * whoever is on duty nothing they can act on, and two of them arriving
+     * together are indistinguishable.
+     */
+    teacherVerificationPending: {
+      subject: 'A teacher is waiting for verification',
+      body: '{applicant} has sent a teaching application for review. Open Approvals → Teachers to check it.',
+    },
+    /* Named and explained: a file that simply vanishes gets re-sent unchanged. */
+    teacherDocumentRemoved: {
+      subject: 'A document was removed from your application',
+      body: 'Hello {name}, we removed "{fileName}" from your application. Reason: {reason}. Please upload the right file when you can.',
     },
     teacherApproved: {
       subject: 'You are verified',
@@ -1395,6 +1677,402 @@ export const en = {
     redacted: 'Contact details were removed from this message.',
     redactionNotice:
       'Phone numbers, emails and social handles are removed from replies as well. Keep everything on ClassConnect.',
+  },
+
+  teach: {
+    step: {
+      about: 'About you',
+      aboutHelp: 'We check every teacher before their first lesson. This protects learners and it protects you.',
+      video: 'Introduce yourself',
+      documents: 'Your documents',
+    },
+      /*
+       * One key was labelling two different things: the ID *number* field and
+       * the document-type dropdown. Split, because "Identity document" above a
+       * list containing degree certificates is simply wrong.
+       */
+      documentKind: 'Highest educational level',
+      documentKindHint: 'Your degree, diploma or teaching authorisation.',
+      identityUpload: 'ID card or passport',
+      identityUploadHint: 'One photo or scan, clearly readable. This must be the same person as in your video.',
+      identityReplace: 'Replace it',
+      identityUploaded: 'Uploaded',
+      watchYourVideo: 'Watch your video',
+      videoUploaded: 'Your introduction is saved. Watch it back before you submit.',
+      replaceVideo: 'Record it again',
+    preview: {
+      confirm: 'Looks right — upload it',
+      chooseAnother: 'Choose another',
+      uploading: 'Uploading…',
+      scanning: 'Being checked…',
+      ready: 'Ready',
+      failed: 'Not sent',
+      noPdfViewer: 'Your browser cannot show this PDF here. It will still upload.',
+    },
+    checklist: {
+      title: 'Before you submit',
+      idDocument: 'ID card or passport',
+      /* The ID has its own box; the general picker cannot record one. */
+      idDocumentWhere: 'Use the “ID card or passport” box in step 3 — not the document picker below it.',
+      certificate: 'Certificate or diploma',
+      help: 'You can save and come back. We only review once everything is here.',
+    },
+    /**
+     * The state of the form, above the button rather than behind it.
+     *
+     * `title` lists only what the server actually refuses to accept.
+     * `stillToAdd` lists the documents, which it does accept without — said
+     * once the form can be sent, so it reads as the next step and not a wall.
+     */
+    needed: {
+      title: 'Fill these in before you send:',
+      ready: 'Everything we need is here. You can send this now.',
+      stillToAdd:
+        'You can send now and add these after — we just cannot approve you until they arrive: {items}.',
+      sent: 'Sent. Your application is with our team — we will let you know when it has been checked.',
+    },
+    /**
+     * What happens to the form after it has been sent, and after a decision.
+     *
+     * The reviewer's own words are the only human-written text on this page, so
+     * they get a heading that says which kind of answer they are.
+     */
+    decision: {
+      lockedTitle: 'Your application is being reviewed',
+      lockedBody:
+        'It is now with our team, so it cannot be changed while they read it. If they need anything more they will ask, and this form will open again.',
+      rejectedTitle: 'Why this was not approved',
+      moreInfoTitle: 'What we still need from you',
+    },
+    intro: {
+      title: 'Introduce yourself on video',
+      help: 'Up to 3 minutes. Tell us who you are, what you teach and how you teach it. Our team watches this before approving you — it also confirms you are the person on your ID.',
+      enableCamera: 'Turn on camera',
+      start: 'Start recording',
+      stop: 'Stop',
+      use: 'Use this recording',
+      retake: 'Record again',
+      orUpload: 'Or upload a video you already have',
+      uploading: 'Sending your video…',
+      reviewHint: 'Watch it back. Use it, or record again — as many times as you like.',
+      unsupported:
+        'We could not reach your camera. Check the browser permission, or upload a video instead.',
+    },
+  },
+timetable: {
+    teacherDescription: 'Choose the hours you will teach. An admin confirms them before they become class time.',
+    adminTitle: 'Timetable approvals',
+    adminDescription: 'Hours teachers have offered. Confirming one puts it on the class timetable.',
+    nonePending: 'No hours are waiting for a decision.',
+    addTitle: 'Offer an hour',
+    classAndSubject: 'Class and subject',
+    dayLabel: 'Day',
+    from: 'From',
+    to: 'To',
+    propose: 'Offer this hour',
+    proposed: 'Sent. An admin will confirm it.',
+    withdraw: 'Withdraw',
+    confirm: 'Confirm',
+    reject: 'Refuse',
+    free: 'Nothing timetabled',
+    noSubjects: 'You have no approved subjects yet, so there is nothing to timetable.',
+    confirmedHours: 'Confirmed teaching each week',
+    confirmedHoursHint: 'Only confirmed hours count towards your earnings.',
+    clashTitle: 'This overlaps hours you already have:',
+    notePlaceholder: 'Reason — needed to refuse, and the teacher sees it',
+    state: { proposed: 'Waiting for approval', confirmed: 'Confirmed', rejected: 'Refused' },
+    day: { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday' },
+  },
+
+  /** BUILD-PLAN Phase 2 — lessons a teacher publishes to a class. */
+  lessons: {
+    teacherDescription:
+      'Publish a lesson to one of your classes. Everyone in that class gets it, and can read it in the app or keep it to read offline.',
+    publishTitle: 'Publish a lesson',
+    listTitle: 'Lessons you have published',
+    classAndSubject: 'Class and subject',
+    titleLabel: 'What the class will see',
+    titlePlaceholder: 'Photosynthesis — part 1',
+    topicLabel: 'Topic or unit',
+    chooseFile: 'The file',
+    accepted: 'PDF, Word, photo, video or audio. Up to 100 MB.',
+    publish: 'Publish to the class',
+    uploading: 'Sending your lesson…',
+    publishedOk: 'Published. Everyone in that class can open it now.',
+    /*
+     * The honest middle case. FR-FIL-001 keeps an unscanned file unreadable, so
+     * the teacher is told the lesson is safe with us and not yet with the class —
+     * rather than finding out when a child says it is missing.
+     */
+    pendingOk:
+      'Uploaded and safe with us. It is being checked for viruses, and your class will see it as soon as that finishes.',
+    none: 'You have not published any lessons yet.',
+    noSubjects: 'You have no approved subjects yet, so there is no class to publish to.',
+    remove: 'Remove',
+    state: {
+      clean: 'Published',
+      pending: 'Being checked',
+      awaiting_upload: 'Not sent',
+      quarantined: 'Refused',
+    },
+  },
+
+  /** The teacher's inbox. */
+  teacherMessages: {
+    description: 'Talk to ClassConnect, and to the families of the learners you teach.',
+    contactAdmin: 'Message ClassConnect',
+    none: 'No conversations yet.',
+    pickOne: 'Choose a conversation to read it.',
+    empty: 'No messages yet. Say hello.',
+    placeholder: 'Write a message…',
+    send: 'Send',
+    closed: 'This conversation is read-only.',
+    /*
+     * FR-SAF-002, said on the message it happened to. A notice at the top of the
+     * thread would leave the teacher assuming nothing had been altered.
+     */
+    redacted: 'A phone number or address was removed from this message.',
+    role: {
+      admin: 'ClassConnect',
+      learner: 'Student',
+      guardian: 'Parent',
+    },
+  },
+
+  /** BUILD-PLAN Phase 3 — groups and exercises. */
+  teacherGroups: {
+    description:
+      'Put learners into groups and set them exercises. A group locks itself at the deadline you choose.',
+    createTitle: 'Create a group',
+    groupName: 'Group name',
+    groupNamePlaceholder: 'Form 3 Maths — Tuesday set',
+    capacity: 'Maximum learners',
+    create: 'Create the group',
+    created: 'Group created. Add learners to it next.',
+    noSubjects: 'You have no approved subjects yet, so there is no class to group.',
+    none: 'You have not created any groups yet.',
+    learnerCount: '{count} of {capacity} learners',
+    members: 'Learners',
+    pickMembers: 'Tick everyone in this group',
+    noCandidates: 'Nobody at this level is taking this subject yet.',
+    saveMembers: 'Save {count} learners',
+    membersSaved: 'Group membership saved.',
+    setExercise: 'Set an exercise',
+    exerciseTitle: 'What the group will see',
+    instructions: 'Instructions',
+    dueAt: 'Due',
+    locksAt: 'Locks at',
+    /*
+     * The two dates do different things and the difference is the whole feature.
+     * Said where they are set, not on a help page.
+     */
+    locksAtHint:
+      'Work handed in after the due time is accepted and marked late. After the lock time nothing can be handed in at all — only you or an admin can reopen it.',
+    maxScore: 'Out of',
+    createExercise: 'Set the exercise',
+    exerciseCreated: 'Exercise set. Your group can see it now.',
+    submissions: '{count} handed in',
+    lockState: {
+      open: 'No deadline',
+      scheduled: 'Open',
+      closing_soon: 'Closing',
+      locked: 'Locked',
+      reopened: 'Reopened',
+    },
+    unlock: 'Reopen',
+    unlockReason: 'Why are you reopening this exercise? The reason is recorded.',
+    unlocked: 'Reopened. The group can hand in again.',
+    groupScore: 'Group score',
+    groupScoreIs: 'Group score {score}/{maxScore}',
+    scorePrompt: 'Group score, out of {maxScore}',
+    scoreOutOfRange: 'That score is not between 0 and {maxScore}.',
+    scored: 'Group score saved.',
+  },
+
+  /** BUILD-PLAN Phase 4 — exams. */
+  teacherExams: {
+    description:
+      'Set exams for your classes. Multiple-choice questions mark themselves; you mark the structural ones.',
+    setExam: 'Set an exam',
+    newExam: 'New exam',
+    examTitle: 'Exam title',
+    durationMin: 'Minutes allowed',
+    question: 'Question {number}',
+    questionType: 'Kind',
+    marks: 'Marks',
+    type: {
+      single_choice: 'Multiple choice — one answer',
+      multiple_response: 'Multiple choice — several answers',
+      free_response: 'Structural — you mark it',
+    },
+    options: 'Answers',
+    optionPlaceholder: 'Answer {number}',
+    isCorrect: 'This answer is correct',
+    addOption: 'Add another answer',
+    tickCorrect: 'Tick the correct answer. Learners never see which one it is.',
+    structuralHint: 'The learner writes their own answer, and you mark it after they submit.',
+    addQuestion: 'Add a question',
+    removeQuestion: 'Remove this question',
+    saveDraft: 'Save as a draft',
+    created: 'Saved as a draft. Publish it when the paper is ready.',
+    /*
+     * Said before the choice is made rather than after the server corrects it.
+     */
+    deferredNotice:
+      'This paper has a structural question, so results are held back until you have marked them. A score that is missing half the paper is not a result.',
+    none: 'You have not set any exams yet.',
+    questionSummary: '{questions} questions · {marks} marks',
+    structuralCount: '{count} to mark by hand',
+    submittedCount: '{count} handed in',
+    state: { draft: 'Draft', published: 'Published' },
+    publish: 'Publish',
+    published: 'Published. Your class can see it now.',
+    mark: 'Mark',
+    release: 'Release results',
+    released: 'Results released to the class.',
+    noAttempts: 'Nobody has handed this in yet.',
+    needsMarking: '{count} to mark',
+    fullyMarked: 'Fully marked',
+    terminated: 'Stopped early — read it',
+    openScript: 'Open script',
+    marking: 'Marking {name}',
+    worth: 'Worth {marks} marks',
+    awarded: 'Marks given',
+    noAnswer: 'No answer',
+    correctMark: '✓',
+    wrongMark: '✗',
+    saveMarks: 'Save marks',
+    saveAndRelease: 'Save and release to this learner',
+    marked: 'Marks saved.',
+  },
+
+  /** BUILD-PLAN Phase 6 — report sheets. */
+  teacherReports: {
+    description:
+      'Enter your subject’s termly marks. Report cards are generated once every subject is in.',
+    term: 'Term',
+    termName: { term_1: 'First term', term_2: 'Second term', term_3: 'Third term' },
+    academicYear: 'Academic year',
+    coefficient: 'Coefficient',
+    /* The Cameroonian weighting, explained where it is chosen. */
+    coefficientHint:
+      'The coefficient weights this subject in the average. Maths at 4 counts four times a subject at 1.',
+    readinessTitle: 'Marks across this class',
+    readinessSummary: '{done} of {total} subjects entered, for {learners} learners.',
+    generationIsStaff:
+      'Report cards are generated by an administrator once every subject is in, so that the average and the class position are right first time.',
+    noLearners: 'Nobody at this level is taking this subject yet.',
+    markOutOf: 'Marks out of {max}. Leave a box empty if you have not marked that learner yet.',
+    classAverage: 'Class average so far: {average}',
+    learner: 'Learner',
+    mark: 'Mark',
+    status: 'Saved',
+    savedAlready: 'Saved',
+    notYet: '—',
+    submit: 'Submit these marks',
+    saved: '{count} marks saved.',
+  },
+
+  /** BUILD-PLAN Phase 5 — live. */
+  teacherLive: {
+    description: 'Start a lesson from your timetable, and decide who may speak in it.',
+    /*
+     * The missing media server, stated once and plainly. A teacher who reads this
+     * knows why there is no picture; one who does not would blame their webcam.
+     */
+    noMediaTitle: 'Video and audio are not connected yet',
+    noMediaBody:
+      'Everything on this screen is real — the room, the register, the raised hands and the permissions. The video and audio themselves need a media server, which is not set up yet. Attendance minutes come from that server too, so they read zero until it is.',
+    liveNow: 'Live now',
+    elapsed: 'Running for {minutes} minutes',
+    end: 'End the lesson',
+    endedEligible: 'Lesson ended after {minutes} minutes. It counts towards your earnings.',
+    endedIneligible:
+      'Lesson ended after {minutes} minutes. It does not count towards your earnings — it was too short, or outside your confirmed timetable.',
+    earningsFloor: 'Earnings',
+    pastFloor: 'Past the {minutes}-minute mark',
+    beforeFloor: 'Under {minutes} minutes',
+    timetableSlot: 'Timetable',
+    insideSlot: 'Inside a confirmed slot',
+    outsideSlot: 'Outside your timetable',
+    recording: 'Recording',
+    attendedRecorded: 'Attendance recorded by the media server: {minutes} minutes.',
+    roster: 'Who is here ({present} present)',
+    noRoster: 'This lesson has no group, so there is no register.',
+    present: 'Here',
+    absent: 'Not here',
+    letSpeak: 'Let them speak',
+    speaking: 'Speaking',
+    hands: 'Hands up ({count})',
+    noHands: 'Nobody is asking to speak.',
+    grant: 'Let them speak',
+    dismiss: 'Not now',
+    speakers: 'Who can speak',
+    revoke: 'Mute',
+    fromTimetable: 'Start from your timetable',
+    fromTimetableHint:
+      'Only lessons taught inside a confirmed slot count towards your earnings, at {rate} FCFA an hour.',
+    nothingToday: 'You have no confirmed lessons timetabled for today.',
+    goLive: 'Go live',
+    goLiveAnyway: 'Go live anyway',
+    startsIn: 'Starts in {minutes} min',
+    slotNeedsGroup: 'No group assigned to this slot yet',
+    adHocTitle: 'Start a lesson outside your timetable',
+    adHocHint:
+      'You can teach at any time. A lesson outside a confirmed slot is recorded and delivered exactly the same way, but it does not accrue earnings.',
+    noGroups: 'Create a group first — a live lesson needs learners.',
+    started: 'You are live.',
+    group: 'Group',
+  },
+
+  /** My live classes. */
+  teacherRecordings: {
+    description: 'Watch back the lessons you have taught, day by day.',
+    none: 'You have not taught any lessons yet.',
+    type: { one_to_one: 'One to one', group: 'Group class' },
+    attended: '{minutes} minutes attended',
+    length: '{minutes} min',
+    watch: 'Watch',
+    audioOnly: 'Listen — audio only, much smaller',
+    availableUntil: 'Available until {date}',
+    /* Four different reasons there is no video, and which one it is. */
+    state: {
+      ready: 'Ready',
+      processing: 'The recording is still being processed.',
+      in_progress: 'This lesson is still running.',
+      not_recorded: 'This lesson was not recorded.',
+    },
+  },
+
+  teacherNav: {
+    label: 'Teaching',
+    soon: 'Soon',
+    comingSoon: 'This screen is being built.',
+    /*
+     * "Locked" and "Soon" mean different things and must not be confused.
+     * Soon is on us. Locked is waiting on the teacher's own verification, and
+     * says so, because it is the one of the two they can act on.
+     */
+    locked: 'Locked',
+    lockedHint: 'Available once your application is approved.',
+    overview: 'Overview',
+    verification: 'Verification',
+    classes: 'Classes',
+    timetable: 'Timetable',
+    lessons: 'Lessons',
+    groups: 'Groups',
+    live: 'Go live',
+    recordings: 'My live classes',
+    exams: 'Exams',
+    reports: 'Report sheets',
+    earnings: 'Earnings',
+    messages: 'Messages',
+    profile: 'My profile',
+    group: {
+      teaching: 'Teaching',
+      assessment: 'Assessment',
+      account: 'Account',
+    },
   },
 
   student: {
@@ -1583,6 +2261,8 @@ export const en = {
       noneBody: 'Your fee plan will show up here once it is set.',
       /** What a minor is told. No amount, no due date, no blame. */
       updates: 'Recent updates',
+      registration: 'Registration',
+      registrationHint: 'A one-off fee to enrol, separate from the parts below.',
       stillToPay: 'Still to pay',
       allPaid: 'All fees paid',
       paidOfTotal: '{paid} paid of {total}',
@@ -1969,6 +2649,14 @@ export const en = {
       noneMaterials: 'No notes yet',
       noneMaterialsBody: 'Notes and reading from your teachers will show here.',
       savedOffline: 'Saved to read offline',
+      /*
+       * BUILD-PLAN Phase 2. "Keep" rather than "download": the brief's point is
+       * that a learner can read the lesson again with no signal, and that is
+       * what the word has to promise.
+       */
+      openMaterial: 'Keep to read offline',
+      openingMaterial: 'Getting it…',
+      materialFailed: 'We could not open that. Try again in a moment.',
     },
 
     practice: {

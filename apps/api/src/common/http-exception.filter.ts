@@ -99,6 +99,19 @@ export class AppError extends HttpException {
   static tooManyRequests(key: string, params?: Record<string, string | number>): AppError {
     return new AppError(HttpStatus.TOO_MANY_REQUESTS, key, params);
   }
+
+  /**
+   * A dependency we own the relationship with is not answering.
+   *
+   * Distinct from `badRequest` on purpose. Reporting a storage outage as a 400
+   * tells the user their file was rejected — so they crop it, convert it, shrink
+   * it and try again, and it fails again, because nothing was ever wrong with
+   * the file. It also hides a real outage inside the client-error rate, where
+   * nothing alerts on it (NFR-MNT-006).
+   */
+  static serviceUnavailable(key: string, params?: Record<string, string | number>): AppError {
+    return new AppError(HttpStatus.SERVICE_UNAVAILABLE, key, params);
+  }
 }
 
 function defaultKeyForStatus(status: number): string {

@@ -96,7 +96,11 @@ export default function NewStudent() {
       <h1 className="text-2xl font-semibold text-ink-900">{t('admin.newStudent')}</h1>
       <p className="mt-1 text-sm text-ink-600">{t('admin.newStudentIntro')}</p>
 
-      <ErrorAlert error={error} />
+      {/* Flagged on the inputs themselves, so the banner does not repeat them. */}
+      <ErrorAlert
+        error={error}
+        handledFields={['fullName', 'dob', 'phone', 'guardianPhone', 'password']}
+      />
 
       <form
         className="mt-6"

@@ -37,7 +37,13 @@ export function EditPlanDialog({
   onClose,
   onSaved,
 }: {
-  row: { subscriptionId: string; learner: string; totalXaf: string; parts: Part[] };
+  row: {
+    subscriptionId: string;
+    learner: string;
+    totalXaf: string;
+    registrationFeeXaf: string;
+    parts: Part[];
+  };
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
@@ -50,14 +56,23 @@ export function EditPlanDialog({
       dueOn: part.dueOn ?? new Date().toISOString().slice(0, 10),
     })),
   );
+  const [registration, setRegistration] = useState(row.registrationFeeXaf || '0');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const total = Number(row.totalXaf);
-  const sum = parts.reduce((acc, part) => acc + (Number(part.amount) || 0), 0);
-  const balanced = sum === total;
-  const valid = balanced && reason.trim().length >= 3 && parts.every((p) => p.dueOn);
+  /*
+   * The tuition total is what the parts add up to — it is no longer checked
+   * against the plan price.
+   *
+   * Registration and tuition are different debts. Requiring the parts to equal
+   * the plan price made it impossible to express "10 000 to register, 75 000 in
+   * tuition", which is how the school actually charges.
+   */
+  const registrationFee = Number(registration) || 0;
+  const tuition = parts.reduce((acc, part) => acc + (Number(part.amount) || 0), 0);
+  const contract = registrationFee + tuition;
+  const valid = tuition > 0 && reason.trim().length >= 3 && parts.every((p) => p.dueOn);
 
   function setPart(sequence: number, patch: Partial<{ amount: string; dueOn: string }>) {
     setParts((prior) =>
@@ -73,6 +88,7 @@ export function EditPlanDialog({
       await api(`/admin/payments/subscriptions/${row.subscriptionId}/schedule`, {
         method: 'POST',
         body: {
+          registrationFeeXaf: registrationFee,
           parts: parts.map((part) => ({
             sequence: part.sequence,
             amountXaf: Number(part.amount),
@@ -91,8 +107,19 @@ export function EditPlanDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
-      <div className="w-full max-w-lg space-y-3 rounded-xl bg-white p-5 shadow-lg">
+    <div
+      /*
+       * The overlay scrolls, not the page behind it.
+       *
+       * A fixed panel taller than the viewport simply runs off the bottom —
+       * which is what happened to the plan editor with three parts and a
+       * summary. `items-start` plus vertical padding keeps a tall dialog
+       * reachable, and `overflow-y-auto` on the overlay gives it somewhere to
+       * go on a short laptop screen.
+       */
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-900/40 p-4 sm:items-center"
+    >
+      <div className="my-auto w-full max-w-lg space-y-3 rounded-xl bg-white p-5 shadow-lg">
         <h2 className="font-display text-lg font-semibold text-ink-900">
           {t('payments.editPlanTitle')}
         </h2>
@@ -100,7 +127,31 @@ export function EditPlanDialog({
 
         {error && <ErrorAlert error={error} />}
 
-        <div className="space-y-2">
+        {/* Registration first, because it is paid first. */}
+        <label className="block">
+          <span className="block text-sm font-medium text-ink-900">
+            {t('payments.registrationFee')}
+          </span>
+          <input
+            inputMode="numeric"
+            value={registration}
+            onChange={(event) => setRegistration(event.target.value.replace(/\D/g, ''))}
+            className="min-h-touch w-full rounded-lg border border-ink-300 px-2 tabular-nums"
+          />
+          <span className="mt-0.5 block text-xs text-ink-600">
+            {t('payments.registrationFeeHint')}
+          </span>
+        </label>
+
+        {/*
+         * The parts scroll; the totals and the buttons below do not.
+         *
+         * With three parts this fits, but a plan with six would push Save off a
+         * laptop screen — and the summary is the thing an operator is watching
+         * while they type, so it must not scroll away from them.
+         */}
+        <div className="max-h-[40vh] space-y-2 overflow-y-auto">
+          <p className="text-sm font-medium text-ink-900">{t('payments.tuitionParts')}</p>
           {parts.map((part) => {
             const settled = part.state === 'paid';
             return (
@@ -123,7 +174,7 @@ export function EditPlanDialog({
                 </label>
 
                 <label className="flex-1">
-                  <span className="block text-xs text-ink-600">{t('payments.dueOn')}</span>
+                  <span className="block text-xs text-ink-600">{t('payments.partDueOn')}</span>
                   <input
                     type="date"
                     value={part.dueOn}
@@ -148,18 +199,21 @@ export function EditPlanDialog({
          * The constraint, live. Visible while it is being broken rather than
          * announced after a rejected save.
          */}
-        <p
-          className={[
-            'rounded-lg px-3 py-2 text-sm tabular-nums',
-            balanced ? 'bg-success-50 text-success-600' : 'bg-warning-50 text-warning-600',
-          ].join(' ')}
-        >
-          {t('payments.partsSum', {
-            sum: formatXaf(sum),
-            total: formatXaf(total),
-          })}
-          {!balanced && ` · ${t('payments.mustMatch')}`}
-        </p>
+        {/* The arithmetic, shown as it is typed rather than after a rejection. */}
+        <dl className="space-y-1 rounded-lg bg-ink-100 px-3 py-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-ink-600">{t('payments.registrationFee')}</dt>
+            <dd className="tabular-nums text-ink-900">{formatXaf(registrationFee)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-ink-600">{t('payments.tuitionTotal')}</dt>
+            <dd className="tabular-nums text-ink-900">{formatXaf(tuition)}</dd>
+          </div>
+          <div className="flex justify-between border-t border-ink-300 pt-1 font-semibold">
+            <dt className="text-ink-900">{t('payments.contractTotal')}</dt>
+            <dd className="tabular-nums text-ink-900">{formatXaf(contract)}</dd>
+          </div>
+        </dl>
 
         <label className="block text-sm font-medium text-ink-900" htmlFor="plan-reason">
           {t('payments.reason')}

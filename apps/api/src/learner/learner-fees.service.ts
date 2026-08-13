@@ -41,6 +41,8 @@ export class LearnerFeesService {
           select: {
             planType: true,
             totalXaf: true,
+            registrationFeeXaf: true,
+            registrationPaidAt: true,
             instalments: {
               select: {
                 sequence: true,
@@ -169,11 +171,22 @@ export class LearnerFeesService {
       }),
     };
 
+    /*
+     * Registration is reported separately from tuition.
+     *
+     * They are different debts — a family pays to enrol, then pays to be taught
+     * — and a screen that adds them into one figure cannot answer "what is the
+     * registration fee?", which is the first thing a parent asks.
+     */
+    dto.registrationFeeXaf = Number(schedule.registrationFeeXaf);
+    dto.registrationPaid = Boolean(schedule.registrationPaidAt);
     dto.totalXaf = Number(schedule.totalXaf);
     dto.paidXaf = schedule.instalments
       .filter((instalment) => instalment.state === 'paid')
       .reduce((sum, instalment) => sum + Number(instalment.amountXaf), 0);
-    dto.outstandingXaf = schedule.instalments
+    dto.outstandingXaf =
+      (dto.registrationPaid ? 0 : Number(schedule.registrationFeeXaf)) +
+      schedule.instalments
       .filter((instalment) => instalment.state !== 'paid' && instalment.state !== 'cancelled')
       .reduce((sum, instalment) => sum + Number(instalment.amountXaf), 0);
 

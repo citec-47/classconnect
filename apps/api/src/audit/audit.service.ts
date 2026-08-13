@@ -32,6 +32,62 @@ export type AuditAction =
   // Teacher verification
   | 'teacher.applied'
   | 'teacher.document_uploaded'
+  /*
+   * A reviewer removed a document from an application.
+   *
+   * The file and its Cloudinary asset are both destroyed, so this entry is the
+   * only remaining record that it ever existed — which is why the action
+   * carries the file's details and the reviewer's stated reason.
+   */
+  | 'teacher.document_removed'
+  /* BUILD-PLAN Phase 1: the timetable is attributed like every other decision. */
+  | 'timetable.proposed'
+  | 'timetable.withdrawn'
+  | 'timetable.decided'
+  /*
+   * BUILD-PLAN Phase 2 — lessons.
+   *
+   * A lesson reaches every learner in a level, so who published what to which
+   * class is exactly the question asked after the fact. `lesson.removed` carries
+   * the title and the storage key because the file is destroyed with the row and
+   * this entry is all that is left of it.
+   */
+  | 'lesson.published'
+  | 'lesson.quarantined'
+  | 'lesson.removed'
+  /*
+   * BUILD-PLAN Phase 3 — groups and exercises.
+   *
+   * `exercise.unlocked` is the one that matters. Reopening a locked exercise
+   * gives one group more time than the rest of the class had, so who did it and
+   * why is exactly the question asked afterwards.
+   */
+  | 'group.created'
+  | 'group.members_set'
+  | 'exercise.created'
+  | 'exercise.unlocked'
+  | 'exercise.group_scored'
+  /* BUILD-PLAN Phase 4 — exams. */
+  | 'exam.created'
+  | 'exam.published'
+  | 'exam.marked'
+  | 'exam.results_released'
+  /* BUILD-PLAN Phase 6 — report cards. */
+  | 'report.marks_submitted'
+  | 'report.cards_generated'
+  | 'report.cards_published'
+  /*
+   * BUILD-PLAN Phase 5 — live.
+   *
+   * A lesson going live and ending are both recorded because the pair is what
+   * FR-ERN-003 counts, and because `live.floor_granted` names the moment a child
+   * was audible to a class.
+   */
+  | 'live.started'
+  | 'live.ended'
+  | 'live.floor_granted'
+  | 'live.floor_revoked'
+  | 'recording.deleted'
   | 'teacher.checklist_item_verified'
   | 'teacher.approved'
   | 'teacher.rejected'

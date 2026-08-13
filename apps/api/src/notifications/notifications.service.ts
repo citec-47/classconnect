@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma.service';
 import { SmsTransport } from './sms.transport';
-import { t, maskPhone, maskEmail, type Language } from '@classconnect/shared';
+import { t, maskPhone, maskEmail, type Language, type Role } from '@classconnect/shared';
 import type { NotificationChannel, OtpChannel } from '@classconnect/db';
 
 /**
@@ -158,6 +158,52 @@ export class NotificationsService {
        */
       if (outcome.status === 'failed' && outcome.confirmed && channel === 'sms') {
         await this.fallbackFromSms(user, eventType, rendered, subject, language, row.id);
+      }
+    }
+  }
+
+  /**
+   * Tell whichever staff are on duty, without naming a person.
+   *
+   * A queue item addressed to one named admin waits for that admin. This
+   * addresses the *desk*: everyone holding the role is told, and the first to
+   * pick it up acts. Suspended accounts are skipped — a notification to someone
+   * who cannot sign in is a decision nobody is making.
+   *
+   * `dedupeKey` is passed through to each recipient's row. Note that it is
+   * currently only recorded, not enforced — see the column's use in
+   * `notifyUser`. Callers must not rely on it to prevent a repeat.
+   */
+  async notifyRoles(
+    roles: readonly Role[],
+    eventType: string,
+    params: Record<string, string | number> = {},
+    options: { channels?: NotificationChannel[]; dedupeKey?: string } = {},
+  ): Promise<void> {
+    const staff = await this.prisma.user.findMany({
+      where: {
+        status: { not: 'suspended' },
+        // The shared `Role` union and the Prisma enum are the same strings by
+        // construction; the spread satisfies Prisma's readonly-averse input.
+        roles: { some: { role: { in: [...roles] } } },
+      },
+      select: { id: true },
+    });
+
+    for (const member of staff) {
+      /*
+       * One failed recipient must not silence the rest.
+       *
+       * These run after the applicant's own submission has been committed, so
+       * throwing here would report a failed submission for an application that
+       * is already saved and queued.
+       */
+      try {
+        await this.notifyUser(member.id, eventType, params, options);
+      } catch (error) {
+        this.logger.error(
+          `Could not notify ${member.id} of ${eventType}: ${(error as Error).message}`,
+        );
       }
     }
   }

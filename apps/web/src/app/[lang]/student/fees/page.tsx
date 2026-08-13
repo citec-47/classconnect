@@ -100,6 +100,64 @@ export default function StudentFees() {
               <SectionHeading count={stages.length}>
                 {t('student.fees.thePlan')}
               </SectionHeading>
+
+              {/*
+               * Registration on its own line, above the parts.
+               *
+               * It is a different debt from tuition — paid to enrol, not to be
+               * taught — and folding it into the instalments is what made
+               * "Part 1" mean two things at once.
+               */}
+              {(data.registrationFeeXaf ?? 0) > 0 && (
+                <div
+                  className={[
+                    'flex items-center gap-3 rounded-xl border bg-white p-3.5',
+                    data.registrationPaid ? 'border-ink-300' : 'border-brand-600',
+                  ].join(' ')}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={[
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+                      data.registrationPaid
+                        ? 'bg-success-600 text-white'
+                        : 'bg-brand-50 text-brand-700',
+                    ].join(' ')}
+                  >
+                    {data.registrationPaid ? '✓' : '•'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink-900">
+                      {t('student.fees.registration')}
+                    </p>
+                    <p className="text-xs text-ink-600">
+                      {t('student.fees.registrationHint')}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p
+                      className={[
+                        'text-sm font-semibold tabular-nums',
+                        data.registrationPaid ? 'text-ink-600 line-through' : 'text-ink-900',
+                      ].join(' ')}
+                    >
+                      {formatXaf(data.registrationFeeXaf ?? 0)}
+                    </p>
+                    <p
+                      className={[
+                        'text-xs',
+                        data.registrationPaid ? 'text-success-600' : 'text-ink-600',
+                      ].join(' ')}
+                    >
+                      {t(
+                        data.registrationPaid
+                          ? 'student.fees.stagePaid'
+                          : 'student.fees.stageDue',
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
               <ol className="space-y-2">
                 {stages.map((stage) => (
                   <StageRow key={stage.sequence} stage={stage} />

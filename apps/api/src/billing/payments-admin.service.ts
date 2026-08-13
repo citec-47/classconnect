@@ -633,6 +633,8 @@ export class PaymentsAdminService {
                 id: true,
                 planType: true,
                 totalXaf: true,
+                registrationFeeXaf: true,
+                registrationPaidAt: true,
                 settledInFullAt: true,
                 instalments: {
                   orderBy: { sequence: 'asc' },
@@ -702,6 +704,8 @@ export class PaymentsAdminService {
           instalmentsPaid: paid.length,
           instalmentsTotal: instalments.length,
           totalXaf: (schedule?.totalXaf ?? 0n).toString(),
+          registrationFeeXaf: (schedule?.registrationFeeXaf ?? 0n).toString(),
+          registrationPaid: Boolean(schedule?.registrationPaidAt),
           outstandingXaf: outstanding.toString(),
           nextDueOn:
             instalments.find((i) => i.state !== 'paid' && i.state !== 'cancelled')?.dueOn ?? null,
@@ -1046,6 +1050,7 @@ export class PaymentsAdminService {
    */
   async updateSchedule(input: {
     subscriptionId: string;
+    registrationFeeXaf: number;
     parts: { sequence: number; amountXaf: number; dueOn: string }[];
     reason: string;
     actorId: string;
@@ -1067,17 +1072,25 @@ export class PaymentsAdminService {
     if (!schedule) throw AppError.notFound();
 
     // CON-02: integers, and nothing negative.
-    if (input.parts.some((part) => !Number.isInteger(part.amountXaf) || part.amountXaf < 0)) {
+    const amounts = [input.registrationFeeXaf, ...input.parts.map((p) => p.amountXaf)];
+    if (amounts.some((amount) => !Number.isInteger(amount) || amount < 0)) {
       throw AppError.badRequest('errors.schedule.whole_francs');
     }
 
-    const total = input.parts.reduce((sum, part) => sum + BigInt(part.amountXaf), 0n);
-    if (total !== schedule.totalXaf) {
-      throw AppError.badRequest('errors.schedule.must_sum_to_total', {
-        total: schedule.totalXaf.toString(),
-        given: total.toString(),
-      });
-    }
+    /*
+     * The tuition total is *derived* from the parts, not checked against the
+     * plan price.
+     *
+     * The plan price was being treated as the contract, so a school charging
+     * 10 000 to register and 75 000 in tuition could not be expressed at all —
+     * the parts had to sum to 10 000 or the save was refused. Registration and
+     * tuition are different debts, and the operator knows the real figures.
+     *
+     * The plan still decides what a learner is enrolled in; it no longer
+     * dictates what they owe.
+     */
+    const tuition = input.parts.reduce((sum, part) => sum + BigInt(part.amountXaf), 0n);
+    if (tuition <= 0n) throw AppError.badRequest('errors.schedule.tuition_required');
 
     for (const part of input.parts) {
       const existing = schedule.instalments.find((i) => i.sequence === part.sequence);
@@ -1096,6 +1109,14 @@ export class PaymentsAdminService {
     }));
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.paymentSchedule.update({
+        where: { id: schedule.id },
+        data: {
+          totalXaf: tuition,
+          registrationFeeXaf: BigInt(input.registrationFeeXaf),
+        },
+      });
+
       for (const part of input.parts) {
         const existing = schedule.instalments.find((i) => i.sequence === part.sequence)!;
         await tx.instalment.update({

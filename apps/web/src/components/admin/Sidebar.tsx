@@ -178,7 +178,7 @@ function NavLink({
           depth > 0 && !collapsed ? 'pl-8 text-[0.8125rem]' : '',
           active
             ? 'bg-white font-semibold text-brand-700 shadow-sm ring-1 ring-brand-100'
-            : 'text-ink-900 hover:bg-ink-100',
+            : 'text-ink-900 hover:bg-brand-50 hover:text-brand-700',
         ].join(' ')}
       >
         {/* Marks the active item by more than colour (UI-003). */}

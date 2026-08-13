@@ -19,6 +19,8 @@ export const fr: Messages = {
     cancel: 'Annuler',
     save: 'Enregistrer',
     saving: 'Enregistrement…',
+    /** Pour un formulaire que l'on soumet, et non que l'on enregistre. */
+    sending: 'Envoi…',
     edit: 'Modifier',
     close: 'Fermer',
     loading: 'Chargement…',
@@ -31,6 +33,8 @@ export const fr: Messages = {
     required: 'Obligatoire',
     optional: 'Facultatif',
     signOut: 'Se déconnecter',
+    /* Le retour vers votre propre espace depuis une page publique. */
+    myDashboard: 'Mon tableau de bord',
     language: 'Langue',
     english: 'English',
     french: 'Français',
@@ -225,6 +229,103 @@ export const fr: Messages = {
   },
 
   teacher: {
+    home: {
+      title: 'Bienvenue, {name}',
+      description: 'Votre enseignement en un coup d’œil.',
+      classes: 'Classes que vous enseignez',
+      learners: 'Élèves que vous enseignez',
+      viewClasses: 'Voir les classes',
+      /* FR-HWK-008 : le seul chiffre ici qui demande une action. */
+      awaitingMarking: 'En attente de correction',
+      goMark: 'Aller corriger',
+    },
+    /** La barre de progression — mesurée sur l’emploi du temps confirmé. */
+    progress: {
+      title: 'Votre semaine',
+      hours: '{taught} heures sur {timetabled}',
+      percent: '{percent} % de votre semaine planifiée',
+      extra: 'Plus {hours} heures enseignées hors emploi du temps.',
+      /* Voir en.ts : 0 % se lirait comme un reproche, pas comme un état. */
+      noTimetable:
+        'Vous n’avez aucune heure confirmée cette semaine. Proposez-en depuis votre emploi du temps.',
+      awaitingConfirmation:
+        '{count} heures attendent la confirmation d’un admin. Votre semaine commence à compter à ce moment-là.',
+      rating: 'Noté {average} sur 5 par {count} élèves.',
+      ratingPending:
+        '{count} note(s) sur {needed}. Nous affichons une moyenne dès qu’elle a un sens.',
+    },
+    /** La salle d’attente, tant qu’un admin n’a pas approuvé la candidature. */
+    profile: {
+      description: 'Ce que nous avons sur vous, et ce qu’un admin a vérifié.',
+      account: 'Votre compte',
+      teaching: 'Votre dossier d’enseignement',
+      verified: 'Vérifié',
+      unverified: 'Pas encore vérifié',
+      changeHint: 'Pour modifier ces informations, ouvrez',
+    },
+    /** FR-ERN-006 : la vue du professeur sur ses propres gains. */
+    earnings: {
+      description: 'Ce que vous avez gagné, par mois.',
+      net: 'Net à payer',
+      gross: 'Brut',
+      deductions: 'Retenues',
+      awaiting: 'En attente de paiement',
+      taught: 'Temps enseigné',
+      period: 'Mois',
+      state: 'État',
+      paid: 'Dans un versement',
+      pending: 'Pas encore payé',
+      /* Voir en.ts : un autre type de chiffre que les tuiles ci-dessus. */
+      accrualTitle: 'Enseignement à ce jour — indicatif',
+      rate: 'À {rate} XAF l’heure, fixé par l’admin',
+      accrualHint:
+        'Les cours donnés dans un créneau confirmé de votre emploi du temps, valorisés au tarif actuel. Un cours de moins de {minutes} minutes ne compte pas. Ce que vous percevez réellement est calculé en fin de mois, à partir des chiffres ci-dessus.',
+      window: { today: 'Aujourd’hui', thisWeek: 'Cette semaine', thisMonth: 'Ce mois' },
+      belowFloor:
+        '{count} cours ce mois-ci ont duré moins de {minutes} minutes : ils ne sont pas comptés ici.',
+      emptyTitle: 'Rien de gagné pour l’instant',
+      emptyBody:
+        'Dès que vous aurez donné des cours, ce que vous gagnez apparaîtra ici chaque mois.',
+      footnote:
+        '« Dans un versement » signifie que le montant est approuvé pour paiement, et non qu’il est arrivé. Les paiements sont envoyés au numéro mobile money de votre profil une fois confirmé par la finance.',
+    },
+    locked: {
+      title: 'Terminez votre vérification',
+      description:
+        'Vos outils d’enseignement s’ouvrent une fois votre identité vérifiée.',
+      action: 'Aller à la vérification',
+      status: {
+        draft:
+          'Votre candidature n’est pas terminée. Ajoutez vos informations et vos documents, puis envoyez-la pour approbation.',
+        submitted:
+          'Votre candidature est entre les mains de notre équipe. Nous vous préviendrons dès qu’elle aura été examinée — vous n’avez rien à faire.',
+        under_review:
+          'Quelqu’un examine votre candidature en ce moment. Nous vous préviendrons dès qu’une décision sera prise.',
+        more_info_required:
+          'Il nous manque quelque chose avant de pouvoir vous approuver. Ouvrez votre vérification pour voir ce qui manque.',
+        rejected:
+          'Votre candidature n’a pas été approuvée. Ouvrez votre vérification pour en connaître la raison.',
+        approved: 'Vous êtes approuvé.',
+      },
+    },
+    classes: {
+      title: 'Classes',
+      description: 'Choisissez un groupe pour voir les classes que vous y enseignez.',
+      bandEmpty: 'Vous n’enseignez encore aucune classe dans ce groupe.',
+      learnerCount: '{count} élèves',
+      band: {
+        primary: 'Primaire (Class One à Class Six)',
+        secondary: 'Secondaire (Form One à Form Five)',
+        sixth_form: 'Lower et Upper Sixth',
+        private: 'Cours particuliers',
+      },
+      column: {
+        name: 'Classe',
+        level: 'Niveau',
+        subject: 'Matière',
+        students: 'Élèves',
+      },
+    },
     myAccount: 'Mon compte enseignant',
     detailsManagedByAdmin:
       'Ces informations ont été enregistrées par l’équipe ClassConnect. Contactez l’assistance en cas d’erreur.',
@@ -256,11 +357,15 @@ export const fr: Messages = {
       degree_certificate: 'Diplôme universitaire',
       diploma: 'Diplôme',
       teaching_authorisation: 'Autorisation d’enseigner',
+      intro_video: 'Vidéo de présentation',
       other: 'Autre document',
     },
     payoutDetails: 'Où nous envoyons vos gains',
     payoutHint:
       'Seule notre équipe financière voit ces informations. Les apprenants et les parents ne les voient jamais.',
+    /* Nous avons le numéro mais ne pouvons pas l’afficher — voir le champ. */
+    payoutOnFile:
+      'Nous avons {number} en mémoire. Il est chiffré, nous ne pouvons donc pas l’afficher en entier — retapez-le pour confirmer, ou saisissez un autre numéro.',
     submitApplication: 'Soumettre la candidature',
     statusDraft: 'Brouillon',
     statusSubmitted: 'Soumise',
@@ -290,6 +395,25 @@ export const fr: Messages = {
     checklist: 'Liste de vérification',
     checklistHint:
       'Confirmez chaque point vous-même. Chaque point enregistre qui l’a vérifié et quand.',
+    /** Les fichiers du candidat, là où la décision se prend. Voir en.ts. */
+    review: {
+      documents: 'Ce que le candidat a envoyé',
+      openDocument: 'Ouvrir',
+      removeDocument: 'Retirer',
+      /** « Retirer de la file » et non « supprimer » : le dossier est conservé. Voir en.ts. */
+      removeFromQueue: 'Retirer de la file',
+      removeFromQueueConfirm: 'Retirer {name} de la file ?',
+      removeFromQueueHint:
+        'La candidature est close comme non approuvée et disparaît de cette liste. Le dossier est conservé et le candidat est informé du motif.',
+      removeFromQueueReason: 'Motif — le candidat le verra',
+      removeFromQueueAction: 'Retirer',
+      removeConfirm: 'Retirer « {fileName} » ? Le fichier sera supprimé définitivement.',
+      removeReason: 'Pourquoi le retirez-vous ? Le candidat en sera informé.',
+      removeConfirmAction: 'Retirer',
+      watchIntro: 'La vidéo de présentation du candidat',
+      noDocuments:
+        'Ce candidat n’a encore envoyé aucun document. Il n’y a rien à vérifier ici — demandez ce qu’il vous faut plutôt que d’approuver.',
+    },
     checkIdentity: 'La pièce d’identité correspond au candidat',
     checkQualification: 'Le diplôme est authentique et lisible',
     checkInstitution: 'L’établissement délivrant le diplôme est reconnu',
@@ -796,21 +920,26 @@ export const fr: Messages = {
     register: 'Inscrire',
     registerTitle: 'Inscrire l’élève',
     registered: '{learner} inscrit. L’état des frais peut maintenant être défini.',
-    plan: 'Formule',
+    choosePlan: 'Formule',
     howToPay: 'Mode de paiement des frais',
     startOn: 'Frais à partir du',
     registerConsequence:
       'Cela crée l’abonnement et son échéancier pour {total}. « Enregistrer le paiement » et « Modifier l’état » deviennent disponibles sur cette ligne.',
+    registrationFee: 'Frais d’inscription (FCFA)',
+    registrationFeeHint: 'Frais d’inscription unique, distinct de la scolarité. Mets 0 s’il n’y en a pas.',
+    tuitionParts: 'Scolarité, répartie en tranches',
+    tuitionTotal: 'Total scolarité',
+    contractTotal: 'Total à payer',
     editPlan: 'Modifier le plan',
     editPlanTitle: 'Modifier le plan de paiement',
     planUpdated: 'Plan de paiement mis à jour pour {learner}.',
     savePlan: 'Enregistrer le plan',
     amount: 'Montant (FCFA)',
-    dueOn: 'Échéance',
+    partDueOn: 'Échéance',
     partsSum: 'Les tranches totalisent {sum} sur {total}',
     mustMatch: 'elles doivent correspondre exactement',
     editPlanConsequence:
-      'Les tranches doivent totaliser le montant global. Une tranche déjà payée ne peut pas être modifiée. L’élève et le payeur sont prévenus, et la modification est enregistrée avec ton nom et ton motif.',
+      'Le total de la scolarité est la somme des tranches. Une tranche déjà payée ne peut pas être modifiée. L’élève et le payeur sont prévenus, et la modification est enregistrée avec ton nom et ton motif.',
     feesTitle: 'Élèves — frais',
     feesSubtitle: 'Tous les élèves inscrits, et où en sont leurs frais.',
     student: 'Élève',
@@ -1068,6 +1197,88 @@ export const fr: Messages = {
     forbidden: 'Vous n’avez pas accès à ceci.',
     notFound: 'Nous n’avons pas trouvé cet élément.',
     validation: 'Veuillez vérifier les champs signalés.',
+    timetable: {
+      clash: 'Cela chevauche {count} heure(s) que vous avez déjà. Choisissez un autre horaire.',
+      day_out_of_range: 'Choisissez un jour du lundi au vendredi.',
+      outside_teaching_day: 'Les cours ont lieu entre 07:00 et 19:00.',
+      reversed: 'L’heure de fin doit être après l’heure de début.',
+      too_short: 'Un cours doit durer au moins 30 minutes.',
+      too_long: 'Un cours ne peut pas dépasser 4 heures.',
+      not_your_subject: 'Vous n’êtes pas approuvé pour enseigner cette matière à ce niveau.',
+      already_decided: 'Cette heure a déjà été traitée.',
+      note_required: 'Indiquez un motif pour refuser une heure.',
+    },
+
+    /** BUILD-PLAN phase 3 — exercices de groupe. */
+    exercise: {
+      locks_before_due: 'L’heure de verrouillage ne peut pas précéder l’heure limite.',
+      never_locks: 'Cet exercice n’a pas d’heure de verrouillage : il n’y a rien à réouvrir.',
+      score_above_max: 'La note ne peut pas dépasser {maxScore}.',
+      locked: 'Cet exercice est verrouillé. Demandez à votre enseignant de le réouvrir.',
+    },
+    group: {
+      over_capacity: 'C’est plus d’élèves que le groupe ne peut contenir ({capacity}).',
+      learner_not_at_level: 'L’un de ces élèves n’est pas dans cette classe.',
+      not_this_exercise: 'Cet exercice n’a pas été donné à ce groupe.',
+    },
+
+    /** BUILD-PLAN phase 4 — examens. */
+    exam: {
+      needs_options: 'Une question à choix multiple exige au moins deux réponses.',
+      no_correct_option:
+        'Cochez la bonne réponse, sinon personne ne pourra marquer de points à cette question.',
+      single_answer_only: 'Une question à réponse unique ne peut avoir qu’une bonne réponse.',
+      structural_has_options: 'Une question structurale n’a pas de réponses à cocher.',
+      closes_before_opens: 'L’heure de fermeture doit être après l’heure d’ouverture.',
+      no_questions: 'Ajoutez au moins une question avant de publier.',
+      not_your_group: 'Ce groupe n’est pas le vôtre.',
+      answer_not_in_attempt: 'Cette réponse n’appartient pas à cette copie.',
+      mark_above_question: 'Cette question ne vaut que {max} points.',
+      unmarked_remain: '{unmarked} réponses structurales ne sont pas encore corrigées.',
+    },
+
+    /** BUILD-PLAN phase 6 — bulletins. */
+    report: {
+      bad_year: 'Écrivez l’année scolaire sous la forme 2026-2027.',
+      learner_not_at_level: 'L’un de ces élèves n’est pas dans cette classe.',
+      no_marks: 'Aucune note n’a encore été saisie pour cette classe et ce trimestre.',
+    },
+
+    /** BUILD-PLAN phase 5 — direct. */
+    live: {
+      one_audience: 'Un cours est soit pour un groupe, soit pour un élève, pas les deux.',
+      already_live: 'Vous donnez déjà un cours. Terminez-le avant d’en commencer un autre.',
+      subject_mismatch: 'Ce groupe n’étudie pas cette matière.',
+      not_your_learner: 'Vous n’êtes pas affecté à cet élève.',
+      slot_not_confirmed: 'Ce créneau n’est pas le vôtre, ou n’a pas été confirmé.',
+    },
+
+    /* Voir en.ts : sans ces clés, « errors.field.too_small » s'affichait tel quel. */
+    field: {
+      too_small: 'Ce champ est trop court.',
+      too_big: 'Ce champ est trop long.',
+      invalid_type: 'Ce champ est obligatoire.',
+      invalid_string: 'Veuillez vérifier le format.',
+      invalid_enum_value: 'Veuillez choisir l’une des options.',
+      invalid_union: 'Veuillez vérifier cette valeur.',
+      invalid_date: 'Veuillez indiquer une date valide.',
+      not_multiple_of: 'Veuillez vérifier cette valeur.',
+      custom: 'Veuillez vérifier cette valeur.',
+    },
+    /** Noms lisibles des champs que le serveur peut refuser. */
+    fieldName: {
+      highestQualification: 'Diplôme le plus élevé',
+      institution: 'Établissement',
+      qualificationYear: 'Année d’obtention',
+      yearsExperience: 'Années d’expérience',
+      payoutWallet: 'Numéro mobile money',
+      payoutMethod: 'Méthode de paiement',
+      languages: 'Langues d’enseignement',
+      subjects: 'Matières et niveaux',
+      nationalId: 'Numéro d’identité',
+      bio: 'À propos de vous',
+      address: 'Adresse',
+    },
     phone: {
       invalid: 'Ce numéro ne semble pas valide. Exemple : 6XX XXX XXX.',
       not_mobile: 'Veuillez utiliser un numéro mobile. Nous devons vous envoyer un SMS.',
@@ -1116,6 +1327,11 @@ export const fr: Messages = {
       not_approved: 'Seuls les enseignants approuvés peuvent recevoir des apprenants.',
       already_applied: 'Vous avez déjà une candidature en cours.',
       application_closed: 'Cette candidature est close.',
+      noRecord:
+        'Votre profil d’enseignant n’a pas encore été créé. Demandez à un administrateur de le compléter.',
+    },
+    class: {
+      notFound: 'Nous n’avons pas trouvé cette classe, ou vous ne l’enseignez pas.',
     },
     student: {
       subjects_required: 'Choisissez au moins une matière pour cet élève.',
@@ -1214,6 +1430,7 @@ export const fr: Messages = {
       cannot_remove_last_super_admin: 'Il doit rester au moins un super administrateur.',
     },
     schedule: {
+      tuition_required: 'La scolarité doit être supérieure à zéro.',
       whole_francs: 'Les montants doivent être en francs entiers.',
       must_sum_to_total: 'Les tranches totalisent {given}, alors que le total est {total}.',
       unknown_part: 'Cette tranche ne fait pas partie de ce plan.',
@@ -1237,7 +1454,14 @@ export const fr: Messages = {
       type_blocked: 'Nous n’acceptons pas les fichiers « .{extension} » pour des raisons de sécurité.',
       type_not_allowed: 'Veuillez utiliser l’un de ces types de fichiers : {allowed}.',
       upload_rejected: 'Le stockage a refusé ce fichier. Réessaie.',
+      /* Voir en.ts : la panne est de notre côté, le message doit le dire. */
+      storage_unavailable:
+        'Nous n’avons pas pu joindre notre stockage de fichiers. Vos informations sont enregistrées — réessayez l’envoi dans un instant.',
       already_uploaded: 'Ce fichier a déjà été envoyé.',
+      no_teacher_profile:
+        'Ton compte enseignant n’est pas encore configuré. Déconnecte-toi, reconnecte-toi et ouvre la page enseignant avant de téléverser.',
+      could_not_record:
+        'Nous n’avons pas pu enregistrer ce fichier. La référence est dans le journal du serveur — préviens la personne qui gère la plateforme.',
       upload_not_found: 'Nous n’avons pas reçu ce fichier. Veuillez réessayer de l’envoyer.',
       rejected: 'Nous n’avons pas pu accepter ce fichier. Veuillez réessayer de l’envoyer.',
       quarantined:
@@ -1276,6 +1500,16 @@ export const fr: Messages = {
     teacherApplicationSubmitted: {
       subject: 'Nous avons reçu votre candidature',
       body: 'Bonjour {name}, nous avons votre candidature et l’examinerons sous peu.',
+    },
+    /** Destiné au personnel, pas au candidat. Voir en.ts. */
+    teacherVerificationPending: {
+      subject: 'Un enseignant attend une vérification',
+      body: '{applicant} a envoyé une candidature à examiner. Ouvrez Approbations → Enseignants pour la consulter.',
+    },
+    /* Nommé et expliqué : un fichier qui disparaît est renvoyé à l’identique. */
+    teacherDocumentRemoved: {
+      subject: 'Un document a été retiré de votre candidature',
+      body: 'Bonjour {name}, nous avons retiré « {fileName} » de votre candidature. Motif : {reason}. Merci d’envoyer le bon fichier dès que possible.',
     },
     teacherApproved: {
       subject: 'Vous êtes vérifié',
@@ -1375,6 +1609,376 @@ export const fr: Messages = {
     redacted: 'Des coordonnées ont été retirées de ce message.',
     redactionNotice:
       'Les numéros de téléphone, e-mails et pseudos sont aussi retirés des réponses. Tout reste sur ClassConnect.',
+  },
+
+  teach: {
+    step: {
+      about: 'À propos de toi',
+      aboutHelp: 'Nous vérifions chaque enseignant avant son premier cours. Cela protège les élèves et cela te protège.',
+      video: 'Présente-toi',
+      documents: 'Tes documents',
+    },
+      documentKind: 'Niveau d’études le plus élevé',
+      documentKindHint: 'Ton diplôme, ton certificat ou ton autorisation d’enseigner.',
+      identityUpload: 'Carte d’identité ou passeport',
+      identityUploadHint: 'Une photo ou un scan bien lisible. Ce doit être la même personne que dans ta vidéo.',
+      identityReplace: 'Remplacer',
+      identityUploaded: 'Envoyé',
+      watchYourVideo: 'Regarder ta vidéo',
+      videoUploaded: 'Ton introduction est enregistrée. Regarde-la avant d’envoyer.',
+      replaceVideo: 'Réenregistrer',
+    preview: {
+      confirm: 'C’est bon — envoyer',
+      chooseAnother: 'Choisir un autre',
+      uploading: 'Envoi…',
+      scanning: 'Vérification…',
+      ready: 'Prêt',
+      failed: 'Non envoyé',
+      noPdfViewer: 'Ton navigateur ne peut pas afficher ce PDF ici. Il sera quand même envoyé.',
+    },
+    checklist: {
+      title: 'Avant d’envoyer',
+      idDocument: 'Carte d’identité ou passeport',
+      /* La pièce d’identité a sa propre case ; le sélecteur général ne l’enregistre pas. */
+      idDocumentWhere:
+        'Utilisez la case « Carte d’identité ou passeport » à l’étape 3 — pas le sélecteur de documents en dessous.',
+      certificate: 'Diplôme ou certificat',
+      help: 'Tu peux enregistrer et revenir. Nous examinons seulement quand tout est là.',
+    },
+    /** L’état du formulaire, avant le bouton plutôt qu’après. Voir en.ts. */
+    needed: {
+      title: 'Remplissez ceci avant d’envoyer :',
+      ready: 'Tout ce qu’il nous faut est là. Vous pouvez envoyer maintenant.',
+      stillToAdd:
+        'Vous pouvez envoyer maintenant et ajouter ceci ensuite — nous ne pourrons simplement pas vous approuver avant : {items}.',
+      sent: 'Envoyé. Votre candidature est entre les mains de notre équipe — nous vous préviendrons dès qu’elle aura été examinée.',
+    },
+    /** L’état du formulaire après l’envoi, et après une décision. Voir en.ts. */
+    decision: {
+      lockedTitle: 'Votre candidature est en cours d’examen',
+      lockedBody:
+        'Elle est entre les mains de notre équipe : elle ne peut pas être modifiée pendant sa lecture. S’il leur faut autre chose, ils vous le diront et ce formulaire se rouvrira.',
+      rejectedTitle: 'Pourquoi cela n’a pas été approuvé',
+      moreInfoTitle: 'Ce qu’il nous faut encore de votre part',
+    },
+    intro: {
+      title: 'Présente-toi en vidéo',
+      help: 'Jusqu’à 3 minutes. Dis-nous qui tu es, ce que tu enseignes et comment. Notre équipe la regarde avant de t’approuver — cela confirme aussi que tu es bien la personne sur ta pièce d’identité.',
+      enableCamera: 'Activer la caméra',
+      start: 'Commencer l’enregistrement',
+      stop: 'Arrêter',
+      use: 'Utiliser cet enregistrement',
+      retake: 'Recommencer',
+      orUpload: 'Ou téléverse une vidéo que tu as déjà',
+      uploading: 'Envoi de ta vidéo…',
+      reviewHint: 'Regarde-la. Utilise-la, ou recommence — autant de fois que tu veux.',
+      unsupported:
+        'Nous n’avons pas pu accéder à ta caméra. Vérifie l’autorisation du navigateur, ou téléverse une vidéo.',
+    },
+  },
+timetable: {
+    teacherDescription: 'Choisissez les heures que vous enseignerez. Un admin les confirme avant qu’elles ne deviennent des cours.',
+    adminTitle: 'Approbations d’emploi du temps',
+    adminDescription: 'Les heures proposées par les enseignants. Confirmer une heure la place sur l’emploi du temps de la classe.',
+    nonePending: 'Aucune heure n’attend de décision.',
+    addTitle: 'Proposer une heure',
+    classAndSubject: 'Classe et matière',
+    dayLabel: 'Jour',
+    from: 'De',
+    to: 'À',
+    propose: 'Proposer cette heure',
+    proposed: 'Envoyé. Un admin va la confirmer.',
+    withdraw: 'Retirer',
+    confirm: 'Confirmer',
+    reject: 'Refuser',
+    free: 'Rien de prévu',
+    noSubjects: 'Vous n’avez encore aucune matière approuvée, il n’y a donc rien à planifier.',
+    confirmedHours: 'Heures confirmées par semaine',
+    confirmedHoursHint: 'Seules les heures confirmées comptent pour vos gains.',
+    clashTitle: 'Cela chevauche des heures que vous avez déjà :',
+    notePlaceholder: 'Motif — requis pour refuser, l’enseignant le verra',
+    state: { proposed: 'En attente d’approbation', confirmed: 'Confirmé', rejected: 'Refusé' },
+    day: { monday: 'Lundi', tuesday: 'Mardi', wednesday: 'Mercredi', thursday: 'Jeudi', friday: 'Vendredi' },
+  },
+
+  /** BUILD-PLAN phase 2 — les leçons qu’un enseignant publie pour une classe. */
+  lessons: {
+    teacherDescription:
+      'Publiez une leçon pour l’une de vos classes. Toute la classe la reçoit et peut la lire dans l’application ou la garder pour la lire hors connexion.',
+    publishTitle: 'Publier une leçon',
+    listTitle: 'Leçons que vous avez publiées',
+    classAndSubject: 'Classe et matière',
+    titleLabel: 'Ce que la classe verra',
+    titlePlaceholder: 'La photosynthèse — partie 1',
+    topicLabel: 'Thème ou chapitre',
+    chooseFile: 'Le fichier',
+    accepted: 'PDF, Word, photo, vidéo ou audio. Jusqu’à 100 Mo.',
+    publish: 'Publier pour la classe',
+    uploading: 'Envoi de votre leçon…',
+    publishedOk: 'Publiée. Toute la classe peut l’ouvrir dès maintenant.',
+    /* Voir en.ts : le fichier est chez nous, pas encore chez la classe. */
+    pendingOk:
+      'Envoyée et conservée en sécurité. Nous vérifions qu’elle ne contient pas de virus ; votre classe la verra dès que ce contrôle sera terminé.',
+    none: 'Vous n’avez encore publié aucune leçon.',
+    noSubjects: 'Vous n’avez encore aucune matière approuvée : il n’y a donc pas de classe où publier.',
+    remove: 'Retirer',
+    state: {
+      clean: 'Publiée',
+      pending: 'En cours de vérification',
+      awaiting_upload: 'Non envoyée',
+      quarantined: 'Refusée',
+    },
+  },
+
+  /** La boîte de réception de l’enseignant. */
+  teacherMessages: {
+    description:
+      'Échangez avec ClassConnect et avec les familles des élèves que vous enseignez.',
+    contactAdmin: 'Écrire à ClassConnect',
+    none: 'Aucune conversation pour l’instant.',
+    pickOne: 'Choisissez une conversation pour la lire.',
+    empty: 'Aucun message pour l’instant. Dites bonjour.',
+    placeholder: 'Écrivez un message…',
+    send: 'Envoyer',
+    closed: 'Cette conversation est en lecture seule.',
+    /* FR-SAF-002, indiqué sur le message concerné. Voir en.ts. */
+    redacted: 'Un numéro de téléphone ou une adresse a été retiré de ce message.',
+    role: {
+      admin: 'ClassConnect',
+      learner: 'Élève',
+      guardian: 'Parent',
+    },
+  },
+
+  /** BUILD-PLAN phase 3 — groupes et exercices. */
+  teacherGroups: {
+    description:
+      'Constituez des groupes et donnez-leur des exercices. Un groupe se verrouille tout seul à l’heure que vous fixez.',
+    createTitle: 'Créer un groupe',
+    groupName: 'Nom du groupe',
+    groupNamePlaceholder: 'Form 3 Maths — groupe du mardi',
+    capacity: 'Nombre maximal d’élèves',
+    create: 'Créer le groupe',
+    created: 'Groupe créé. Ajoutez-y des élèves.',
+    noSubjects:
+      'Vous n’avez encore aucune matière approuvée : il n’y a donc pas de classe à regrouper.',
+    none: 'Vous n’avez encore créé aucun groupe.',
+    learnerCount: '{count} élèves sur {capacity}',
+    members: 'Élèves',
+    pickMembers: 'Cochez tous les membres de ce groupe',
+    noCandidates: 'Personne à ce niveau ne suit encore cette matière.',
+    saveMembers: 'Enregistrer {count} élèves',
+    membersSaved: 'Composition du groupe enregistrée.',
+    setExercise: 'Donner un exercice',
+    exerciseTitle: 'Ce que le groupe verra',
+    instructions: 'Consignes',
+    dueAt: 'À rendre le',
+    locksAt: 'Verrouillage à',
+    /* Les deux dates ne font pas la même chose — voir en.ts. */
+    locksAtHint:
+      'Un travail rendu après l’heure limite est accepté et marqué en retard. Après l’heure de verrouillage, plus rien n’est accepté : seul vous ou un admin pouvez réouvrir.',
+    maxScore: 'Sur',
+    createExercise: 'Donner l’exercice',
+    exerciseCreated: 'Exercice donné. Votre groupe le voit maintenant.',
+    submissions: '{count} rendu(s)',
+    lockState: {
+      open: 'Sans échéance',
+      scheduled: 'Ouvert',
+      closing_soon: 'Bientôt fermé',
+      locked: 'Verrouillé',
+      reopened: 'Réouvert',
+    },
+    unlock: 'Réouvrir',
+    unlockReason: 'Pourquoi réouvrez-vous cet exercice ? Le motif est enregistré.',
+    unlocked: 'Réouvert. Le groupe peut rendre à nouveau.',
+    groupScore: 'Note de groupe',
+    groupScoreIs: 'Note de groupe {score}/{maxScore}',
+    scorePrompt: 'Note de groupe, sur {maxScore}',
+    scoreOutOfRange: 'Cette note n’est pas comprise entre 0 et {maxScore}.',
+    scored: 'Note de groupe enregistrée.',
+  },
+
+  /** BUILD-PLAN phase 4 — examens. */
+  teacherExams: {
+    description:
+      'Composez des examens pour vos classes. Les questions à choix multiple se corrigent seules ; vous corrigez les structurales.',
+    setExam: 'Composer un examen',
+    newExam: 'Nouvel examen',
+    examTitle: 'Titre de l’examen',
+    durationMin: 'Minutes accordées',
+    question: 'Question {number}',
+    questionType: 'Type',
+    marks: 'Points',
+    type: {
+      single_choice: 'Choix multiple — une réponse',
+      multiple_response: 'Choix multiple — plusieurs réponses',
+      free_response: 'Structurale — vous corrigez',
+    },
+    options: 'Réponses',
+    optionPlaceholder: 'Réponse {number}',
+    isCorrect: 'Cette réponse est correcte',
+    addOption: 'Ajouter une réponse',
+    tickCorrect: 'Cochez la bonne réponse. Les élèves ne la voient jamais.',
+    structuralHint: 'L’élève rédige sa réponse, et vous la corrigez après remise.',
+    addQuestion: 'Ajouter une question',
+    removeQuestion: 'Retirer cette question',
+    saveDraft: 'Enregistrer comme brouillon',
+    created: 'Enregistré comme brouillon. Publiez-le quand le sujet est prêt.',
+    /* Dit avant le choix, pas après la correction du serveur. Voir en.ts. */
+    deferredNotice:
+      'Ce sujet contient une question structurale : les résultats sont retenus jusqu’à ce que vous l’ayez corrigée. Une note qui ignore la moitié de la copie n’est pas un résultat.',
+    none: 'Vous n’avez encore composé aucun examen.',
+    questionSummary: '{questions} questions · {marks} points',
+    structuralCount: '{count} à corriger à la main',
+    submittedCount: '{count} copie(s) rendue(s)',
+    state: { draft: 'Brouillon', published: 'Publié' },
+    publish: 'Publier',
+    published: 'Publié. Votre classe le voit maintenant.',
+    mark: 'Corriger',
+    release: 'Publier les résultats',
+    released: 'Résultats transmis à la classe.',
+    noAttempts: 'Personne n’a encore rendu.',
+    needsMarking: '{count} à corriger',
+    fullyMarked: 'Entièrement corrigé',
+    terminated: 'Arrêté avant la fin — à lire',
+    openScript: 'Ouvrir la copie',
+    marking: 'Correction de {name}',
+    worth: 'Vaut {marks} points',
+    awarded: 'Points accordés',
+    noAnswer: 'Pas de réponse',
+    correctMark: '✓',
+    wrongMark: '✗',
+    saveMarks: 'Enregistrer les points',
+    saveAndRelease: 'Enregistrer et transmettre à cet élève',
+    marked: 'Points enregistrés.',
+  },
+
+  /** BUILD-PLAN phase 6 — bulletins. */
+  teacherReports: {
+    description:
+      'Saisissez les notes trimestrielles de votre matière. Les bulletins sont générés quand toutes les matières sont rentrées.',
+    term: 'Trimestre',
+    termName: {
+      term_1: 'Premier trimestre',
+      term_2: 'Deuxième trimestre',
+      term_3: 'Troisième trimestre',
+    },
+    academicYear: 'Année scolaire',
+    coefficient: 'Coefficient',
+    /* La pondération camerounaise, expliquée là où on la choisit. */
+    coefficientHint:
+      'Le coefficient pondère la matière dans la moyenne. Les maths à 4 comptent quatre fois plus qu’une matière à 1.',
+    readinessTitle: 'Notes de cette classe',
+    readinessSummary: '{done} matières sur {total} saisies, pour {learners} élèves.',
+    generationIsStaff:
+      'Les bulletins sont générés par un administrateur quand toutes les matières sont rentrées, afin que la moyenne et le rang soient justes du premier coup.',
+    noLearners: 'Personne à ce niveau ne suit encore cette matière.',
+    markOutOf:
+      'Notes sur {max}. Laissez la case vide si vous n’avez pas encore corrigé cet élève.',
+    classAverage: 'Moyenne de la classe pour l’instant : {average}',
+    learner: 'Élève',
+    mark: 'Note',
+    status: 'Enregistré',
+    savedAlready: 'Enregistré',
+    notYet: '—',
+    submit: 'Soumettre ces notes',
+    saved: '{count} notes enregistrées.',
+  },
+
+  /** BUILD-PLAN phase 5 — direct. */
+  teacherLive: {
+    description:
+      'Démarrez un cours depuis votre emploi du temps et décidez qui peut y prendre la parole.',
+    /* Le serveur média manquant, dit une fois et clairement. Voir en.ts. */
+    noMediaTitle: 'La vidéo et le son ne sont pas encore branchés',
+    noMediaBody:
+      'Tout sur cet écran est réel : la salle, la liste de présence, les mains levées et les autorisations. La vidéo et le son eux-mêmes exigent un serveur média, qui n’est pas encore installé. Les minutes de présence viennent aussi de ce serveur : elles affichent zéro jusque-là.',
+    liveNow: 'En direct',
+    elapsed: 'En cours depuis {minutes} minutes',
+    end: 'Terminer le cours',
+    endedEligible: 'Cours terminé après {minutes} minutes. Il compte pour vos revenus.',
+    endedIneligible:
+      'Cours terminé après {minutes} minutes. Il ne compte pas pour vos revenus : trop court, ou hors de votre emploi du temps confirmé.',
+    earningsFloor: 'Revenus',
+    pastFloor: 'Au-delà de {minutes} minutes',
+    beforeFloor: 'Moins de {minutes} minutes',
+    timetableSlot: 'Emploi du temps',
+    insideSlot: 'Dans un créneau confirmé',
+    outsideSlot: 'Hors de votre emploi du temps',
+    recording: 'Enregistrement',
+    attendedRecorded: 'Présence relevée par le serveur média : {minutes} minutes.',
+    roster: 'Qui est là ({present} présents)',
+    noRoster: 'Ce cours n’a pas de groupe : il n’y a pas de liste de présence.',
+    present: 'Présent',
+    absent: 'Absent',
+    letSpeak: 'Donner la parole',
+    speaking: 'A la parole',
+    hands: 'Mains levées ({count})',
+    noHands: 'Personne ne demande la parole.',
+    grant: 'Donner la parole',
+    dismiss: 'Pas maintenant',
+    speakers: 'Qui peut parler',
+    revoke: 'Couper',
+    fromTimetable: 'Démarrer depuis votre emploi du temps',
+    fromTimetableHint:
+      'Seuls les cours donnés dans un créneau confirmé comptent pour vos revenus, à {rate} FCFA l’heure.',
+    nothingToday: 'Aucun cours confirmé n’est prévu aujourd’hui.',
+    goLive: 'Passer en direct',
+    goLiveAnyway: 'Passer en direct quand même',
+    startsIn: 'Commence dans {minutes} min',
+    slotNeedsGroup: 'Aucun groupe affecté à ce créneau',
+    adHocTitle: 'Démarrer un cours hors emploi du temps',
+    adHocHint:
+      'Vous pouvez enseigner à tout moment. Un cours hors créneau confirmé est enregistré et diffusé de la même façon, mais il ne génère pas de revenus.',
+    noGroups: 'Créez d’abord un groupe — un cours en direct a besoin d’élèves.',
+    started: 'Vous êtes en direct.',
+    group: 'Groupe',
+  },
+
+  /** Mes cours en direct. */
+  teacherRecordings: {
+    description: 'Revoyez les cours que vous avez donnés, jour par jour.',
+    none: 'Vous n’avez encore donné aucun cours.',
+    type: { one_to_one: 'Cours particulier', group: 'Cours de groupe' },
+    attended: '{minutes} minutes de présence',
+    length: '{minutes} min',
+    watch: 'Revoir',
+    audioOnly: 'Écouter — audio seul, bien plus léger',
+    availableUntil: 'Disponible jusqu’au {date}',
+    /* Quatre raisons différentes d’absence de vidéo. Voir en.ts. */
+    state: {
+      ready: 'Prêt',
+      processing: 'L’enregistrement est encore en traitement.',
+      in_progress: 'Ce cours est encore en cours.',
+      not_recorded: 'Ce cours n’a pas été enregistré.',
+    },
+  },
+
+  teacherNav: {
+    label: 'Enseignement',
+    soon: 'Bientôt',
+    comingSoon: 'Cet écran est en cours de création.',
+    /* Voir en.ts : « bientôt » vient de nous, « verrouillé » attend le professeur. */
+    locked: 'Verrouillé',
+    lockedHint: 'Disponible une fois votre candidature approuvée.',
+    overview: 'Aperçu',
+    verification: 'Vérification',
+    classes: 'Classes',
+    timetable: 'Emploi du temps',
+    lessons: 'Leçons',
+    groups: 'Groupes',
+    live: 'Passer en direct',
+    recordings: 'Mes cours en direct',
+    exams: 'Examens',
+    reports: 'Bulletins',
+    earnings: 'Revenus',
+    messages: 'Messages',
+    profile: 'Mon profil',
+    group: {
+      teaching: 'Enseignement',
+      assessment: 'Évaluation',
+      account: 'Compte',
+    },
   },
 
   student: {
@@ -1542,6 +2146,8 @@ export const fr: Messages = {
       none: 'Rien à afficher pour l’instant',
       noneBody: 'Ton plan de paiement apparaîtra ici une fois défini.',
       updates: 'Dernières mises à jour',
+      registration: 'Inscription',
+      registrationHint: 'Frais uniques pour s’inscrire, distincts des tranches ci-dessous.',
       stillToPay: 'Reste à payer',
       allPaid: 'Frais entièrement payés',
       paidOfTotal: '{paid} payés sur {total}',
@@ -1919,6 +2525,10 @@ export const fr: Messages = {
       noneMaterials: 'Aucune fiche pour l’instant',
       noneMaterialsBody: 'Les fiches et lectures de vos enseignants apparaîtront ici.',
       savedOffline: 'Enregistré pour une lecture hors connexion',
+      /* Voir en.ts : « garder », pas « télécharger » — la promesse est de pouvoir relire sans réseau. */
+      openMaterial: 'Garder pour lire hors connexion',
+      openingMaterial: 'Récupération…',
+      materialFailed: 'Impossible d’ouvrir ce fichier. Réessayez dans un instant.',
     },
 
     practice: {

@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { api, type ApiError } from '@/lib/api';
 import { useAutoRecover } from '@/lib/use-auto-recover';
 import { ErrorAlert, EmptyState, SuccessAlert } from '@/components/Alert';
-import { PageHeader, Table, Th, Td, StateChip } from '@/components/admin/ui';
+import { PageHeader, Table, Th, Td, StateChip, type StateTone } from '@/components/admin/ui';
 import { RecordPaymentDialog } from '@/components/admin/RecordPaymentDialog';
 import { SetFeeStageDialog } from '@/components/admin/SetFeeStageDialog';
 import { RegisterLearnerDialog } from '@/components/admin/RegisterLearnerDialog';
@@ -54,6 +54,8 @@ interface FeeRow {
   instalmentsPaid: number;
   instalmentsTotal: number;
   totalXaf: string;
+  registrationFeeXaf: string;
+  registrationPaid: boolean;
   outstandingXaf: string;
   nextDueOn: string | null;
   parts: { sequence: number; state: string; amountXaf: string; dueOn: string | null }[];
@@ -69,12 +71,20 @@ function groupOf(code: string | null): Exclude<LevelGroup, 'all'> | null {
   return null;
 }
 
-const STAGE_TONE: Record<Stage, 'ok' | 'warn' | 'bad' | 'muted'> = {
-  completed: 'ok',
-  second: 'ok',
+/**
+ * The four tones `StateChip` actually has, not a fifth set invented here.
+ *
+ * `frozen` is the only red on this surface by design (see `admin/ui.tsx`), and
+ * it is spent on `not_registered` deliberately: a learner with no fee schedule at
+ * all is the row an operator has to act on, and every other stage is a payment
+ * in progress rather than a problem.
+ */
+const STAGE_TONE: Record<Stage, StateTone> = {
+  completed: 'good',
+  second: 'good',
   first: 'warn',
   registered: 'warn',
-  not_registered: 'bad',
+  not_registered: 'frozen',
 };
 
 export default function StudentsFees() {
@@ -124,10 +134,10 @@ export default function StudentsFees() {
 
   return (
     <>
-      <PageHeader title={t('payments.feesTitle')} subtitle={t('payments.feesSubtitle')} />
+      <PageHeader title={t('payments.feesTitle')} description={t('payments.feesSubtitle')} />
 
       {error && <ErrorAlert error={error} />}
-      {done && <SuccessAlert message={done} />}
+      {done && <SuccessAlert>{done}</SuccessAlert>}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -278,6 +288,7 @@ export default function StudentsFees() {
             subscriptionId: editingPlan.subscriptionId,
             learner: editingPlan.learner,
             totalXaf: editingPlan.totalXaf,
+            registrationFeeXaf: editingPlan.registrationFeeXaf ?? '0',
             parts: editingPlan.parts ?? [],
           }}
           onClose={() => setEditingPlan(null)}

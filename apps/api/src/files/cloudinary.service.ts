@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
+import { AppError } from '../common/http-exception.filter';
 
 /**
  * Object storage and CDN — SI-006.
@@ -180,60 +181,99 @@ export class CloudinaryService {
       `Uploading ${input.bytes.length} bytes to ${input.resourceType}/${input.publicId}`,
     );
 
-    try {
-      /*
-       * NFR-DEP-001: every external call has a timeout.
-       *
-       * This one was missing it, and the consequence was the worst kind of
-       * failure: no error, no log line, the browser sat on "Sending…"
-       * indefinitely. A request that fails is information; a request that hangs
-       * is not.
-       *
-       * 60s rather than the 10s the requirement names, because this is a body
-       * transfer of up to 25 MB rather than a control call — the ceiling is
-       * there to bound a hang, not to bound a large legitimate upload.
-       */
-      const response = await fetch(url, {
-        method: 'POST',
-        body: form,
-        signal: AbortSignal.timeout(60_000),
-      });
-      const body = (await response.json()) as {
-        public_id?: string;
-        bytes?: number;
-        type?: string;
-        error?: { message?: string };
-      };
+    /*
+     * Reaching Cloudinary at all is the unreliable part, so it is retried.
+     *
+     * §6.2's target network is a mobile connection outside a city, and a single
+     * `fetch failed` there is a normal event rather than a fault — the same
+     * upload succeeds seconds later. Without a retry that transient blip ended
+     * the applicant's upload outright, at the last step of a form they had
+     * already completed.
+     *
+     * Only the reaching is retried. A response from Cloudinary — even a refusal
+     * — is an answer, and repeating a request it has already judged just wastes
+     * the user's bandwidth on a link that has little to spare.
+     */
+    const ATTEMPTS = 3;
+    let lastFailure: Error | null = null;
 
-      if (!response.ok) {
-        // Cloudinary's own message, logged rather than swallowed — it names the
-        // reason (a missing preset, an unsigned preset, a bad signature) far
-        // better than any message we could invent.
-        this.logger.error(
-          `Cloudinary upload refused (${response.status}): ${body?.error?.message ?? 'no message'}`,
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+      try {
+        /*
+         * NFR-DEP-001: every external call has a timeout.
+         *
+         * This one was missing it, and the consequence was the worst kind of
+         * failure: no error, no log line, the browser sat on "Sending…"
+         * indefinitely. A request that fails is information; a request that hangs
+         * is not.
+         *
+         * 60s rather than the 10s the requirement names, because this is a body
+         * transfer of up to 25 MB rather than a control call — the ceiling is
+         * there to bound a hang, not to bound a large legitimate upload.
+         */
+        const response = await fetch(url, {
+          method: 'POST',
+          body: form,
+          signal: AbortSignal.timeout(60_000),
+        });
+        const body = (await response.json()) as {
+          public_id?: string;
+          bytes?: number;
+          type?: string;
+          error?: { message?: string };
+        };
+
+        if (!response.ok) {
+          // Cloudinary's own message, logged rather than swallowed — it names the
+          // reason (a missing preset, an unsigned preset, a bad signature) far
+          // better than any message we could invent.
+          this.logger.error(
+            `Cloudinary upload refused (${response.status}): ${body?.error?.message ?? 'no message'}`,
+          );
+          return null;
+        }
+
+        this.logger.log(`Cloudinary stored ${body.public_id} (${body.bytes} bytes)`);
+
+        return {
+          publicId: body.public_id ?? input.publicId,
+          bytes: body.bytes ?? input.bytes.length,
+          type: body.type ?? 'authenticated',
+        };
+      } catch (error) {
+        lastFailure = error as Error;
+        const timedOut =
+          lastFailure.name === 'TimeoutError' || lastFailure.name === 'AbortError';
+
+        this.logger.warn(
+          timedOut
+            ? `Cloudinary upload timed out after 60s on attempt ${attempt}/${ATTEMPTS} ` +
+                `(${input.bytes.length} bytes).`
+            : `Cloudinary upload could not reach storage on attempt ${attempt}/${ATTEMPTS}: ` +
+                `${lastFailure.message}`,
         );
-        return null;
-      }
 
-      this.logger.log(`Cloudinary stored ${body.public_id} (${body.bytes} bytes)`);
-
-      return {
-        publicId: body.public_id ?? input.publicId,
-        bytes: body.bytes ?? input.bytes.length,
-        type: body.type ?? 'authenticated',
-      };
-    } catch (error) {
-      const failure = error as Error;
-      if (failure.name === 'TimeoutError' || failure.name === 'AbortError') {
-        this.logger.error(
-          `Cloudinary upload timed out after 60s (${input.bytes.length} bytes). ` +
-            'The asset may or may not have been stored; the confirm step decides.',
-        );
-      } else {
-        this.logger.error(`Cloudinary upload failed: ${failure.message}`);
+        if (attempt < ATTEMPTS) {
+          // A short, widening pause. Long enough for a blip to pass, short
+          // enough that the applicant is still watching the same screen.
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+        }
       }
-      return null;
     }
+
+    /*
+     * Out of attempts, and never got an answer.
+     *
+     * Thrown rather than returned as `null`, because `null` means "storage
+     * looked at this and refused it" and the caller turns that into a 400 about
+     * the *file*. Nothing is wrong with the file. Telling the applicant it was
+     * rejected sends them off cropping and converting a document that was
+     * always fine, while the actual outage goes unreported.
+     */
+    this.logger.error(
+      `Cloudinary unreachable after ${ATTEMPTS} attempts: ${lastFailure?.message ?? 'unknown'}`,
+    );
+    throw AppError.serviceUnavailable('errors.file.storage_unavailable');
   }
 
   /**

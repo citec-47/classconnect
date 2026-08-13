@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n';
-import { api, ApiError } from '@/lib/api';
+import { api, apiUpload, ApiError } from '@/lib/api';
 import type { Language } from '@classconnect/shared';
 
 /**
@@ -17,9 +17,17 @@ import type { Language } from '@classconnect/shared';
  * again. For a 10 MB credential that is tolerable; for the 25 MB homework
  * submissions of FR-HWK-003 it will not be, and that path needs chunked upload.
  */
+/*
+ * Qualifications only.
+ *
+ * `national_id` and `passport` have their own slot now (see `IdentityUpload`),
+ * which holds exactly one and replaces rather than accumulates. Leaving them in
+ * this list too would let an applicant attach four identity documents through
+ * the back door and leave a reviewer guessing which to check against the video.
+ *
+ * `intro_video` is absent for the same reason: it is recorded, not filed.
+ */
 const DOCUMENT_TYPES = [
-  'national_id',
-  'passport',
   'degree_certificate',
   'diploma',
   'teaching_authorisation',
@@ -63,6 +71,8 @@ export function DocumentUpload({
   const [type, setType] = useState<DocumentType>('degree_certificate');
   const [expiresOn, setExpiresOn] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
+  /** The server's own words, when the failure had no message we recognise. */
+  const [rawFailure, setRawFailure] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [localErrorKey, setLocalErrorKey] = useState<string | null>(null);
 
@@ -82,6 +92,7 @@ export function DocumentUpload({
     }
 
     setProgress(0);
+    setRawFailure(null);
     try {
       // Step 1: the API checks policy and signs one asset path.
       const signed = await api<SignResponse>('/files/teacher-documents/sign', {
@@ -96,8 +107,44 @@ export function DocumentUpload({
         language,
       });
 
-      // Step 2: straight to storage.
-      await uploadWithProgress(signed.upload.url, signed.upload.fields, file, setProgress);
+      // Step 2: the bytes go through our API, not straight to storage. See the
+      // service for why — a direct cross-origin POST fails silently here and
+      // leaves the row stuck at `awaiting_upload`.
+      const put = await apiUpload(
+        `/files/teacher-documents/${signed.documentId}/upload`,
+        file,
+      );
+      if (!put.ok) {
+        const raw = await put.text().catch(() => '');
+        // eslint-disable-next-line no-console
+        console.error('[upload] refused', put.status, raw);
+
+        /*
+         * Show the raw reason on screen, not only in the console.
+         *
+         * "Something went wrong on our side" is true and useless: it is the
+         * fallback for a failure that carried no message key, so the one person
+         * who could act on the detail — whoever is running the platform — never
+         * sees it. A console line only helps someone who thinks to open the
+         * console.
+         *
+         * NFR-USA-004 asks errors to say what happened and what to do. For an
+         * applicant that is the translated message; for an unmapped failure the
+         * honest version is the status and the server's own words.
+         */
+        let key: string | null = null;
+        try {
+          const parsed = JSON.parse(raw) as { messageKey?: string };
+          if (parsed?.messageKey) key = parsed.messageKey;
+        } catch {
+          /* not JSON */
+        }
+
+        if (key) throw new ApiError(put.status, key);
+
+        setRawFailure(`${put.status} ${raw.slice(0, 300) || '(no response body)'}`);
+        throw new ApiError(put.status, 'errors.file.upload_rejected');
+      }
 
       // Step 3: the API confirms against what storage actually received, and
       // scans it (FR-FIL-001).
@@ -123,7 +170,7 @@ export function DocumentUpload({
 
       <div className="mt-3">
         <label htmlFor={`${inputId}-type`} className="cc-label">
-          {t('teacher.identityDocument')}
+          {t('teach.documentKind')}
         </label>
         <select
           id={`${inputId}-type`}
@@ -174,16 +221,30 @@ export function DocumentUpload({
       </div>
 
       <div id={`${inputId}-status`} aria-live="polite">
+        {/*
+         * Indeterminate, honestly.
+         *
+         * The upload goes through our API with `fetch`, which reports no
+         * progress — so a percentage bar would sit at 0% for the whole transfer
+         * and read as frozen. A moving stripe says "working" without claiming
+         * to know how far along it is.
+         *
+         * A real percentage would need XHR and a second upload path; on a 10 MB
+         * ceiling that is not worth the divergence.
+         */}
         {progress !== null && (
           <div className="mt-3">
             <div className="h-2 overflow-hidden rounded-full bg-ink-100">
-              <div
-                className="h-full bg-brand-600 transition-[width]"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-brand-600" />
             </div>
-            <p className="cc-hint">{t('teacher.uploading', { percent: progress })}</p>
+            <p className="cc-hint">{t('teach.preview.uploading')}</p>
           </div>
+        )}
+
+        {rawFailure && (
+          <p className="mt-2 rounded bg-danger-50 p-2 font-mono text-xs text-danger-600">
+            {rawFailure}
+          </p>
         )}
 
         {localErrorKey && (
@@ -196,47 +257,20 @@ export function DocumentUpload({
         {error && (
           <p className="cc-error" role="alert">
             <span aria-hidden="true">⚠</span>
-            <span>{t(error.messageKey, error.params)}</span>
+            {/*
+             * Not every failure carries a message key.
+             *
+             * A network error thrown by `fetch` has none, and passing
+             * `undefined` into `t()` crashed the whole page inside the lookup —
+             * so an upload that merely failed took the application form down
+             * with it, and hid its own cause. The generic message is the floor.
+             */}
+            <span>{t(error.messageKey ?? 'errors.generic', error.params)}</span>
           </p>
         )}
       </div>
     </div>
   );
-}
-
-/**
- * XHR rather than fetch: the upload needs a progress event, and NFR-BAN-002
- * asks the client to show what a transfer will cost before the user commits.
- */
-function uploadWithProgress(
-  url: string,
-  fields: Record<string, string>,
-  file: File,
-  onProgress: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const form = new FormData();
-    for (const [key, value] of Object.entries(fields)) form.append(key, value);
-    form.append('file', file);
-
-    const request = new XMLHttpRequest();
-    request.open('POST', url);
-
-    request.upload.addEventListener('progress', (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    });
-
-    request.addEventListener('load', () => {
-      if (request.status >= 200 && request.status < 300) resolve();
-      else reject(new Error(`Upload failed with ${request.status}`));
-    });
-    request.addEventListener('error', () => reject(new Error('Upload failed')));
-    request.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-
-    request.send(form);
-  });
 }
 
 function guessMime(fileName: string): string {

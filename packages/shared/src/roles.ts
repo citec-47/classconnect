@@ -66,6 +66,67 @@ export const PERMISSIONS = [
   'teacher:apply',
   'teacher:profile:write:own',
   'teacher:document:upload:own',
+  /**
+   * The teacher's own teaching load: their cohorts, their private assignments
+   * and the headcount on each. Scoped `:own` because a teacher may read the
+   * roster of a class they teach and no other.
+   */
+  'teacher:classes:read:own',
+  /**
+   * Publishing a lesson to a class (BUILD-PLAN Phase 2).
+   *
+   * Its own permission rather than part of `teacher:classes:read:own`, because
+   * this one *writes* to every learner in a level. The service checks the
+   * teacher was verified for that subject and level as well (FR-TVR-005) — the
+   * permission answers "may a teacher publish at all", the query answers "to
+   * this class".
+   */
+  'lesson:publish:own',
+  /**
+   * Groups and the exercises set in them (BUILD-PLAN Phase 3).
+   *
+   * Creating a `Cohort`, setting an exercise with a locking deadline, and
+   * awarding the group its mark. All three are the same authority over the same
+   * group, so they are one permission rather than three.
+   */
+  'group:manage:own',
+  /**
+   * Setting and marking exams (BUILD-PLAN Phase 4).
+   *
+   * Distinct from `group:manage:own` because it reaches a whole level rather than
+   * a group the teacher assembled, and because releasing a mark is the act a
+   * learner's report card is built from.
+   */
+  'exam:manage:own',
+  /**
+   * Submitting a subject's termly mark and coefficient (BUILD-PLAN Phase 6).
+   *
+   * A teacher submits marks for their own subject; nobody computes a report card
+   * with this. That is `report:generate`, which is staff's, because the average
+   * and the class position depend on every teacher having finished.
+   */
+  'report:submit:own',
+  /** Generating the class's report cards once every subject is in. Staff. */
+  'report:generate',
+  /**
+   * Hosting a live lesson.
+   *
+   * Held by teachers and by admins — the brief gives both the ability to go live.
+   * `live:watch` is the different, more intrusive thing: seeing into somebody
+   * else's room.
+   */
+  'live:host',
+  /** A teacher watching back their own recorded lessons. */
+  'recording:read:own',
+  /**
+   * Deleting a recording.
+   *
+   * "Only the admin can delete it", and deliberately not granted to the teacher
+   * who taught the lesson: a recording of a class containing children is
+   * safeguarding evidence, and the person most motivated to remove it is exactly
+   * who must not be able to.
+   */
+  'recording:delete',
 
   // Account creation — admin only.
   'teacher:create',
@@ -134,6 +195,8 @@ export const PERMISSIONS = [
   // Finance
   'finance:read',
   'payout:approve',
+  /** FR-ERN-006: a teacher's read of their own accrued earnings. Never another's. */
+  'earnings:read:own',
   /** §4.7.1/§4.7.2: discretionary money movements, Finance Admin only. */
   'finance:refund',
   'finance:record_payment',
@@ -201,6 +264,33 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // FR-TVR-007: a teacher still supplies documents for re-verification when
     // a credential is due to expire, even though they did not create the account.
     'teacher:document:upload:own',
+    'teacher:classes:read:own',
+    /*
+     * Publishing lessons to the classes they teach (BUILD-PLAN Phase 2).
+     *
+     * Granted to `teacher` and to nobody else — not even an admin. An admin can
+     * remove a lesson through the file endpoints and can see every one of them,
+     * but a lesson arrives in a child's library under a teacher's name, and
+     * staff publishing one would make that attribution a guess.
+     */
+    'lesson:publish:own',
+    // The teaching surface proper: groups, exams, termly marks, going live, and
+    // watching back their own lessons. Every one is scoped to what they teach,
+    // and each endpoint re-derives that from the database rather than the request.
+    'group:manage:own',
+    'exam:manage:own',
+    'report:submit:own',
+    'live:host',
+    'recording:read:own',
+    /*
+     * FR-ERN-006: a teacher reads their own accrued earnings.
+     *
+     * Read, and only their own. Approving a payout stays `payout:approve`,
+     * which Finance holds and a teacher never does — seeing what you have
+     * earned and authorising its payment are different acts, and the whole
+     * point of separating them is that the same person does not do both.
+     */
+    'earnings:read:own',
     'assignment:respond:own',
   ],
 
@@ -218,6 +308,22 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // Eligible for safeguarding designation; still gated on being designated.
     'safeguarding:read',
     'safeguarding:act',
+    /*
+     * Customer service reviews teacher applications alongside Ops.
+     *
+     * A deliberate widening: verification decides whether a stranger is put in
+     * front of children, so it was Ops-only. It is shared because an applicant
+     * waiting on a single team waits days, and the control that matters is not
+     * *who* clicks approve — it is FR-TVR-005, which still requires every
+     * checklist item to be recorded affirmatively, one applicant at a time,
+     * with findings, and no bulk action anywhere on the screen. Every decision
+     * is attributed and audited (FR-TVR-010).
+     */
+    'teacher:verification:read',
+    'teacher:verification:decide',
+    // Customer service generates report cards and unlocks a group exercise a
+    // teacher is unavailable to reopen. Neither writes a mark.
+    'report:generate',
   ],
 
   // The only role that can bring a Student or Teacher account into existence.
@@ -254,6 +360,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // exactly the "read-only" cell in the role-visibility table.
     'finance:read',
     'account:freeze',
+    // The brief's admin live session, the one-click report card generation, and
+    // the deletion of a recording — which is Ops's alone, never the teacher's.
+    'live:host',
+    'report:generate',
+    'recording:delete',
   ],
 
   admin_finance: [

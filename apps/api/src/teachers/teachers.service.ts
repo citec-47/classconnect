@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -19,6 +19,8 @@ import type { TeacherApplicationInput, VerificationDecisionInput } from '@classc
  */
 @Injectable()
 export class TeachersService {
+  private readonly logger = new Logger(TeachersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -32,7 +34,12 @@ export class TeachersService {
    * FR-TVR-003: an applicant moves draft -> submitted.
    */
   async submitApplication(user: AuthenticatedUser, input: TeacherApplicationInput) {
-    const teacher = await this.prisma.teacher.findUnique({ where: { userId: user.id } });
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId: user.id },
+      // The applicant's name, for the notification that tells staff a review is
+      // waiting — a queue item reading "a teacher applied" names nobody.
+      include: { user: { select: { fullName: true } } },
+    });
     if (!teacher) throw AppError.notFound();
 
     /**
@@ -52,8 +59,23 @@ export class TeachersService {
       throw AppError.conflict('errors.teacher.application_closed');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.teacher.update({
+    /*
+     * Batched, not interactive.
+     *
+     * `$transaction(async (tx) => …)` opens a transaction and then makes a
+     * separate round trip for each statement inside it, holding a connection
+     * open across all of them. Against a database in another region that is
+     * six round trips of pure latency — measured at roughly 14s of a 35s
+     * submission on the §6.2 target link, which is past the client's own
+     * timeout, so the applicant saw "that is taking longer than expected" for a
+     * request that was in fact still working.
+     *
+     * Nothing in here reads a value written by the statement before it, so the
+     * array form applies: Prisma sends the whole batch in one go, still inside
+     * one transaction with the same all-or-nothing guarantee.
+     */
+    await this.prisma.$transaction([
+      this.prisma.teacher.update({
         where: { userId: user.id },
         data: {
           bio: input.bio ?? null,
@@ -63,7 +85,13 @@ export class TeachersService {
           qualificationYear: input.qualificationYear,
           languages: input.languages,
           // FR-PRO-005 / NFR-SEC-003: never stored or returned in clear.
-          nationalIdEnc: this.encryption.encrypt(input.nationalId),
+          //
+          // Omitted rather than nulled when absent: the applicant form no longer
+          // asks for the number, and a resubmission that simply does not carry
+          // it must not erase one an admin recorded earlier.
+          ...(input.nationalId
+            ? { nationalIdEnc: this.encryption.encrypt(input.nationalId) }
+            : {}),
           addressEnc: input.address ? this.encryption.encrypt(input.address) : null,
           payoutWalletEnc: this.encryption.encrypt(input.payoutWallet),
           payoutMethod: input.payoutMethod,
@@ -74,29 +102,44 @@ export class TeachersService {
           submittedAt: new Date(),
           rejectionReason: null,
         },
-      });
+      }),
 
-      await tx.teacherSubject.deleteMany({ where: { teacherId: user.id } });
-      await tx.teacherSubject.createMany({
+      this.prisma.teacherSubject.deleteMany({ where: { teacherId: user.id } }),
+      this.prisma.teacherSubject.createMany({
         data: input.subjects.map((s) => ({
           teacherId: user.id,
           subjectId: s.subjectId,
           levelId: s.levelId,
         })),
         skipDuplicates: true,
-      });
+      }),
 
-      // FR-TVR-004: the queue shows a checklist; the rows are created up front
-      // so an admin cannot approve an application that has none.
-      await tx.verificationChecklistItem.deleteMany({ where: { teacherId: user.id } });
-      await tx.verificationChecklistItem.createMany({
+      /*
+       * FR-TVR-004: the queue shows a checklist; the rows are created up front
+       * so an admin cannot approve an application that has none.
+       *
+       * Added, never replaced. `verification_checklist_items` carries a
+       * `DO INSTEAD NOTHING` rule on DELETE (FR-TVR-010 / §4.4: a verification
+       * decision and its evidence are retained, and superseded by a later
+       * decision rather than removed). A `deleteMany` there does not fail — it
+       * silently reports zero rows — so the delete-then-recreate this used to do
+       * left every existing row in place and then collided with them on the
+       * unique `(teacher_id, item_key)`, turning every resubmission into a 500.
+       *
+       * `skipDuplicates` makes this ensure-the-rows-exist, which is all the
+       * comment above ever asked for. An item an admin has already recorded
+       * keeps its finding; the application going back to `submitted` is what
+       * tells them to look again.
+       */
+      this.prisma.verificationChecklistItem.createMany({
         data: VERIFICATION_CHECKLIST.map((item) => ({
           teacherId: user.id,
           itemKey: item.key,
           verified: false,
         })),
-      });
-    });
+        skipDuplicates: true,
+      }),
+    ]);
 
     await this.audit.record({
       action: 'teacher.applied',
@@ -106,7 +149,60 @@ export class TeachersService {
       after: { subjects: input.subjects.length, qualification: input.highestQualification },
     });
 
-    await this.notifications.notifyUser(user.id, 'teacherApplicationSubmitted');
+    /*
+     * Told, but not waited for.
+     *
+     * These two took 11.3s of a 35s submission — measured — and the applicant
+     * has no stake in either. Their own confirmation is a courtesy they are
+     * about to see on screen anyway, and the staff alert is for somebody who is
+     * not at the keyboard. Awaiting them put a message *to* the applicant ahead
+     * of the answer *for* the applicant, and pushed the whole request past the
+     * client's 30s ceiling: the submission worked and the browser reported a
+     * timeout.
+     *
+     * Failures are logged, never thrown — the application is already committed
+     * by this point, and a notification that did not send is not a submission
+     * that did not happen.
+     *
+     * Caveat worth knowing: on a serverless host the instance may be frozen
+     * once the response is written, which can cut these short. That is a real
+     * trade — on the deployment target it argues for handing this to a queue
+     * rather than for making the applicant wait.
+     */
+    void this.notifications
+      .notifyUser(user.id, 'teacherApplicationSubmitted')
+      .catch((error: Error) =>
+        this.logger.error(`Applicant notification failed for ${user.id}: ${error.message}`),
+      );
+
+    /*
+     * FR-TVR-004: the application is only useful once somebody knows it is
+     * waiting. The applicant was told, and nobody who could act was — the queue
+     * only showed it to whoever happened to open that screen.
+     *
+     * Support is told alongside Ops because both now hold
+     * `teacher:verification:decide`, and an applicant who waits on one team
+     * waits longer for no reason.
+     */
+    void this.notifications
+      .notifyRoles(
+        ['admin_ops', 'super_admin', 'support_agent'],
+        'teacherVerificationPending',
+        { applicant: teacher.user.fullName },
+        /*
+         * The key FR-NOT-005 wants, recorded — but not yet enforced.
+         *
+         * `dedupeKey` is written to an indexed column and nothing reads it
+         * before inserting: there is no unique constraint and no prior lookup.
+         * So a teacher who resubmits three times puts three alerts on the desk
+         * today. Passing the key anyway means the data is already correct for
+         * whenever the check lands; do not read it as protection that exists.
+         */
+        { dedupeKey: `teacher-verification:${user.id}` },
+      )
+      .catch((error: Error) =>
+        this.logger.error(`Staff verification alert failed for ${user.id}: ${error.message}`),
+      );
 
     return this.getOwnApplication(user);
   }
@@ -173,6 +269,16 @@ export class TeachersService {
       include: {
         user: { select: { id: true, fullName: true, phoneE164: true, email: true } },
         documents: {
+          /*
+           * Only files that actually arrived.
+           *
+           * A row is created when an upload is *signed*, so every abandoned
+           * attempt leaves one behind at `awaiting_upload` with a filename and
+           * no bytes. The applicant's own page filters these out; the queue did
+           * not, so a reviewer saw fifteen documents where seven exist — eight
+           * of them unopenable, and no way to tell which from the list.
+           */
+          where: { scanStatus: { not: 'awaiting_upload' } },
           select: {
             id: true,
             type: true,

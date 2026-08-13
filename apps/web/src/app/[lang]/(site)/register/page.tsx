@@ -11,6 +11,7 @@ import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
 import { SchoolTypePicker, type SchoolType } from '@/components/SchoolTypePicker';
 import { LanguagesPicker } from '@/components/LanguagePicker';
+import { homeFor } from '@/lib/home-for';
 import type { Language } from '@classconnect/shared';
 
 /**
@@ -38,7 +39,7 @@ interface Level {
 export default function Register() {
   const { language, t } = useI18n();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, user, loading: sessionLoading } = useAuth();
 
   const [role, setRole] = useState<Role | null>(null);
   const [fullName, setFullName] = useState('');
@@ -61,6 +62,18 @@ export default function Register() {
   // Seeded from the interface language as a sensible default, but editable:
   // reading the site in English says nothing about what you teach in.
   const [teachingLanguages, setTeachingLanguages] = useState<Language[]>([language]);
+
+  /*
+   * Already signed in? There is nothing to register.
+   *
+   * Same rule as the sign-in page: a session outlives the tab, so arriving back
+   * at a sign-up form while holding an account is an ordinary mistake and the
+   * useful response is the dashboard. `replace`, so Back does not bounce.
+   */
+  useEffect(() => {
+    if (sessionLoading || !user) return;
+    router.replace(homeFor(user.roles, language));
+  }, [sessionLoading, user, router, language]);
 
   // Only the teacher path needs the catalogue, so it is not fetched until
   // that role is chosen — a parent signing up pays nothing for it.
@@ -128,8 +141,18 @@ export default function Register() {
         body: { phone, code: submittedCode, purpose: 'registration', deviceLabel: navigator.userAgent.slice(0, 60) },
         language,
       });
-      await signIn(tokens);
-      router.push(`/${language}`);
+      /*
+       * Route on the new account's roles, not to the landing page.
+       *
+       * This used to push `/${language}`, which meant a teacher who had just
+       * registered was signed in and then dropped on a public page headed "Create
+       * a parent account" — no acknowledgement that they had an account, and no
+       * sign that a teacher dashboard existed. `homeFor` is the same function the
+       * sign-in page uses, so registering and signing in cannot disagree about
+       * where somebody belongs.
+       */
+      const me = await signIn(tokens);
+      router.push(homeFor(me?.roles ?? [], language));
     } catch (caught) {
       setError(caught as ApiError);
     } finally {
@@ -228,7 +251,8 @@ export default function Register() {
   return (
     <div className="mx-auto max-w-md">
       <h1 className="text-2xl font-semibold">{t('auth.signUp')}</h1>
-      <ErrorAlert error={error} />
+      {/* Flagged on the inputs themselves, so the banner does not repeat them. */}
+      <ErrorAlert error={error} handledFields={['fullName', 'phone', 'password', 'dob']} />
 
       <form
         className="mt-6"

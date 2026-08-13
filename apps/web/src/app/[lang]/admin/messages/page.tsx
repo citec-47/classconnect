@@ -141,7 +141,7 @@ export default function AdminMessages() {
     <>
       <PageHeader
         title={t('adminMessages.title')}
-        subtitle={t('adminMessages.subtitle')}
+        description={t('adminMessages.subtitle')}
       />
 
       {error && <ErrorAlert error={error} />}

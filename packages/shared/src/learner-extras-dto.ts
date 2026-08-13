@@ -196,6 +196,16 @@ export interface MessageThreadDto {
 /** What the composer will accept. Enforced server-side; sent so the UI can say so. */
 /** A file being prepared for a message: signed, uploading, scanned, or refused. */
 export interface PendingAttachmentDto {
+  /**
+   * The composer's own id for the tile, stable for its whole life.
+   *
+   * Client-only, like `previewUrl`, and it exists because `attachmentId` is
+   * *not* stable: it starts as a local placeholder and becomes the server's id
+   * once the upload is signed. The previous version matched tiles on that field
+   * and so stopped finding them the moment it changed — the file uploaded, the
+   * scan passed, and the tile sat on "Uploading…" for ever.
+   */
+  localId: string;
   attachmentId: string;
   fileName: string;
   mimeType: string;
@@ -286,7 +296,11 @@ export interface LearnerFeesDto {
    * event and respects the same rule as the rest of this DTO.
    */
   notices: FeeNoticeDto[];
+  /** Tuition — what the instalments split. Registration is separate. */
   totalXaf?: number;
+  /** The one-off enrolment fee, not part of the instalments. */
+  registrationFeeXaf?: number;
+  registrationPaid?: boolean;
   /** What has been settled so far — drives the progress bar. */
   paidXaf?: number;
   outstandingXaf?: number;

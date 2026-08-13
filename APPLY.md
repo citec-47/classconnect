@@ -1,53 +1,62 @@
-# Admin can edit the payment plan
+# The upload error will now name itself
 
-10 files. Unzip over the repository root.
+10 files. No migration.
 
 ```powershell
+taskkill /F /IM node.exe
 npm run build --workspace @classconnect/shared
 npm run dev
 ```
 
-No migration.
+Restart fully — `files.service.ts` is server-side.
 
 ---
 
-## Edit plan
+## What your console told us
 
-New **Edit plan** action on every registered row of Students — fees. Change what
-each part costs and when it falls due; the student's Fees page shows the new
-figures and dates immediately, and both the learner and the payer are notified.
+The console showed **no `[upload]` line at all** — only Fast Refresh noise. So the
+upload request never ran. The failure is earlier, in
+`POST /files/teacher-documents/sign`, and "Something went wrong on our side" is
+`errors.generic` — the fallback for an **unhandled server exception**, not a
+storage rejection.
 
-Three rules the server enforces, surfaced in the dialog **before** the save
-rather than after a rejection:
+That is why the raw-response display never appeared: it covers the upload step,
+and we were never reaching it.
 
-1. **The parts must add up to the total** (§5.1). A running sum is shown live and
-   Save stays disabled until it matches, so the constraint is visible while it is
-   being broken.
-2. **A settled part cannot be re-priced.** Money has already moved against it, and
-   changing the figure would make the ledger disagree with the schedule. Those
-   rows are locked and say why. Reverse it with Set status first if that is
-   genuinely the intent.
-3. **Whole francs only** (CON-02). XAF has no subunit.
+## Two likely causes, both now handled
 
-A reason is required, and the change is audited with the before and after.
+**A teacher role without a teacher record.** `teacher_documents.teacher_id` is a
+foreign key to `teachers`. A user holding the role but missing the row fails on
+insert, and a foreign-key violation surfaces as a 500. Checked explicitly now,
+with a message that says what to do.
 
-## Bug fixed: `{learner}` showing literally
+**An unparseable expiry date.** `new Date('')` gives `Invalid Date`, which Prisma
+rejects. An optional expiry that cannot be parsed is now treated as absent rather
+than as a reason to refuse the whole upload — which is what an *optional* field
+should mean.
 
-`payloadJson` stores the **rendered** subject and body — the notification service
-interpolates before it stores, because the same text goes out by SMS and email
-where there is no client to render it.
+## And if it is neither
 
-I had been passing that payload as interpolation *parameters*, so `{learner}`
-had nothing to substitute. The page now shows the stored text verbatim, which is
-also a more honest record: it is exactly what the family was sent.
+The insert is wrapped, so any other database error is logged with the cause and
+returned as a readable message instead of a 500:
 
-## The three admin actions, and when to use which
+```
+[upload] could not record document for <user>: <the actual error>
+```
 
-| Action | Use when |
-|---|---|
-| **Record payment** | Money was actually received. Cash account, numbered invoice, instalments settled in sequence. |
-| **Edit plan** | The amounts or dates themselves are wrong or renegotiated. |
-| **Set status** | The status needs correcting without a payment — a waiver, a mistaken entry, fees recorded elsewhere. Posts a balancing ledger entry. |
+That line will be in your API terminal on the next attempt, and it names the
+cause exactly. After four rounds of inference, this is the change that stops the
+guessing — the server now reports its own failure rather than swallowing it.
 
-All three require `finance:record_payment`, all three demand a reason, and all
-three are audited.
+---
+
+## What to do
+
+1. Restart, retry the PDF.
+2. If it works, that was the FK or the date.
+3. If not, the API terminal has one `[upload]` line. Paste that line and I will
+   fix precisely what it names.
+
+Also worth trying a **JPG** of the same document: if the image succeeds and the
+PDF does not, the cause is in the PDF path specifically, which narrows it
+immediately.

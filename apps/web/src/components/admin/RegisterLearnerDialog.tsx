@@ -85,8 +85,19 @@ export function RegisterLearnerDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
-      <div className="w-full max-w-md space-y-3 rounded-xl bg-white p-5 shadow-lg">
+    <div
+      /*
+       * The overlay scrolls, not the page behind it.
+       *
+       * A fixed panel taller than the viewport simply runs off the bottom —
+       * which is what happened to the plan editor with three parts and a
+       * summary. `items-start` plus vertical padding keeps a tall dialog
+       * reachable, and `overflow-y-auto` on the overlay gives it somewhere to
+       * go on a short laptop screen.
+       */
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-900/40 p-4 sm:items-center"
+    >
+      <div className="my-auto w-full max-w-md space-y-3 rounded-xl bg-white p-5 shadow-lg">
         <h2 className="font-display text-lg font-semibold text-ink-900">
           {t('payments.registerTitle')}
         </h2>
@@ -95,7 +106,7 @@ export function RegisterLearnerDialog({
         {error && <ErrorAlert error={error} />}
 
         <label className="block text-sm font-medium text-ink-900" htmlFor="reg-plan">
-          {t('payments.plan')}
+          {t('payments.choosePlan')}
         </label>
         <select
           id="reg-plan"

@@ -267,8 +267,20 @@ export const teacherApplicationSchema = z.object({
   highestQualification: z.string().min(2).max(200),
   institution: z.string().min(2).max(200),
   qualificationYear: z.number().int().min(1950).max(2100),
-  /** FR-PRO-005 / NFR-SEC-003: encrypted at rest, never returned to learners. */
-  nationalId: z.string().min(4).max(60),
+  /**
+   * FR-PRO-005 / NFR-SEC-003: encrypted at rest, never returned to learners.
+   *
+   * Optional, because the applicant form deliberately stopped asking for it —
+   * the uploaded identity document is the evidence, and a typed number is a
+   * second copy of personal data with nothing to check it against.
+   *
+   * Required here while the input was gone, it failed `min(4)` on the empty
+   * string every single time, so no teacher application could ever be
+   * submitted. Nothing highlighted either, because there was no field on the
+   * page to highlight. The column is nullable, so optional is what the storage
+   * has always said.
+   */
+  nationalId: z.string().min(4).max(60).optional(),
   address: z.string().max(300).optional(),
   languages: z.array(languageSchema).min(1),
   subjects: z
@@ -276,7 +288,17 @@ export const teacherApplicationSchema = z.object({
     .min(1, 'errors.teacher.subjects_required')
     .max(60),
   payoutMethod: z.enum(['mtn_momo', 'orange_money']),
-  payoutWallet: z.string().min(6).max(30),
+  /**
+   * One digit and above.
+   *
+   * Deliberately permissive: a real MTN or Orange wallet in Cameroon is nine
+   * digits, but the length is not what makes it correct — FR-ERN-010 keeps the
+   * wallet `walletVerified: false` until Finance confirms it, and that check is
+   * what a payout actually depends on. Refusing a short number here only
+   * blocked applicants part-way through a form, which a length rule was never
+   * going to catch anyway.
+   */
+  payoutWallet: z.string().min(1).max(30),
 });
 export type TeacherApplicationInput = z.infer<typeof teacherApplicationSchema>;
 
@@ -391,7 +413,9 @@ export const adminCreateTeacherSchema = z.object({
   nationalId: z.string().min(4).max(60),
   languages: z.array(languageSchema).min(1),
   payoutMethod: z.enum(['mtn_momo', 'orange_money']),
-  payoutWallet: z.string().min(6).max(30),
+  /** One digit and above — see `teacherApplicationSchema`. Kept identical so the
+   *  admin form cannot reject a wallet the applicant's own form accepts. */
+  payoutWallet: z.string().min(1).max(30),
 
   /**
    * FR-TVR-005: each item recorded affirmatively, with findings. Supplying an
@@ -428,19 +452,132 @@ export const signTeacherDocumentSchema = z.object({
     'degree_certificate',
     'diploma',
     'teaching_authorisation',
+    /**
+     * FR-TVR-005: the spoken introduction goes through this same path.
+     *
+     * The recorder, the upload service and the Prisma enum all had it; only
+     * this list did not, so every "Use this recording" was refused at the door
+     * with a 400 naming `type` and `mimeType` — a feature that was complete
+     * everywhere except the one place that decides whether the request is
+     * allowed to start.
+     */
+    'intro_video',
     'other',
   ]),
   fileName: z.string().min(1).max(300),
-  mimeType: z.enum(['application/pdf', 'image/jpeg', 'image/png', 'image/heic']),
+  mimeType: z.enum([
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/heic',
+    // Kept in step with TEACHER_VIDEO_KINDS in the API's file-policy.
+    'video/webm',
+    'video/mp4',
+    'video/quicktime',
+  ]),
+  /**
+   * The ceiling here is the *largest* any teacher document may be — 60 MB, for
+   * video. The precise per-type limit (10 MB for a page, 60 MB for a recording)
+   * belongs to the service, which knows which kind it is looking at; a flat
+   * 10 MB here refused a perfectly valid three-minute video before that check
+   * ever ran.
+   */
   sizeBytes: z
     .number()
     .int()
     .positive()
-    .max(10 * 1024 * 1024, 'errors.file.too_large'),
+    .max(60 * 1024 * 1024, 'errors.file.too_large'),
   /** FR-TVR-007: an expiry drives the 30-day re-verification prompt. */
   expiresOn: z.string().date().optional(),
 });
 export type SignTeacherDocumentInput = z.infer<typeof signTeacherDocumentSchema>;
+
+/**
+ * FR-TVR-004: a reviewer removing a document from an application.
+ *
+ * The reason is mandatory and has a floor, because this is the one action here
+ * that destroys something. The audit entry outlives the file — `audit_log` is a
+ * no-delete table — and a one-character reason would make that record useless
+ * to whoever reads it a year later.
+ */
+export const removeTeacherDocumentSchema = z.object({
+  reason: z.string().min(4).max(500),
+});
+export type RemoveTeacherDocumentInput = z.infer<typeof removeTeacherDocumentSchema>;
+
+// ---------------------------------------------------------------------------
+// Timetable — BUILD-PLAN Phase 1
+// ---------------------------------------------------------------------------
+
+/**
+ * A teacher proposing the hours they will teach.
+ *
+ * The bounds here are the coarse gate; `validateTimetableSlot` in
+ * `timetable.ts` holds the real rule (teaching day, minimum and maximum
+ * length) and is applied by the service, so the form and the API agree without
+ * the rule being written twice.
+ */
+export const proposeTimetableSlotSchema = z.object({
+  levelId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+  /** A private arrangement has no cohort. */
+  cohortId: z.string().uuid().optional(),
+  dayOfWeek: z.number().int().min(1).max(5),
+  startMinute: z.number().int().min(0).max(1440),
+  endMinute: z.number().int().min(0).max(1440),
+});
+export type ProposeTimetableSlotInput = z.infer<typeof proposeTimetableSlotSchema>;
+
+/**
+ * Staff confirming or refusing a proposal.
+ *
+ * Confirmation is what makes a slot count — earnings are counted inside one and
+ * a live session starts from one — so the permission sits on this endpoint and
+ * not on the proposal (BUILD-PLAN Phase 1, step 3).
+ */
+export const decideTimetableSlotSchema = z
+  .object({
+    decision: z.enum(['confirmed', 'rejected']),
+    note: z.string().max(500).optional(),
+  })
+  .refine((d) => d.decision === 'confirmed' || (d.note?.trim().length ?? 0) > 0, {
+    message: 'errors.timetable.note_required',
+    path: ['note'],
+  });
+export type DecideTimetableSlotInput = z.infer<typeof decideTimetableSlotSchema>;
+
+// ---------------------------------------------------------------------------
+// Lessons — BUILD-PLAN Phase 2
+// ---------------------------------------------------------------------------
+
+/**
+ * A teacher publishing one lesson file to a class.
+ *
+ * `levelId` and `subjectId` are the whole access rule. FR-MAT-002 serves a
+ * learner the materials for their own level, so choosing the class here is what
+ * decides who receives the lesson — there is no separate audience to pick, and
+ * no list of learner ids that could drift out of step with the register.
+ *
+ * The size ceiling is `LESSON_MAX_BYTES` in the API's `file-policy.ts`, and this
+ * is the coarse gate in front of it: the same 100 MB, so a recorded lesson is
+ * not refused here by a limit written for a certificate.
+ */
+export const publishLessonSchema = z.object({
+  levelId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+  /** What the learner sees in the list. Their words, not the file's name. */
+  title: z.string().min(2).max(300),
+  /** Optional, and genuinely optional — a lesson need not belong to a unit. */
+  topic: z.string().max(200).optional(),
+  fileName: z.string().min(1).max(300),
+  mimeType: z.string().min(3).max(100),
+  sizeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024, 'errors.file.too_large'),
+});
+export type PublishLessonInput = z.infer<typeof publishLessonSchema>;
 
 // ---------------------------------------------------------------------------
 // Catalogue — FR-PRO-001/002/006

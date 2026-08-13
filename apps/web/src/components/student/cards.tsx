@@ -8,6 +8,7 @@ import type {
   SessionDto,
 } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
+import { api } from '@/lib/api';
 import {
   countdownLabel,
   durationLabel,
@@ -273,26 +274,73 @@ export function PracticeRow({ item }: { item: PracticeItemDto }) {
   );
 }
 
+/**
+ * A lesson or a set of notes, and the button that keeps it.
+ *
+ * BUILD-PLAN Phase 2. The URL is fetched on the tap and not with the list: FR-
+ * FIL-003 mints a short-lived signed URL per read, and asking for one per row up
+ * front would hand out live URLs for files nobody opened.
+ *
+ * The signed URL carries `fl_attachment`, so following it saves the file rather
+ * than streaming it — which is the brief's "download to read it offline", and the
+ * behaviour a learner on a metered connection is actually paying for.
+ */
 export function MaterialRow({ item }: { item: MaterialDto }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const [state, setState] = useState<'idle' | 'opening' | 'failed'>('idle');
+
+  const open = async () => {
+    setState('opening');
+    try {
+      const result = await api<{ url: string }>(`/lessons/${item.id}/download-url`, { language });
+      /*
+       * A same-tab navigation rather than `window.open`.
+       *
+       * The URL arrives after an await, so a popup opened here is blocked by
+       * every mobile browser. Navigating to an attachment URL does not leave the
+       * app — the browser takes the download and stays where it is.
+       */
+      window.location.href = result.url;
+      setState('idle');
+    } catch {
+      setState('failed');
+    }
+  };
 
   return (
-    <article className="flex items-center gap-3 rounded-xl border border-ink-300 bg-white p-3.5">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-ink-900">{item.title}</p>
-        <p className="mt-0.5 truncate text-xs text-ink-600">
-          {item.subject.name}
-          {item.topic ? ` · ${item.topic}` : ''}
-        </p>
+    <article className="rounded-xl border border-ink-300 bg-white p-3.5">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink-900">{item.title}</p>
+          <p className="mt-0.5 truncate text-xs text-ink-600">
+            {item.subject.name}
+            {item.topic ? ` · ${item.topic}` : ''}
+          </p>
+        </div>
+        {/*
+         * NFR-BAN-002: the size before the tap, not after. On a metered 3G
+         * connection this is the difference between a considered download and an
+         * accidental one.
+         */}
+        <span className="shrink-0 text-xs tabular-nums text-ink-600">
+          {fileSize(item.sizeBytes)}
+        </span>
       </div>
-      {/*
-       * NFR-BAN-002: the size before the tap, not after. On a metered 3G
-       * connection this is the difference between a considered download and an
-       * accidental one.
-       */}
-      <span className="shrink-0 text-xs tabular-nums text-ink-600">
-        {fileSize(item.sizeBytes)}
-      </span>
+
+      <button
+        type="button"
+        onClick={() => void open()}
+        disabled={state === 'opening'}
+        className="mt-2 flex min-h-touch w-full items-center justify-center rounded-lg border border-ink-300 px-3 text-sm font-medium text-ink-900"
+      >
+        {state === 'opening' ? t('student.work.openingMaterial') : t('student.work.openMaterial')}
+      </button>
+
+      {state === 'failed' && (
+        <p className="mt-1 text-xs text-danger-600" role="alert">
+          {t('student.work.materialFailed')}
+        </p>
+      )}
     </article>
   );
 }

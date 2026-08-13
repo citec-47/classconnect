@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { t, type Language } from '@classconnect/shared';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Logo } from '@/components/Logo';
+import { DashboardLink } from '@/components/DashboardLink';
 
 /**
  * The learner, parent and teacher surface.
@@ -31,8 +32,12 @@ export default async function SiteLayout({
           <a href={`/${language}`} className="rounded-md" aria-label={t(language, 'common.appName')}>
             <Logo />
           </a>
-          {/* UI-004: switchable from any screen. */}
-          <LanguageSwitcher current={language} />
+          <div className="flex items-center gap-3">
+            {/* Renders nothing when signed out — see the component. */}
+            <DashboardLink />
+            {/* UI-004: switchable from any screen. */}
+            <LanguageSwitcher current={language} />
+          </div>
         </div>
       </header>
 

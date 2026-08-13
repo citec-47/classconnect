@@ -8,7 +8,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm-run-all --parallel dev:api dev:web",
+    "//dev": "`packages/shared` is compiled BEFORE anything starts. The API resolves @classconnect/shared to dist/index.js at runtime, so an edit to packages/shared/src that is never rebuilt leaves the API enforcing the OLD code while the editor, the typecheck and the web app all show the new — a schema change appears to have no effect at all, which is a very hard thing to see. Building first means restarting `npm run dev` always picks up a shared edit. Deliberately NOT a third parallel watcher: on a 4-core machine tsc --watch alongside the Nest and Next watchers costs more in contention than it saves. Editing packages/shared mid-session? Run `npm run dev:shared` in another terminal, or just restart.",
+    "dev": "npm run build --workspace @classconnect/shared && npm-run-all --parallel dev:api dev:web",
+    "dev:shared": "npm run dev --workspace @classconnect/shared",
     "dev:api": "npm run dev --workspace @classconnect/api",
     "dev:web": "npm run dev --workspace @classconnect/web",
     "build": "npm run build --workspace @classconnect/shared && npm run build --workspace @classconnect/db && npm run build --workspace @classconnect/api && npm run build --workspace @classconnect/web",

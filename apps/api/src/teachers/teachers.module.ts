@@ -1,11 +1,61 @@
 import { Module } from '@nestjs/common';
 import { TeachersService } from './teachers.service';
 import { TeachersController, VerificationController } from './teachers.controller';
+import { TeacherDashboardController } from './teacher-dashboard.controller';
+import { TeacherClassesService } from './teacher-classes.service';
+import { TeacherEarningsService } from './teacher-earnings.service';
+import { TimetableService } from './timetable.service';
+import { TeacherTimetableController, AdminTimetableController } from './timetable.controller';
 import { FieldEncryptionService } from './field-encryption.service';
+import { TeacherGroupsService } from './teacher-groups.service';
+import { TeacherExamsService } from './teacher-exams.service';
+import { TeacherReportsService } from './teacher-reports.service';
+import { TeacherLiveService } from './teacher-live.service';
+import { TeacherMessagingService } from './teacher-messaging.service';
+import { TeacherProgressService } from './teacher-progress.service';
+import {
+  TeacherSurfaceController,
+  AdminReportsController,
+} from './teacher-surface.controller';
+import { LearnerModule } from '../learner/learner.module';
 
 @Module({
-  controllers: [TeachersController, VerificationController],
-  providers: [TeachersService, FieldEncryptionService],
-  exports: [TeachersService, FieldEncryptionService],
+  /*
+   * `LearnerModule` for its messaging service, which the teacher's inbox reuses
+   * rather than reimplementing — see `teacher-messaging.service.ts` for why that
+   * matters more than it looks.
+   */
+  imports: [LearnerModule],
+  controllers: [
+    TeachersController,
+    VerificationController,
+    TeacherDashboardController,
+    TeacherTimetableController,
+    AdminTimetableController,
+    TeacherSurfaceController,
+    AdminReportsController,
+  ],
+  providers: [
+    TeachersService,
+    FieldEncryptionService,
+    TeacherClassesService,
+    TeacherEarningsService,
+    TimetableService,
+    TeacherGroupsService,
+    TeacherExamsService,
+    TeacherReportsService,
+    TeacherLiveService,
+    TeacherMessagingService,
+    TeacherProgressService,
+  ],
+  exports: [
+    TeachersService,
+    FieldEncryptionService,
+    TeacherClassesService,
+    TeacherEarningsService,
+    // Exported for the learner's exam submit path, which calls `autoMark` so the
+    // comparison against `QuestionOption.isCorrect` lives in exactly one place.
+    TeacherExamsService,
+  ],
 })
 export class TeachersModule {}

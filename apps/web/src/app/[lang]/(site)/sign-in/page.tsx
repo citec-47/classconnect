@@ -8,33 +8,7 @@ import { api, ApiError } from '@/lib/api';
 import { fieldValue } from '@/lib/form';
 import { Field } from '@/components/Field';
 import { ErrorAlert } from '@/components/Alert';
-import type { Language, Role } from '@classconnect/shared';
-
-/**
- * Where a person lands after signing in.
- *
- * Sending everyone to the landing page made a successful sign-in look like a
- * failure: an administrator authenticated, was returned to a public page headed
- * "Create a parent account", and had no indication anything had happened or
- * that an admin surface existed. The sign-in worked; it just did not appear to.
- *
- * Ordered by specificity — a super admin who is also a parent wants the admin
- * dashboard, because that is the account they signed in to use.
- */
-function homeFor(roles: readonly Role[], language: Language): string {
-  const has = (role: Role) => roles.includes(role);
-
-  if (has('super_admin') || has('admin_ops') || has('admin_finance') || has('support_agent')) {
-    return `/${language}/admin`;
-  }
-  if (has('teacher')) return `/${language}/teach`;
-  if (has('parent')) return `/${language}/children`;
-  // §4: a learner's home is the dashboard. Landing them on the public page
-  // instead was the same failure this function was written to fix — the sign-in
-  // worked, and nothing on screen said so.
-  if (has('student') || has('adult_learner')) return `/${language}/student`;
-  return `/${language}`;
-}
+import { homeFor } from '@/lib/home-for';
 
 type Step = 'phone' | 'code';
 /**
@@ -58,7 +32,7 @@ type Method = 'password' | 'code';
 export default function SignIn() {
   const { language, t } = useI18n();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, user, loading: sessionLoading } = useAuth();
 
   const [method, setMethod] = useState<Method>('password');
   const [step, setStep] = useState<Step>('phone');
@@ -73,6 +47,24 @@ export default function SignIn() {
   const [expiresInMinutes, setExpiresInMinutes] = useState(5);
   const [resendIn, setResendIn] = useState(0);
   const [devCode, setDevCode] = useState<string | null>(null);
+
+  /*
+   * Already signed in? Go to the dashboard rather than showing the form again.
+   *
+   * A session survives a closed tab (the tokens are in `localStorage`), so
+   * returning to the site the next morning and clicking Sign in is the ordinary
+   * path — and being asked to type a password you are already past reads as
+   * having been signed out. `replace` rather than `push`, so Back does not come
+   * straight back to a form that will bounce again.
+   *
+   * Waits for `loading` to settle: acting on `user === null` while `/auth/me` is
+   * still in flight would redirect nobody and, worse, would sometimes fire for a
+   * signed-in person a tick before their session arrived.
+   */
+  useEffect(() => {
+    if (sessionLoading || !user) return;
+    router.replace(homeFor(user.roles, language));
+  }, [sessionLoading, user, router, language]);
 
   // FR-AUT-004 rate-limits issuance; the countdown makes that visible rather
   // than letting the user hit a wall.
@@ -186,7 +178,8 @@ export default function SignIn() {
       <h1 className="text-2xl font-semibold text-ink-900">{t('auth.signIn')}</h1>
       <p className="mt-1 text-ink-600">{t('auth.signInSubtitle')}</p>
 
-      <ErrorAlert error={error} />
+      {/* Flagged on the inputs themselves, so the banner does not repeat them. */}
+      <ErrorAlert error={error} handledFields={['email', 'phone', 'password', 'code']} />
 
       {method === 'password' ? (
         <form

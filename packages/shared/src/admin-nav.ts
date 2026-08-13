@@ -101,6 +101,11 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         badge: 'primaryAwaitingApproval',
       },
       {
+        id: 'timetable',
+        href: '/timetable',
+        permission: 'teacher:verification:decide',
+      },
+      {
         id: 'teachers',
         href: '/approvals/teachers',
         permission: 'teacher:verification:read',

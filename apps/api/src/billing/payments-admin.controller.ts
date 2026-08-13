@@ -118,10 +118,15 @@ export class PaymentsAdminController {
     @CurrentUser() actor: AuthenticatedUser,
     @Param('subscriptionId') subscriptionId: string,
     @Body()
-    body: { parts: { sequence: number; amountXaf: number; dueOn: string }[]; reason: string },
+    body: {
+      registrationFeeXaf?: number;
+      parts: { sequence: number; amountXaf: number; dueOn: string }[];
+      reason: string;
+    },
   ) {
     return this.payments.updateSchedule({
       subscriptionId,
+      registrationFeeXaf: body.registrationFeeXaf ?? 0,
       parts: body.parts ?? [],
       reason: body.reason ?? '',
       actorId: actor.id,

@@ -96,6 +96,14 @@ export type AuditAction =
   | 'teacher.reinstated'
   /** FR-SCH-002: which band a teacher teaches, and so who may be assigned to them. */
   | 'teacher.classified'
+  /*
+   * An admin set which classes and subjects a teacher may teach.
+   *
+   * Worth its own action because it decides what that teacher can timetable and
+   * therefore be paid for — and because the assignment replaces the set rather
+   * than adding to it, so the counts either side are the record of what changed.
+   */
+  | 'teacher.subjects_assigned'
   /**
    * Watching lessons in progress.
    *

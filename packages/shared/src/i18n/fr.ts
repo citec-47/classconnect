@@ -1333,6 +1333,9 @@ export const fr: Messages = {
     },
     teacher: {
       subjects_required: 'Choisissez au moins une matière et un niveau.',
+      /* Les deux identifiants existent ; la combinaison n’est pas au programme. */
+      subject_not_taught_at_level:
+        'L’une de ces matières n’est pas enseignée dans cette classe.',
       not_approved: 'Seuls les enseignants approuvés peuvent recevoir des apprenants.',
       already_applied: 'Vous avez déjà une candidature en cours.',
       application_closed: 'Cette candidature est close.',

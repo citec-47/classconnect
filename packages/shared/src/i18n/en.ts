@@ -1387,6 +1387,8 @@ export const en = {
     },
     teacher: {
       subjects_required: 'Choose at least one subject and level.',
+      /* Both ids exist; the combination is simply not on that class's syllabus. */
+      subject_not_taught_at_level: 'One of those subjects is not taught in that class.',
       not_approved: 'Only approved teachers can be assigned learners.',
       already_applied: 'You already have an application in progress.',
       application_closed: 'This application is closed.',

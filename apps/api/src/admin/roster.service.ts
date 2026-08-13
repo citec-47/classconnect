@@ -565,4 +565,149 @@ export class RosterService {
       teachersUnclassified: unclassifiedTeachers,
     };
   }
+
+  /**
+   * What an admin may assign this teacher, and what they already hold.
+   *
+   * Every active level with its subjects, so the dialog can walk category →
+   * class → subject without a request per step, plus the pairings already
+   * granted. One call, because the screen shows all three at once and the
+   * database is a round trip away.
+   */
+  async assignableSubjects(teacherId: string) {
+    const [teacher, levels] = await Promise.all([
+      this.prisma.teacher.findUnique({
+        where: { userId: teacherId },
+        select: {
+          schoolType: true,
+          user: { select: { fullName: true } },
+          subjects: { select: { levelId: true, subjectId: true, periodAllowance: true } },
+        },
+      }),
+      this.prisma.level.findMany({
+        where: { active: true },
+        orderBy: [{ schoolType: 'asc' }, { sortOrder: 'asc' }],
+        select: {
+          id: true,
+          code: true,
+          nameEn: true,
+          nameFr: true,
+          schoolType: true,
+          subjects: {
+            where: { subject: { active: true } },
+            select: { subject: { select: { id: true, code: true, nameEn: true, nameFr: true } } },
+          },
+        },
+      }),
+    ]);
+    if (!teacher) throw AppError.notFound();
+
+    /*
+     * Grouped by category, which is how the dialog is navigated: Primary,
+     * Secondary, Lower/Upper Sixth or Private, then a class inside it, then
+     * the subjects taught there.
+     */
+    const categories: Record<string, unknown[]> = {};
+    for (const level of levels) {
+      (categories[level.schoolType] ??= []).push({
+        id: level.id,
+        code: level.code,
+        nameEn: level.nameEn,
+        nameFr: level.nameFr,
+        subjects: level.subjects.map((row) => row.subject),
+      });
+    }
+
+    return {
+      teacherName: teacher.user.fullName,
+      schoolType: teacher.schoolType,
+      categories,
+      assigned: teacher.subjects,
+    };
+  }
+
+  /**
+   * Replaces a teacher's assignments with exactly the set given.
+   *
+   * ## The whole set, not add-one/remove-one
+   *
+   * The dialog holds every pairing on screen and Update means "this is the list
+   * now". Partial endpoints would let the screen and the record disagree about
+   * what was just unticked.
+   *
+   * ## What is deliberately not enforced
+   *
+   * No cap on subjects. One teacher taking Biology in Form One, Form Four and
+   * Form Five is an ordinary week, and a ceiling would refuse a real timetable.
+   * The two-period weekly limit is a *timetable* rule and still applies per
+   * class — being assigned ten subjects does not let anyone teach eleven
+   * periods of one of them.
+   *
+   * ## What is
+   *
+   * Every pairing must be a level-subject combination that actually exists.
+   * `createMany` would catch an unknown subject on its foreign key, but a valid
+   * subject paired with the wrong level is not a foreign-key error — both ids
+   * exist, the combination simply is not taught. Only `level_subjects` knows
+   * that, and without the check an admin could grant Chemistry to Class Two by
+   * sending ids the dialog would never offer.
+   */
+  async assignSubjects(input: {
+    teacherId: string;
+    actorId: string;
+    assignments: readonly { levelId: string; subjectId: string; periodAllowance?: number }[];
+  }) {
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId: input.teacherId },
+      select: { userId: true },
+    });
+    if (!teacher) throw AppError.notFound();
+
+    if (input.assignments.length > 0) {
+      const wanted = input.assignments.map((a) => ({
+        levelId: a.levelId,
+        subjectId: a.subjectId,
+      }));
+      const real = await this.prisma.levelSubject.findMany({
+        where: { OR: wanted },
+        select: { levelId: true, subjectId: true },
+      });
+      const known = new Set(real.map((row) => `${row.levelId}:${row.subjectId}`));
+      const missing = wanted.filter((pair) => !known.has(`${pair.levelId}:${pair.subjectId}`));
+      if (missing.length > 0) {
+        throw AppError.badRequest('errors.teacher.subject_not_taught_at_level');
+      }
+    }
+
+    const before = await this.prisma.teacherSubject.count({
+      where: { teacherId: input.teacherId },
+    });
+
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.teacherSubject.deleteMany({ where: { teacherId: input.teacherId } }),
+      this.prisma.teacherSubject.createMany({
+        data: input.assignments.map((a) => ({
+          teacherId: input.teacherId,
+          levelId: a.levelId,
+          subjectId: a.subjectId,
+          periodAllowance: a.periodAllowance ?? null,
+          assignedBy: input.actorId,
+          assignedAt: now,
+        })),
+        skipDuplicates: true,
+      }),
+    ]);
+
+    await this.audit.record({
+      action: 'teacher.subjects_assigned',
+      entity: 'teacher',
+      entityId: input.teacherId,
+      actorId: input.actorId,
+      before: { count: before },
+      after: { count: input.assignments.length },
+    });
+
+    return { teacherId: input.teacherId, assigned: input.assignments.length };
+  }
 }

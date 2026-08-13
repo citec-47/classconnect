@@ -1,7 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
-import { schoolTypeSchema } from '@classconnect/shared';
-import { zodBody } from '../common/zod-validation.pipe';
+import {
+  schoolTypeSchema,
+  assignTeacherSubjectsSchema,
+  type AssignTeacherSubjectsInput,
+} from '@classconnect/shared';
+import { zodBody, uuidParam } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import { RosterService } from './roster.service';
 import { LiveService } from './live.service';
@@ -74,6 +78,40 @@ export class RosterController {
     // The unclassified badge falls the moment a band is chosen.
     await this.badges.broadcast();
     return result;
+  }
+
+  /**
+   * The catalogue an admin picks from, and what this teacher already holds.
+   *
+   * `teacher:classify` — choosing which classes and subjects somebody teaches
+   * is the same judgement as choosing their band, and neither is a verification
+   * decision about whether they are qualified at all.
+   */
+  @Get('people/teachers/:teacherId/assignable')
+  @RequirePermissions('teacher:classify')
+  async assignable(@Param('teacherId', uuidParam()) teacherId: string) {
+    return this.roster.assignableSubjects(teacherId);
+  }
+
+  /**
+   * Sets exactly the classes and subjects this teacher may teach.
+   *
+   * What the teacher sees afterwards follows from this and nothing else: the
+   * Classes screen lists these pairings, and the timetable offers only these
+   * subjects for the class being timetabled.
+   */
+  @Post('people/teachers/:teacherId/subjects')
+  @RequirePermissions('teacher:classify')
+  async assignSubjects(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Param('teacherId', uuidParam()) teacherId: string,
+    @Body(zodBody(assignTeacherSubjectsSchema)) body: AssignTeacherSubjectsInput,
+  ) {
+    return this.roster.assignSubjects({
+      teacherId,
+      actorId: admin.id,
+      assignments: body.assignments,
+    });
   }
 
   // --- Learners ------------------------------------------------------------

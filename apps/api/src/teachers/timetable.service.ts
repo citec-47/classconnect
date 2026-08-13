@@ -310,10 +310,41 @@ export class TimetableService {
       }),
     ]);
 
+    /*
+     * Where this teacher already is, that day, across every class.
+     *
+     * The grid above answers "is this period free in this class"; it cannot see
+     * that the teacher is teaching Upper Sixth at the same hour. Without this a
+     * period shows as free, the teacher claims it, and the clash rule refuses —
+     * which is the request being told "choose any of these" and then "not that
+     * one". The screen should never offer a period the rule will reject.
+     */
+    const elsewhere = await this.prisma.timetableSlot.findMany({
+      where: {
+        teacherId: user.id,
+        dayOfWeek,
+        state: { not: 'rejected' },
+        levelId: { not: levelId },
+      },
+      select: {
+        startMinute: true,
+        endMinute: true,
+        level: { select: { nameEn: true, nameFr: true } },
+        subject: { select: { nameEn: true, nameFr: true } },
+      },
+    });
+
     const taken = new Map(slots.map((slot) => [slot.startMinute, slot]));
 
     const periods = periodsFor(session).map((period) => {
       const slot = taken.get(period.startMinute);
+
+      // Half-open, matching `intervalsOverlap`: back-to-back periods do not
+      // collide, which is how any real timetable is built.
+      const busy = elsewhere.find(
+        (other) => other.startMinute < period.endMinute && period.startMinute < other.endMinute,
+      );
+
       return {
         index: period.index,
         startMinute: period.startMinute,
@@ -323,7 +354,7 @@ export class TimetableService {
          * use the room, but nobody may timetable a lesson into it — that is the
          * difference between suspended and empty.
          */
-        available: !slot,
+        available: !slot && !busy,
         slot: slot
           ? {
               id: slot.id,
@@ -333,6 +364,8 @@ export class TimetableService {
               teacherName: slot.teacher.user.fullName,
             }
           : null,
+        /** Free in this class, but the teacher is teaching elsewhere then. */
+        busyElsewhere: busy ? { level: busy.level, subject: busy.subject } : null,
       };
     });
 

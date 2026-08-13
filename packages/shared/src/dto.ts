@@ -505,6 +505,35 @@ export const removeTeacherDocumentSchema = z.object({
 });
 export type RemoveTeacherDocumentInput = z.infer<typeof removeTeacherDocumentSchema>;
 
+/**
+ * Which classes and subjects a teacher may teach.
+ *
+ * Sent as the complete set, not as add-one/remove-one: the dialog shows every
+ * pairing at once and Update means "this is the list now". A partial API would
+ * make removing an assignment a separate call the screen never has to think
+ * about, and leave the two able to disagree.
+ *
+ * Deliberately no cap. The same subject in several classes is the normal case —
+ * Form One Biology and Form Four Biology are one teacher's ordinary week — and
+ * an arbitrary ceiling would refuse a real timetable.
+ *
+ * The two-period limit is a *timetable* rule and still applies per class; being
+ * assigned ten subjects does not let anyone teach eleven periods of one.
+ */
+export const assignTeacherSubjectsSchema = z.object({
+  assignments: z
+    .array(
+      z.object({
+        levelId: z.string().uuid(),
+        subjectId: z.string().uuid(),
+        /** The admin's special permission to exceed the weekly period limit. */
+        periodAllowance: z.number().int().min(1).max(20).optional(),
+      }),
+    )
+    .max(400),
+});
+export type AssignTeacherSubjectsInput = z.infer<typeof assignTeacherSubjectsSchema>;
+
 // ---------------------------------------------------------------------------
 // Timetable — BUILD-PLAN Phase 1
 // ---------------------------------------------------------------------------

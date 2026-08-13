@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { LearnerController } from './learner.controller';
 import { LearnerService } from './learner.service';
 import { LearnerScheduleService } from './learner-schedule.service';
@@ -12,6 +12,12 @@ import { LearnerFeesService } from './learner-fees.service';
 import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
+/*
+ * The live rules are shared with the teacher surface rather than reimplemented.
+ * Who may join a lesson and who may speak is one safeguarding decision, and a
+ * second copy of it would be free to drift from the first.
+ */
+import { TeachersModule } from '../teachers/teachers.module';
 
 /**
  * §5 — the learner's own surface.
@@ -25,6 +31,20 @@ import { LearnerAttendanceService } from './learner-attendance.service';
  * Prisma and platform configuration come from the global CoreModule.
  */
 @Module({
+  /*
+   * `forwardRef` because the two modules genuinely need each other.
+   *
+   * Teachers already imported Learner (the teacher's messaging reuses the
+   * learner thread rules); Learner now needs Teachers for the live join and
+   * raise-hand routes. Nest resolves a cycle only when both sides declare it —
+   * without this the container fails at boot with an empty exception that names
+   * neither module.
+   *
+   * The alternative is a third module holding the live rules, which would move
+   * one shared service into a file of its own and leave the same cycle between
+   * messaging and threads.
+   */
+  imports: [forwardRef(() => TeachersModule)],
   controllers: [LearnerController],
   providers: [
     LearnerService,

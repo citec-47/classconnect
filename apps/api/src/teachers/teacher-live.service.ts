@@ -548,7 +548,129 @@ export class TeacherLiveService {
       },
     });
 
+    /*
+     * Tell the media server, or the decision is only a database row.
+     *
+     * `MediaPublishRequest` is the platform's record of who may speak; the
+     * signed token is what LiveKit actually enforces. Without this line a
+     * teacher could grant the floor, the row would say `approved`, and the
+     * learner's microphone would stay refused — the grant would exist
+     * everywhere except where it matters.
+     *
+     * Updated in place rather than by re-issuing a token, so the learner is not
+     * disconnected and reconnected in order to answer a question.
+     */
+    const room = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { roomId: true },
+    });
+    if (room?.roomId) {
+      await this.livekit.setCanPublish(
+        room.roomId,
+        updated.learnerUserId,
+        updated.state === 'approved',
+      );
+    }
+
     return { requestId: updated.id, state: updated.state, screenShare: updated.screenShare };
+  }
+
+  /**
+   * A learner's own token for a lesson they are entitled to attend.
+   *
+   * Listen-only by default. `canPublish` follows the `MediaPublishRequest`
+   * state, so a learner who already holds the floor and reloads their browser
+   * comes back able to speak — and everyone else comes back unable to, which is
+   * the rule the whole flow exists to keep.
+   *
+   * Entitlement is checked here rather than trusted from the client: a learner
+   * may join a lesson they are booked into, and nothing else. A room id is not
+   * a secret worth relying on.
+   */
+  async learnerToken(user: AuthenticatedUser, sessionId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: sessionId,
+        status: 'in_progress',
+        /*
+         * Booked in, one way or the other: a one-to-one names the learner, and
+         * a group lesson reaches them through the cohort they belong to.
+         */
+        OR: [
+          { learnerId: user.id },
+          { cohort: { members: { some: { learnerId: user.id } } } },
+          { participants: { some: { userId: user.id } } },
+        ],
+      },
+      select: { id: true, roomId: true },
+    });
+    if (!session?.roomId) throw AppError.notFound();
+
+    const granted = await this.prisma.mediaPublishRequest.findFirst({
+      where: { sessionId, learnerUserId: user.id, state: 'approved' },
+      select: { id: true },
+    });
+
+    const token = await this.livekit.issueToken({
+      roomId: session.roomId,
+      identity: user.id,
+      displayName: await this.displayName(user.id),
+      canPublish: Boolean(granted),
+    });
+
+    /*
+     * The seat is opened here, not by the client saying it arrived.
+     *
+     * `firstJoinAt` is what attendance and the 40-minute rating rule are
+     * measured from, and a client-reported arrival is a number a learner could
+     * choose for themselves.
+     */
+    await this.prisma.sessionParticipant.upsert({
+      where: { sessionId_userId: { sessionId, userId: user.id } },
+      create: { sessionId, userId: user.id, firstJoinAt: new Date() },
+      update: {},
+    });
+
+    return { ...token, canPublish: Boolean(granted) };
+  }
+
+  /**
+   * A learner raising their hand.
+   *
+   * The brief's "students can click Request to Talk when they want to say
+   * something". It creates a pending request and nothing more — asking is not
+   * being granted, and the microphone stays refused until the teacher decides.
+   *
+   * Repeating the request returns the existing one rather than filling the
+   * host's list with duplicates from a learner tapping twice on a slow link.
+   */
+  async requestFloor(user: AuthenticatedUser, sessionId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: {
+        id: sessionId,
+        status: 'in_progress',
+        OR: [
+          { learnerId: user.id },
+          { cohort: { members: { some: { learnerId: user.id } } } },
+          { participants: { some: { userId: user.id } } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!session) throw AppError.notFound();
+
+    const existing = await this.prisma.mediaPublishRequest.findFirst({
+      where: { sessionId, learnerUserId: user.id, state: { in: ['pending', 'approved'] } },
+      select: { id: true, state: true },
+    });
+    if (existing) return { requestId: existing.id, state: existing.state };
+
+    const request = await this.prisma.mediaPublishRequest.create({
+      data: { sessionId, learnerUserId: user.id, state: 'pending', requestedAt: new Date() },
+      select: { id: true, state: true },
+    });
+
+    return { requestId: request.id, state: request.state };
   }
 
   /**
@@ -603,6 +725,16 @@ export class TeacherLiveService {
       actorId: user.id,
       after: { sessionId, learnerUserId, invited: true, screenShare },
     });
+
+    // Same gap as `decideFloor`: without this the row says approved and the
+    // learner's microphone stays refused by the media server.
+    const room = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { roomId: true },
+    });
+    if (room?.roomId) {
+      await this.livekit.setCanPublish(room.roomId, learnerUserId, true);
+    }
 
     return { requestId: request.id, state: request.state };
   }

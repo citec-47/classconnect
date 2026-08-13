@@ -1,5 +1,13 @@
 import { Body, Controller, Get, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { LearnerService } from './learner.service';
+/*
+ * The live service is shared rather than duplicated.
+ *
+ * A lesson has one set of rules about who may join and who may speak; writing a
+ * learner-side copy would be two implementations of the same safeguarding
+ * decision, free to drift apart.
+ */
+import { TeacherLiveService } from '../teachers/teacher-live.service';
 import { LearnerScheduleService } from './learner-schedule.service';
 import { LearnerWorkService } from './learner-work.service';
 import { LearnerPracticeService } from './learner-practice.service';
@@ -12,6 +20,7 @@ import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
+import { uuidParam } from '../common/zod-validation.pipe';
 import {
   PLATFORM_TIMEZONE,
   resolveLevelConfig,
@@ -47,6 +56,7 @@ export class LearnerController {
     private readonly ratings: LearnerRatingsService,
     private readonly contacts: LearnerContactsService,
     private readonly attendance: LearnerAttendanceService,
+    private readonly live: TeacherLiveService,
   ) {}
 
   @Get('me')
@@ -303,6 +313,38 @@ export class LearnerController {
   ) {
     const context = await this.learner.context(user);
     return this.ratings.submit(context.id, user.id, body);
+  }
+
+  /**
+   * The learner's own way into a live lesson.
+   *
+   * Listen-only unless the teacher has granted them the floor — enforced in the
+   * signed token, so a learner who edits the page cannot publish. Entitlement is
+   * checked server-side: a learner joins a lesson they are booked into, and a
+   * room id is not a secret worth relying on.
+   */
+  @Get('live/:sessionId/token')
+  @RequirePermissions('profile:read:own')
+  async joinLive(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+  ) {
+    return this.live.learnerToken(user, sessionId);
+  }
+
+  /**
+   * Request to Talk.
+   *
+   * Asking, not receiving: this records a pending request and the microphone
+   * stays refused until the teacher decides.
+   */
+  @Post('live/:sessionId/request-floor')
+  @RequirePermissions('profile:read:own')
+  async requestFloor(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+  ) {
+    return this.live.requestFloor(user, sessionId);
   }
 }
 

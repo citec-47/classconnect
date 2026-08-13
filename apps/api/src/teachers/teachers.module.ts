@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TeachersService } from './teachers.service';
 import { TeachersController, VerificationController } from './teachers.controller';
 import { TeacherDashboardController } from './teacher-dashboard.controller';
@@ -26,7 +26,8 @@ import { LearnerModule } from '../learner/learner.module';
    * rather than reimplementing — see `teacher-messaging.service.ts` for why that
    * matters more than it looks.
    */
-  imports: [LearnerModule],
+  // See LearnerModule: the cycle is declared on both sides or not at all.
+  imports: [forwardRef(() => LearnerModule)],
   controllers: [
     TeachersController,
     VerificationController,
@@ -58,6 +59,9 @@ import { LearnerModule } from '../learner/learner.module';
     // Exported for the learner's exam submit path, which calls `autoMark` so the
     // comparison against `QuestionOption.isCorrect` lives in exactly one place.
     TeacherExamsService,
+    // Exported for the learner's join and raise-hand routes. Who may enter a
+    // lesson and who may speak is one rule, held in one service.
+    TeacherLiveService,
   ],
 })
 export class TeachersModule {}

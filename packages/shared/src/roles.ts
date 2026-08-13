@@ -199,6 +199,20 @@ export const PERMISSIONS = [
   'audit:read',
   'user:read:any',
   'user:suspend',
+  /**
+   * Deleting an account.
+   *
+   * DAT-006: deletion here is soft — `status: 'deleted'` plus `deletedAt` —
+   * and the database enforces that by refusing to remove a `users` row at all
+   * (the audit trail references it, and `audit_log` carries a no-delete rule).
+   * So this is the power to take somebody off the platform, not to erase them;
+   * lawful erasure under §7.3 is a separate, deliberate process.
+   *
+   * Separate from `user:suspend` because the two mean different things to the
+   * person on the other end: suspended is a pause an admin expects to lift,
+   * deleted is the end of the account. Held by the admin alone, per the brief.
+   */
+  'user:delete',
   'impersonation:start',
   'config:write',
   'reports:read',
@@ -363,6 +377,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'learner:write:own',
     'user:read:any',
     'user:suspend',
+    // "Only the admin can delete any user" — Ops and the super admin, never
+    // customer service, and never Finance.
+    'user:delete',
     'audit:read',
     'impersonation:start',
     'learner:approve',

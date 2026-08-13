@@ -1398,6 +1398,10 @@ export const en = {
     class: {
       notFound: 'We could not find that class, or it is not one you teach.',
     },
+    admin: {
+      /* The one click on a bulk screen that must never go through unnoticed. */
+      cannot_delete_self: 'You cannot delete your own account.',
+    },
     student: {
       subjects_required: 'Choose at least one subject for this student.',
       /* Both ids exist; the subject is simply not on that class's syllabus. */

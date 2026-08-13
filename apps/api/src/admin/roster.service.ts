@@ -841,4 +841,94 @@ export class RosterService {
 
     return { learnerId: input.learnerId, levelId: input.levelId, subjects: input.subjectIds.length };
   }
+
+  /**
+   * Removes a selection of accounts from the platform.
+   *
+   * ## Soft, because the database says so
+   *
+   * DAT-006 makes deletion `status: 'deleted'` plus `deletedAt`, and that is
+   * not merely a convention: a `users` row cannot be removed at all. The audit
+   * trail references it, `audit_log` carries a `DO INSTEAD NOTHING` rule on
+   * delete, and PostgreSQL refuses the parent delete outright rather than
+   * orphaning the trail. Trying it returns:
+   *
+   *   referential integrity query on "users" ... gave unexpected result
+   *   Hint: This is most likely due to a rule having rewritten the query.
+   *
+   * So the account leaves every roster and can never sign in again, while what
+   * it did remains attributable. Erasing the person is §7.3's lawful-erasure
+   * process, which is deliberate, individual, and not a checkbox on a list.
+   *
+   * ## What this refuses
+   *
+   * An admin cannot delete themselves — the click that locks you out of your
+   * own platform should not be one of a hundred on a page. Already-deleted
+   * accounts are skipped rather than counted twice.
+   */
+  async deleteUsers(input: { userIds: readonly string[]; actorId: string; reason: string }) {
+    if (input.userIds.includes(input.actorId)) {
+      throw AppError.badRequest('errors.admin.cannot_delete_self');
+    }
+
+    const targets = await this.prisma.user.findMany({
+      where: { id: { in: [...input.userIds] }, status: { not: 'deleted' } },
+      select: { id: true, fullName: true, roles: { select: { role: true } } },
+    });
+
+    if (targets.length === 0) {
+      return { deleted: 0, skipped: input.userIds.length };
+    }
+
+    const ids = targets.map((user) => user.id);
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.user.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'deleted', deletedAt: now },
+      }),
+      /*
+       * Signed out everywhere, in the same transaction.
+       *
+       * A deleted account whose access token is still valid keeps working for
+       * up to fifteen minutes, and its refresh token for thirty days. Marking
+       * the row without revoking the sessions is a deletion the user does not
+       * notice.
+       */
+      /*
+       * `authSession`, not `session`.
+       *
+       * `Session` in this schema is a *lesson*; the sign-in kind is
+       * `AuthSession`. Revoking the wrong one here would have cancelled the
+       * deleted teacher's classes and left them still signed in — the exact
+       * inverse of what this line is for.
+       */
+      this.prisma.authSession.updateMany({
+        where: { userId: { in: ids }, revokedAt: null },
+        data: { revokedAt: now },
+      }),
+    ]);
+
+    /*
+     * One entry per account, not one for the batch.
+     *
+     * Somebody asking later why a particular person vanished should find an
+     * entry naming them, rather than a row saying "37 accounts deleted".
+     */
+    for (const user of targets) {
+      await this.audit.record({
+        action: 'user.deleted',
+        entity: 'user',
+        entityId: user.id,
+        actorId: input.actorId,
+        before: { fullName: user.fullName, roles: user.roles.map((r) => r.role) },
+        after: { reason: input.reason },
+      });
+    }
+
+    this.cache.invalidate(CacheService.KEYS.bandCounts);
+
+    return { deleted: targets.length, skipped: input.userIds.length - targets.length };
+  }
 }

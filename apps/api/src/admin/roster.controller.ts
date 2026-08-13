@@ -4,8 +4,10 @@ import {
   schoolTypeSchema,
   assignTeacherSubjectsSchema,
   assignLearnerClassSchema,
+  deleteUsersSchema,
   type AssignTeacherSubjectsInput,
   type AssignLearnerClassInput,
+  type DeleteUsersInput,
 } from '@classconnect/shared';
 import { zodBody, uuidParam } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
@@ -149,6 +151,30 @@ export class RosterController {
       subjectIds: body.subjectIds,
     });
     // The unassigned-learner badge falls the moment a class is chosen.
+    await this.badges.broadcast();
+    return result;
+  }
+
+  /**
+   * Deletes the accounts an admin selected, on Students or on Teachers.
+   *
+   * `user:delete`, which Ops and the super admin hold and customer service does
+   * not — "only the admin can delete any user".
+   *
+   * A POST rather than a DELETE: this carries a list and a reason in its body,
+   * and a DELETE with a body is the kind of thing proxies and clients drop.
+   */
+  @Post('people/delete')
+  @RequirePermissions('user:delete')
+  async deleteUsers(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Body(zodBody(deleteUsersSchema)) body: DeleteUsersInput,
+  ) {
+    const result = await this.roster.deleteUsers({
+      userIds: body.userIds,
+      actorId: admin.id,
+      reason: body.reason,
+    });
     await this.badges.broadcast();
     return result;
   }

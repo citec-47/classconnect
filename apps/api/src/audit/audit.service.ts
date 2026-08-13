@@ -18,6 +18,15 @@ export type AuditAction =
   | 'user.login_failed'
   | 'user.locked'
   | 'user.suspended'
+  /*
+   * An admin removed an account from the platform.
+   *
+   * DAT-006's soft delete, so the row survives and this entry is what explains
+   * why it is no longer anywhere. Written once per account even when a hundred
+   * were selected together: somebody asking why one person vanished should find
+   * an entry naming them, not "37 accounts deleted".
+   */
+  | 'user.deleted'
   | 'user.password_changed'
   | 'user.sessions_revoked'
   | 'role.granted'

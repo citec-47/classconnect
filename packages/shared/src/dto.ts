@@ -557,6 +557,25 @@ export const assignLearnerClassSchema = z.object({
 });
 export type AssignLearnerClassInput = z.infer<typeof assignLearnerClassSchema>;
 
+/**
+ * Removing accounts from the platform, one selection at a time.
+ *
+ * DAT-006: this is a soft delete — `status: 'deleted'` and `deletedAt` — and
+ * the database will not permit anything else, because the audit trail
+ * references the user and `audit_log` cannot be deleted from. So an account
+ * disappears from every roster and can no longer sign in, while the record of
+ * what it did survives. Lawful erasure under §7.3 is a separate process.
+ *
+ * Capped at 100. The screen deletes what an admin ticked on one page, and an
+ * unbounded list is how a mis-sent request removes a whole school.
+ */
+export const deleteUsersSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1).max(100),
+  /** Recorded on every entry, because "deleted by an admin" answers nothing. */
+  reason: z.string().min(4).max(500),
+});
+export type DeleteUsersInput = z.infer<typeof deleteUsersSchema>;
+
 // ---------------------------------------------------------------------------
 // Timetable — BUILD-PLAN Phase 1
 // ---------------------------------------------------------------------------

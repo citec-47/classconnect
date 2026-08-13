@@ -1345,6 +1345,10 @@ export const fr: Messages = {
     class: {
       notFound: 'Nous n’avons pas trouvé cette classe, ou vous ne l’enseignez pas.',
     },
+    admin: {
+      /* Le seul clic d’un écran de masse qui ne doit jamais passer inaperçu. */
+      cannot_delete_self: 'Vous ne pouvez pas supprimer votre propre compte.',
+    },
     student: {
       subjects_required: 'Choisissez au moins une matière pour cet élève.',
       /* Les deux identifiants existent ; la matière n’est pas au programme. */

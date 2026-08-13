@@ -1285,6 +1285,9 @@ export const fr: Messages = {
       subject_mismatch: 'Ce groupe n’étudie pas cette matière.',
       not_your_learner: 'Vous n’êtes pas affecté à cet élève.',
       slot_not_confirmed: 'Ce créneau n’est pas le vôtre, ou n’a pas été confirmé.',
+      /* Dit à qui revient le problème : à la plateforme, pas à l’appareil. */
+      not_configured:
+        'Les cours en direct ne sont pas encore activés sur cette plateforme. Veuillez prévenir un administrateur.',
     },
 
     /* Voir en.ts : sans ces clés, « errors.field.too_small » s'affichait tel quel. */

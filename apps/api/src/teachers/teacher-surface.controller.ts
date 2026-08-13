@@ -305,6 +305,22 @@ export class TeacherSurfaceController {
     return this.live.goLive(user, body);
   }
 
+  /**
+   * A fresh join token for the host.
+   *
+   * Separate from `goLive` because a teacher whose browser reloads mid-lesson
+   * needs to rejoin a room that already exists, and the token from the original
+   * call has expired by then. Minting a new one is the whole of rejoining.
+   */
+  @Get('live/:sessionId/token')
+  @RequirePermissions('live:host')
+  async hostToken(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+  ) {
+    return this.live.hostToken(user, sessionId);
+  }
+
   @Get('live/:sessionId')
   @RequirePermissions('live:host')
   async roomState(

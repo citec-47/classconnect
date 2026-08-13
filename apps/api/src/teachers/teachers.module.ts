@@ -11,6 +11,7 @@ import { TeacherGroupsService } from './teacher-groups.service';
 import { TeacherExamsService } from './teacher-exams.service';
 import { TeacherReportsService } from './teacher-reports.service';
 import { TeacherLiveService } from './teacher-live.service';
+import { LiveKitService } from './livekit.service';
 import { TeacherMessagingService } from './teacher-messaging.service';
 import { TeacherProgressService } from './teacher-progress.service';
 import {
@@ -45,6 +46,7 @@ import { LearnerModule } from '../learner/learner.module';
     TeacherExamsService,
     TeacherReportsService,
     TeacherLiveService,
+    LiveKitService,
     TeacherMessagingService,
     TeacherProgressService,
   ],

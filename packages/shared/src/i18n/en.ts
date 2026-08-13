@@ -1338,6 +1338,9 @@ export const en = {
       subject_mismatch: 'That group does not study that subject.',
       not_your_learner: 'You are not assigned to teach that learner.',
       slot_not_confirmed: 'That timetable slot is not yours, or has not been confirmed.',
+      /* Says whose problem it is: the platform's, not the teacher's device. */
+      not_configured:
+        'Live lessons are not switched on for this platform yet. Please tell an administrator.',
     },
 
     /*

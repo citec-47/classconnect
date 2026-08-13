@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { PlatformConfigService } from '../common/platform-config.service';
 import { AuditService } from '../audit/audit.service';
+import { LiveKitService } from './livekit.service';
 import { AppError } from '../common/http-exception.filter';
 import { CONFIG_KEYS, minutesToClock, type GoLiveInput, type DecidePublishRequestInput } from '@classconnect/shared';
 import type { AuthenticatedUser } from '../rbac/decorators';
@@ -40,6 +41,7 @@ export class TeacherLiveService {
     private readonly prisma: PrismaService,
     private readonly config: PlatformConfigService,
     private readonly audit: AuditService,
+    private readonly livekit: LiveKitService,
   ) {}
 
   /**
@@ -275,21 +277,87 @@ export class TeacherLiveService {
       },
     });
 
+    /*
+     * FR-LIV: every lesson is recorded, automatically.
+     *
+     * Started here rather than by the teacher, because a lesson nobody
+     * remembered to record is exactly the one somebody will later need. It
+     * returns null when LiveKit is unreachable, and the class goes ahead
+     * regardless — a failed recording must not cancel a lesson.
+     */
+    const egressId = session.roomId ? await this.livekit.startRecording(session.roomId) : null;
+    if (egressId) {
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { recordingEnabled: true, egressId },
+      });
+    }
+
+    /*
+     * The host's own token, handed back with the room.
+     *
+     * The teacher publishes from the moment they arrive; that is what being the
+     * host means. A learner's token is minted separately and cannot publish
+     * until the floor is granted.
+     */
+    const join = this.livekit.configured
+      ? await this.livekit.issueToken({
+          roomId: session.roomId!,
+          identity: user.id,
+          /*
+           * Looked up rather than taken from the token.
+           *
+           * `AuthenticatedUser` carries the id, roles and language — not the
+           * name, which is personal data with no reason to sit in a JWT. The
+           * room needs something to label the tile with, so it is read here.
+           */
+          displayName: await this.displayName(user.id),
+          canPublish: true,
+        })
+      : null;
+
     return {
       sessionId: session.id,
       roomId: session.roomId,
       startedAt: session.startsAtUtc.toISOString(),
-      recordingEnabled: isOneToOne,
-      /*
-       * Said out loud in the response, not buried in a doc.
-       *
-       * The room exists and the lesson is live as far as every screen and every
-       * permission is concerned. Until a media server is configured there is no
-       * audio or video in it, and the client is told so here rather than showing a
-       * black rectangle and letting the teacher conclude their camera is broken.
-       */
-      mediaServerConfigured: false,
+      recordingEnabled: Boolean(egressId) || isOneToOne,
+      mediaServerConfigured: this.livekit.configured,
+      /** Null when LiveKit is not configured; the screen says so rather than
+       *  showing a black rectangle and letting the teacher blame their camera. */
+      join,
     };
+  }
+
+  /**
+   * A fresh host token for a lesson already in progress.
+   *
+   * Tokens last ten minutes and a lesson lasts longer, so a teacher whose
+   * browser reloads needs a new one to get back into the room. Scoped to their
+   * own in-progress session, so this cannot mint a host seat in somebody else's
+   * classroom.
+   */
+  async hostToken(user: AuthenticatedUser, sessionId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
+      select: { roomId: true },
+    });
+    if (!session?.roomId) throw AppError.notFound();
+
+    return this.livekit.issueToken({
+      roomId: session.roomId,
+      identity: user.id,
+      displayName: await this.displayName(user.id),
+      canPublish: true,
+    });
+  }
+
+  /** The name shown on a participant's tile in the room. */
+  private async displayName(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true },
+    });
+    return user?.fullName ?? 'Teacher';
   }
 
   /**

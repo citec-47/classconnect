@@ -1085,6 +1085,13 @@ model Session {
   timetableSlotId String?    @map("timetable_slot_id") @db.Uuid
   /// FR-SAF-004: minor one-to-one sessions default to recording enabled.
   recordingEnabled Boolean   @default(false) @map("recording_enabled")
+  /// LiveKit's egress id for the recording of this lesson.
+  ///
+  /// Held so the recording can be stopped when the teacher ends the class, and
+  /// so a recording that never appeared can be traced back to the job that was
+  /// supposed to produce it. Null when the media server was unreachable, which
+  /// is deliberately not a reason to stop the lesson going ahead.
+  egressId     String?       @map("egress_id") @db.VarChar(200)
   endedAt      DateTime?     @map("ended_at") @db.Timestamptz(6)
   cancelledAt  DateTime?     @map("cancelled_at") @db.Timestamptz(6)
   cancelReason String?       @map("cancel_reason") @db.Text

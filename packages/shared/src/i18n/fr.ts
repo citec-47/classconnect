@@ -1347,6 +1347,9 @@ export const fr: Messages = {
     },
     student: {
       subjects_required: 'Choisissez au moins une matière pour cet élève.',
+      /* Les deux identifiants existent ; la matière n’est pas au programme. */
+      subject_not_taught_at_level:
+        'L’une de ces matières n’est pas enseignée dans cette classe.',
     },
     level: {
       not_found: 'Veuillez choisir une classe.',

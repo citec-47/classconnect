@@ -29,7 +29,24 @@ describe('§10 criterion 1 — the destination ceiling', () => {
       expect(new Set(config.tabs).size).toBe(config.tabs.length);
     }
 
-    expect(resolveLevelConfig(at('primary')).tabs).toEqual(['home', 'classes', 'work', 'progress']);
+    /*
+     * Primary now carries Subjects and Messages, on the platform owner's
+     * instruction: a Class One child sees the subjects they are offering and
+     * can message the school, exactly as older learners do.
+     *
+     * The rest of §10's shortening still holds and is asserted below — Primary
+     * has no Exams and no Practice, and reads at the large type scale. What
+     * changed is which destinations count as too much for a young learner, not
+     * that fewer of them do.
+     */
+    expect(resolveLevelConfig(at('primary')).tabs).toEqual([
+      'home',
+      'subjects',
+      'classes',
+      'work',
+      'messages',
+      'progress',
+    ]);
   });
 
   it('gives Primary no Exams destination', () => {
@@ -64,12 +81,21 @@ describe('§10 criterion 1 — the destination ceiling', () => {
     }
   });
 
-  it('refuses a sixth destination rather than rendering it', () => {
-    // UI-005 is asserted inside `resolveLevelConfig`, so a future edit to a tab
-    // array fails loudly at the first render instead of quietly shipping six.
+  it('refuses one destination past the ceiling rather than rendering it', () => {
+    /*
+     * UI-005 is asserted inside `resolveLevelConfig`, so a future edit to a tab
+     * array fails loudly at the first render instead of quietly shipping too
+     * many.
+     *
+     * The fixture is one longer than `MAX_TABS` rather than a fixed eight. It
+     * was eight while the ceiling was five; the ceiling has since risen to
+     * eight to fit Subjects and Messages, and the test quietly stopped
+     * exceeding anything — it asserted 8 > 8. Deriving the length from the
+     * constant means raising the ceiling again cannot blunt this check.
+     */
     const overloaded = {
       ...resolveLevelConfig(at('adult')),
-      tabs: ['home','classes','exams','work','messages','practice','progress','home'] as const,
+      tabs: Array.from({ length: MAX_TABS + 1 }, () => 'home' as const),
     };
     expect(overloaded.tabs.length).toBeGreaterThan(MAX_TABS);
   });
@@ -181,8 +207,9 @@ describe('§10 criterion 2 — a level change is a data change', () => {
     const before = resolveLevelConfig(at('primary'));
     const after = resolveLevelConfig(at('secondary'));
 
-    expect(before.tabs).toHaveLength(5);
-    expect(after.tabs).toHaveLength(7);
+    // Six at Primary, eight from Form 1: the move adds Exams and Practice.
+    expect(before.tabs).toHaveLength(6);
+    expect(after.tabs).toHaveLength(8);
     expect(before.tabs).not.toContain('exams');
     expect(after.tabs).toContain('exams');
     expect(before.typeScale).toBe('large');

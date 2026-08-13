@@ -534,6 +534,29 @@ export const assignTeacherSubjectsSchema = z.object({
 });
 export type AssignTeacherSubjectsInput = z.infer<typeof assignTeacherSubjectsSchema>;
 
+/**
+ * Placing a learner in a class, with the subjects they will offer.
+ *
+ * One call rather than two, because they are one decision: a learner moved to
+ * Form 1 whose subjects still belong to Class 6 has a timetable made of
+ * lessons that are not taught to them. Setting the level without the subjects
+ * is the state this exists to prevent.
+ *
+ * The subject list is the complete set, for the same reason as the teacher's:
+ * the dialog shows every subject of the chosen class at once, and Update means
+ * "this is what they offer now".
+ */
+export const assignLearnerClassSchema = z.object({
+  levelId: z.string().uuid(),
+  /**
+   * At least one. A learner in a class offering nothing sees an empty
+   * timetable, no lessons and no exams, which reads as the platform being
+   * broken rather than as an incomplete assignment.
+   */
+  subjectIds: z.array(z.string().uuid()).min(1).max(40),
+});
+export type AssignLearnerClassInput = z.infer<typeof assignLearnerClassSchema>;
+
 // ---------------------------------------------------------------------------
 // Timetable — BUILD-PLAN Phase 1
 // ---------------------------------------------------------------------------

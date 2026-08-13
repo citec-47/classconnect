@@ -3,7 +3,9 @@ import { z } from 'zod';
 import {
   schoolTypeSchema,
   assignTeacherSubjectsSchema,
+  assignLearnerClassSchema,
   type AssignTeacherSubjectsInput,
+  type AssignLearnerClassInput,
 } from '@classconnect/shared';
 import { zodBody, uuidParam } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
@@ -112,6 +114,43 @@ export class RosterController {
       actorId: admin.id,
       assignments: body.assignments,
     });
+  }
+
+  /**
+   * The classes a learner may be placed in, and what they offer today.
+   *
+   * `learner:class:assign` rather than `learner:approve` — deciding whether an
+   * account may exist and deciding which class it sits in are different acts,
+   * and customer service does the second without doing the first.
+   */
+  @Get('people/students/:learnerId/assignable')
+  @RequirePermissions('learner:class:assign')
+  async assignableClasses(@Param('learnerId', uuidParam()) learnerId: string) {
+    return this.roster.assignableClasses(learnerId);
+  }
+
+  /**
+   * Places the learner in a class with the subjects they will offer.
+   *
+   * One endpoint for both halves: a learner whose level moved but whose
+   * subjects did not is enrolled in lessons nobody teaches them.
+   */
+  @Post('people/students/:learnerId/class')
+  @RequirePermissions('learner:class:assign')
+  async assignClass(
+    @CurrentUser() staff: AuthenticatedUser,
+    @Param('learnerId', uuidParam()) learnerId: string,
+    @Body(zodBody(assignLearnerClassSchema)) body: AssignLearnerClassInput,
+  ) {
+    const result = await this.roster.assignClass({
+      learnerId,
+      actorId: staff.id,
+      levelId: body.levelId,
+      subjectIds: body.subjectIds,
+    });
+    // The unassigned-learner badge falls the moment a class is chosen.
+    await this.badges.broadcast();
+    return result;
   }
 
   // --- Learners ------------------------------------------------------------

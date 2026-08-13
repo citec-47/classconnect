@@ -1400,6 +1400,8 @@ export const en = {
     },
     student: {
       subjects_required: 'Choose at least one subject for this student.',
+      /* Both ids exist; the subject is simply not on that class's syllabus. */
+      subject_not_taught_at_level: 'One of those subjects is not taught in that class.',
     },
     level: {
       not_found: 'Please choose a class.',

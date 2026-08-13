@@ -710,4 +710,135 @@ export class RosterService {
 
     return { teacherId: input.teacherId, assigned: input.assignments.length };
   }
+
+  /**
+   * The classes a learner can be placed in, and what they currently offer.
+   *
+   * The same shape as the teacher's catalogue so one dialog component serves
+   * both: category → class → subjects. Categories are the brief's — Primary is
+   * Class One to Class Six, Secondary and Sixth Form run Form One to Upper
+   * Sixth, and Private spans the same range.
+   */
+  async assignableClasses(learnerId: string) {
+    const [learner, levels] = await Promise.all([
+      this.prisma.learner.findUnique({
+        where: { id: learnerId },
+        select: {
+          fullName: true,
+          levelId: true,
+          level: { select: { nameEn: true, nameFr: true, schoolType: true } },
+          subjects: { select: { subjectId: true } },
+        },
+      }),
+      this.prisma.level.findMany({
+        where: { active: true },
+        orderBy: [{ schoolType: 'asc' }, { sortOrder: 'asc' }],
+        select: {
+          id: true,
+          code: true,
+          nameEn: true,
+          nameFr: true,
+          schoolType: true,
+          subjects: {
+            where: { subject: { active: true } },
+            select: { subject: { select: { id: true, code: true, nameEn: true, nameFr: true } } },
+          },
+        },
+      }),
+    ]);
+    if (!learner) throw AppError.notFound();
+
+    const categories: Record<string, unknown[]> = {};
+    for (const level of levels) {
+      (categories[level.schoolType] ??= []).push({
+        id: level.id,
+        code: level.code,
+        nameEn: level.nameEn,
+        nameFr: level.nameFr,
+        subjects: level.subjects.map((row) => row.subject),
+      });
+    }
+
+    return {
+      learnerName: learner.fullName,
+      currentLevelId: learner.levelId,
+      currentLevel: learner.level,
+      categories,
+      offering: learner.subjects.map((row) => row.subjectId),
+    };
+  }
+
+  /**
+   * Places a learner in a class and sets what they offer, in one write.
+   *
+   * Every subject must be on that class's syllabus. Without the check a learner
+   * could be placed in Class 2 offering A-Level Further Mathematics — both ids
+   * exist, so nothing at the database level would object, and the learner would
+   * then be enrolled in a subject nobody teaches them.
+   *
+   * `LearnerSubject` is replaced rather than merged: moving a learner from
+   * Class 6 to Form 1 must not leave Class 6 subjects behind, and that is
+   * precisely the move this exists for.
+   */
+  async assignClass(input: {
+    learnerId: string;
+    actorId: string;
+    levelId: string;
+    subjectIds: readonly string[];
+  }) {
+    const learner = await this.prisma.learner.findUnique({
+      where: { id: input.learnerId },
+      select: {
+        id: true,
+        levelId: true,
+        /*
+         * Read for the audit entry, not for the write.
+         *
+         * The subject list is replaced wholesale, so without capturing the ids
+         * here the only record of what a learner *stopped* offering is a count
+         * — which is not enough to put back a mistaken reassignment. Learned
+         * the hard way: an earlier version stored `{ count }` and a learner
+         * moved in error could not be restored from the trail.
+         */
+        subjects: { select: { subjectId: true } },
+      },
+    });
+    if (!learner) throw AppError.notFound();
+
+    const taught = await this.prisma.levelSubject.findMany({
+      where: { levelId: input.levelId, subjectId: { in: [...input.subjectIds] } },
+      select: { subjectId: true },
+    });
+    if (taught.length !== new Set(input.subjectIds).size) {
+      throw AppError.badRequest('errors.student.subject_not_taught_at_level');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.learner.update({
+        where: { id: input.learnerId },
+        data: { levelId: input.levelId },
+      }),
+      this.prisma.learnerSubject.deleteMany({ where: { learnerId: input.learnerId } }),
+      this.prisma.learnerSubject.createMany({
+        data: input.subjectIds.map((subjectId) => ({ learnerId: input.learnerId, subjectId })),
+        skipDuplicates: true,
+      }),
+    ]);
+
+    this.cache.invalidate(CacheService.KEYS.bandCounts);
+
+    await this.audit.record({
+      action: 'learner.class_assigned',
+      entity: 'learner',
+      entityId: input.learnerId,
+      actorId: input.actorId,
+      before: {
+        levelId: learner.levelId,
+        subjectIds: learner.subjects.map((row) => row.subjectId),
+      },
+      after: { levelId: input.levelId, subjectIds: [...input.subjectIds] },
+    });
+
+    return { learnerId: input.learnerId, levelId: input.levelId, subjects: input.subjectIds.length };
+  }
 }

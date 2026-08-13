@@ -165,6 +165,19 @@ export const PERMISSIONS = [
   // Learner approval (§4.2/§4.3) — an account is queued until an Admin decides.
   'learner:approve',
 
+  /**
+   * Placing a learner in a class and setting the subjects they offer.
+   *
+   * Separate from `learner:approve`, which decides whether an account may exist
+   * at all. This decides which timetable, lessons and exams reach a child who
+   * already has one — a routine registry task the front desk does, not a
+   * judgement about admitting them.
+   *
+   * Held by customer service as well as Ops, because a learner waiting on a
+   * single team to be given a class cannot see a single lesson meanwhile.
+   */
+  'learner:class:assign',
+
   // Support routing (§4.5, FR-SUP-001..007). `support:read:own` is the agent's
   // own queue; `support:assign` is the routing screen itself.
   'support:read:any',
@@ -321,6 +334,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
      */
     'teacher:verification:read',
     'teacher:verification:decide',
+    // Placing a learner in a class is front-desk registry work, and a learner
+    // without one sees no timetable, no lessons and no exams until it is done.
+    'learner:class:assign',
     // Customer service generates report cards and unlocks a group exercise a
     // teacher is unavailable to reopen. Neither writes a mark.
     'report:generate',
@@ -339,6 +355,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'teacher:verification:decide',
     'teacher:suspend',
     'teacher:classify',
+    'learner:class:assign',
     'live:watch',
     'assignment:create',
     'learner:create',

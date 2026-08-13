@@ -25,6 +25,15 @@ export type AuditAction =
   // Family
   | 'learner.created'
   | 'learner.updated'
+  /*
+   * Staff placed a learner in a class and set what they offer.
+   *
+   * Distinct from `learner.updated` because it decides which timetable, which
+   * lessons and which exams reach that child — and because it replaces the
+   * subject list wholesale, so the before and after are the record of what a
+   * learner stopped offering as well as what they started.
+   */
+  | 'learner.class_assigned'
   | 'learner.archived'
   | 'learner.credentials_granted'
   | 'learner.credentials_revoked'

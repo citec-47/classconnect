@@ -596,6 +596,9 @@ export const fr: Messages = {
     overview: 'Vue d’ensemble',
     students: 'Élèves',
     primaryStudents: 'Élèves du primaire',
+    /* La file des heures proposées, et la vue sur toute l’école. */
+    timetable: 'Emplois du temps à valider',
+    timetableOverview: 'Emplois du temps',
     teachers: 'Enseignants',
     teacherRoster: 'Tous les enseignants',
     studentRoster: 'Tous les élèves',
@@ -1235,6 +1238,9 @@ export const fr: Messages = {
       note_required: 'Indiquez un motif pour refuser une heure.',
       /* Voir en.ts : une période est réservée, et non simplement proposée. */
       slot_taken: 'Un autre enseignant vient de prendre cette période. Choisissez-en une autre.',
+      /* Nomme qui et quoi : le refus s’explique au lieu de seulement refuser. */
+      slot_taken_by:
+        '{teacher} enseigne déjà {subject} sur cette période. Choisissez-en une autre.',
       subject_full:
         'Vous avez déjà vos {max} périodes de cette matière dans cette classe. Choisissez une autre matière, ou une autre classe.',
       subject_days_full:

@@ -654,6 +654,9 @@ export const en = {
     overview: 'Overview',
     students: 'Students',
     primaryStudents: 'Primary students',
+    /* The approvals queue of offered hours, and the whole-school view. */
+    timetable: 'Timetable approvals',
+    timetableOverview: 'Timetables',
     teachers: 'Teachers',
     // Distinct from the approval queues above, which are work waiting to be
     // done. These are the full rosters — everyone already on the platform.
@@ -1289,6 +1292,8 @@ export const en = {
       note_required: 'Give a reason when refusing an hour.',
       /* Raised where a period is claimed, not merely proposed. */
       slot_taken: 'Another teacher has just taken that period. Choose a different one.',
+      /* Names who and what, so the refusal explains itself rather than just refusing. */
+      slot_taken_by: '{teacher} already teaches {subject} in that period. Choose a different one.',
       subject_full:
         'You already have your {max} periods of this subject in this class. Choose another subject, or another class.',
       subject_days_full:

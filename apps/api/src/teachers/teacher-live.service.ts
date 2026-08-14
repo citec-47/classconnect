@@ -250,6 +250,26 @@ export class TeacherLiveService {
           // FR-SAF-004: a one-to-one with a minor is recorded by default.
           recordingEnabled: isOneToOne,
           timetableSlotId: input.timetableSlotId ?? null,
+          /*
+           * Only a timetabled lesson earns.
+           *
+           * The default Go Live call is for invited conversations, not
+           * teaching, and must never produce an earning record — so the flag is
+           * set from whether a slot was claimed, once, here. Re-deriving it at
+           * payment time from the current timetable would unpay a lesson whose
+           * slot was later withdrawn.
+           */
+          earnsFromTimetable: Boolean(input.timetableSlotId),
+          /*
+           * The rate in force right now, frozen onto the lesson.
+           *
+           * Read from configuration at this moment and never again: raising the
+           * rate next month must not reprice this lesson, which is the whole
+           * point of storing it rather than looking it up when paying.
+           */
+          periodRateXaf: input.timetableSlotId
+            ? this.config.getNumber(CONFIG_KEYS.TIMETABLE_PERIOD_RATE_XAF)
+            : null,
         },
         select: { id: true, roomId: true, startsAtUtc: true },
       });

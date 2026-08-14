@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import {
   proposeTimetableSlotSchema,
   decideTimetableSlotSchema,
+  editTimetableSlotSchema,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
+  type EditTimetableSlotInput,
 } from '@classconnect/shared';
 import { TimetableService } from './timetable.service';
 import { zodBody, uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -71,6 +73,23 @@ export class TeacherTimetableController {
     @Query(new ZodValidationPipe(gridQuerySchema)) query: GridQuery,
   ) {
     return this.timetable.dayGrid(user, levelId, query.dayOfWeek, query.session);
+  }
+
+  /**
+   * Correcting the day or hour of a slot the teacher already holds.
+   *
+   * `PATCH`, because it changes part of an existing slot rather than replacing
+   * it — and the slot keeps its id, so a class looking at the timetable sees
+   * the same period move rather than one vanish and another appear.
+   */
+  @Patch(':slotId')
+  @RequirePermissions('teacher:classes:read:own')
+  async editSlot(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('slotId', uuidParam()) slotId: string,
+    @Body(zodBody(editTimetableSlotSchema)) body: EditTimetableSlotInput,
+  ) {
+    return this.timetable.editSlot(user, slotId, body);
   }
 
   @Delete(':slotId')

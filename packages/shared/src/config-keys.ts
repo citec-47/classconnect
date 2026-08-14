@@ -76,6 +76,20 @@ export const CONFIG_KEYS = {
    */
   SCHOOL_WEEK_DAYS: 'timetable.school_week_days',
   /**
+   * What one 45-minute period pays a teacher, in XAF.
+   *
+   * Priced per *period* rather than per hour because that is the unit the
+   * school actually runs on: a lesson is a period, earnings are counted inside
+   * one, and an hourly figure would have to be converted at every use with a
+   * remainder to round.
+   *
+   * Configuration, never a constant — only `config:write` may change it, which
+   * is the super admin alone. And the value in force when a lesson was taught
+   * is copied onto the session (`Session.periodRateXaf`), so raising the rate
+   * tomorrow does not silently repay last week.
+   */
+  TIMETABLE_PERIOD_RATE_XAF: 'earnings.period_rate_xaf',
+  /**
    * How long a learner must attend before they may rate the teacher.
    *
    * The brief says forty minutes. FR-RAT-* gives the rating its meaning: someone
@@ -231,6 +245,7 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, unknown> = {
   [CONFIG_KEYS.TEACHER_HOURLY_RATE_XAF]: 2000,
   [CONFIG_KEYS.EARNING_MIN_SESSION_MINUTES]: 30, // the brief's 30-minute floor
   [CONFIG_KEYS.SCHOOL_WEEK_DAYS]: 5, // 24/5 by default; 6 or 7 without a deploy
+  [CONFIG_KEYS.TIMETABLE_PERIOD_RATE_XAF]: 1000, // one 45-minute period
   [CONFIG_KEYS.RATING_MIN_ATTENDED_MINUTES]: 40, // the brief's 40-minute rule
 
   [CONFIG_KEYS.QUIET_HOURS_START]: '21:00', // FR-NOT-004

@@ -607,6 +607,25 @@ export const proposeTimetableSlotSchema = z.object({
 export type ProposeTimetableSlotInput = z.infer<typeof proposeTimetableSlotSchema>;
 
 /**
+ * Correcting a slot that was claimed at the wrong day or hour.
+ *
+ * Only when and where — never which subject or which class. Changing those is
+ * a different claim against a different allowance, and letting one edit slide
+ * into the other would route around the per-subject limit: claim Biology, then
+ * "edit" it into a second period of Mathematics.
+ *
+ * A teacher who chose the wrong subject withdraws the slot and claims again,
+ * which costs one tap and keeps the rules countable.
+ */
+export const editTimetableSlotSchema = z.object({
+  dayOfWeek: z.number().int().min(1).max(7),
+  startMinute: z.number().int().min(0).max(1440),
+  endMinute: z.number().int().min(0).max(1440),
+  session: z.enum(['day', 'evening']).optional(),
+});
+export type EditTimetableSlotInput = z.infer<typeof editTimetableSlotSchema>;
+
+/**
  * Staff confirming or refusing a proposal.
  *
  * Confirmation is what makes a slot count — earnings are counted inside one and

@@ -128,6 +128,48 @@ export function periodsFor(
   return periods;
 }
 
+/**
+ * The minutes of a lesson that actually earn.
+ *
+ * Four rules from the brief, in one place so the API, the countdown on the
+ * teacher's screen and any later earnings pass cannot disagree about the answer:
+ *
+ *   · nothing before the period's official start — opening the room at 07:40
+ *     for an 08:00 lesson earns nothing for those twenty minutes;
+ *   · nothing after its official end — staying past 08:45 is unpaid;
+ *   · under the floor, nothing at all counts, rather than a part payment;
+ *   · the clock is the server's record of connection, never the browser's.
+ *
+ * Both bounds are epoch milliseconds. Returns whole minutes, floored: a partial
+ * minute is not worth the rounding argument, and flooring is the answer that
+ * never pays for time not taught.
+ */
+export function earnedMinutes(input: {
+  /** When the teacher's connection actually began, from the server's record. */
+  connectedAtMs: number;
+  /** When it ended, or "now" for a lesson still running. */
+  disconnectedAtMs: number;
+  /** The period's scheduled start and end, from the timetable slot. */
+  periodStartMs: number;
+  periodEndMs: number;
+  /** Below this, the period pays nothing. */
+  minimumMinutes: number;
+}): number {
+  const from = Math.max(input.connectedAtMs, input.periodStartMs);
+  const to = Math.min(input.disconnectedAtMs, input.periodEndMs);
+  if (to <= from) return 0;
+
+  const minutes = Math.floor((to - from) / 60_000);
+  /*
+   * The floor is a threshold, not a deduction.
+   *
+   * A teacher who taught 29 minutes earns nothing; one who taught 31 earns all
+   * 31. Subtracting the floor instead would pay for the 32nd minute onwards,
+   * which is not what "a period is completed after 30 minutes" means.
+   */
+  return minutes >= input.minimumMinutes ? minutes : 0;
+}
+
 /** Does this interval sit inside the morning break? */
 export function isBreak(startMinute: number): boolean {
   return (

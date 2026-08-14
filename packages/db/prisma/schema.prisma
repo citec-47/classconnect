@@ -1085,6 +1085,26 @@ model Session {
   timetableSlotId String?    @map("timetable_slot_id") @db.Uuid
   /// FR-SAF-004: minor one-to-one sessions default to recording enabled.
   recordingEnabled Boolean   @default(false) @map("recording_enabled")
+  /// What one period paid when this lesson was taught, in XAF.
+  ///
+  /// Copied from `PlatformConfig` at the moment the room opens, and never read
+  /// from configuration again. The admin may raise the rate tomorrow; a lesson
+  /// taught last Tuesday was worth what it was worth on Tuesday, and looking
+  /// the rate up at payment time would silently repay the whole history every
+  /// time somebody edited a number.
+  ///
+  /// Null on sessions that predate the rate, and on the invite-only calls that
+  /// earn nothing at all.
+  periodRateXaf Int?      @map("period_rate_xaf")
+
+  /// Was this lesson claimed against a timetabled period?
+  ///
+  /// Derivable from `timetableSlotId`, and stored because the two answer
+  /// different questions: the slot may later be withdrawn or put on hold, and
+  /// the lesson still earned what it earned. FR: the default Go Live call
+  /// earns nothing, so this is the flag the earnings pass reads.
+  earnsFromTimetable Boolean @default(false) @map("earns_from_timetable")
+
   /// LiveKit's egress id for the recording of this lesson.
   ///
   /// Held so the recording can be stopped when the teacher ends the class, and

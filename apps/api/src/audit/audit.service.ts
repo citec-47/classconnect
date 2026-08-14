@@ -60,6 +60,14 @@ export type AuditAction =
   | 'teacher.document_removed'
   /* BUILD-PLAN Phase 1: the timetable is attributed like every other decision. */
   | 'timetable.proposed'
+  /*
+   * A teacher moved a period they already held.
+   *
+   * Distinct from claiming, because the class was already timetabled: somebody
+   * looking at why a lesson changed day needs to find the move, not infer it
+   * from a claim that appears to have always been on Thursday.
+   */
+  | 'timetable.edited'
   | 'timetable.withdrawn'
   | 'timetable.decided'
   /*

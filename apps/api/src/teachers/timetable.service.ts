@@ -8,6 +8,7 @@ import {
   CONFIG_KEYS,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
+  type EditTimetableSlotInput,
 } from '@classconnect/shared';
 import { PlatformConfigService } from '../common/platform-config.service';
 import { PrismaService } from '../common/prisma.service';
@@ -400,6 +401,140 @@ export class TimetableService {
         };
       }),
     };
+  }
+
+  /**
+   * Moving a slot the teacher already holds to a different day or hour.
+   *
+   * The brief's "he should be able to edit it rather than delete and start
+   * again". Every rule that governs claiming governs this too — the teaching
+   * day, the configured school week, the teacher's own clash check, the class
+   * period being free, and the two-days-per-subject limit. An edit that skipped
+   * them would be a second, unpoliced way to obtain a slot, which is how the
+   * hidden-button-is-not-a-rule problem comes back in a different shape.
+   *
+   * The slot excludes *itself* from both the clash check and the taken check.
+   * Without that, moving a period from 09:00 to 09:45 would clash with the very
+   * slot being moved and refuse every edit.
+   */
+  async editSlot(user: AuthenticatedUser, slotId: string, input: EditTimetableSlotInput) {
+    const slot = await this.prisma.timetableSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        teacherId: true,
+        levelId: true,
+        subjectId: true,
+        state: true,
+        dayOfWeek: true,
+      },
+    });
+    if (!slot || slot.teacherId !== user.id) throw AppError.notFound();
+
+    /*
+     * A suspended period is not the teacher's to move — the hold is a decision
+     * about the class, and shifting the slot out from under it would leave the
+     * admin holding a period nobody is timetabled into.
+     */
+    if (slot.state === 'on_hold') throw AppError.conflict('errors.timetable.on_hold');
+    if (slot.state === 'rejected') throw AppError.conflict('errors.timetable.already_decided');
+
+    const session = input.session ?? 'day';
+    const problem = validateTimetableSlot(input, session);
+    if (problem) throw AppError.badRequest(problem);
+
+    const weekDays = this.config.getNumber(CONFIG_KEYS.SCHOOL_WEEK_DAYS);
+    if (input.dayOfWeek > weekDays) {
+      throw AppError.badRequest('errors.timetable.outside_school_week', { days: weekDays });
+    }
+
+    // The teacher's own week, minus this slot.
+    const mine = await this.prisma.timetableSlot.findMany({
+      where: {
+        teacherId: user.id,
+        dayOfWeek: input.dayOfWeek,
+        state: { not: 'rejected' },
+        id: { not: slotId },
+      },
+      select: { id: true, dayOfWeek: true, startMinute: true, endMinute: true },
+    });
+    const clashes = findClashes(input, mine);
+    if (clashes.length > 0) {
+      throw AppError.conflict('errors.timetable.clash', { count: clashes.length });
+    }
+
+    /*
+     * The destination period, in this class, held by anyone.
+     *
+     * The same rule as claiming, and the reason the brief asks for it twice:
+     * two teachers in one period is the failure, and an edit is just another
+     * way to arrive there. The unique index is the backstop; this is the
+     * message that explains it.
+     */
+    const taken = await this.prisma.timetableSlot.findFirst({
+      where: {
+        levelId: slot.levelId,
+        dayOfWeek: input.dayOfWeek,
+        startMinute: input.startMinute,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+        id: { not: slotId },
+      },
+      select: { teacher: { select: { user: { select: { fullName: true } } } }, subject: true },
+    });
+    if (taken) {
+      throw AppError.conflict('errors.timetable.slot_taken_by', {
+        teacher: taken.teacher.user.fullName,
+        subject: taken.subject.nameEn,
+      });
+    }
+
+    /*
+     * Moving to a new day may open a third day for this subject, which the
+     * weekly rule refuses. Days already used by *other* slots of the same
+     * subject are what count — this one is moving, so it is excluded.
+     */
+    const others = await this.prisma.timetableSlot.findMany({
+      where: {
+        teacherId: user.id,
+        levelId: slot.levelId,
+        subjectId: slot.subjectId,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+        id: { not: slotId },
+      },
+      select: { dayOfWeek: true },
+    });
+    const daysUsed = new Set(others.map((row) => row.dayOfWeek));
+    if (!daysUsed.has(input.dayOfWeek) && daysUsed.size >= DAYS_PER_SUBJECT_PER_TEACHER) {
+      throw AppError.conflict('errors.timetable.subject_days_full', {
+        max: DAYS_PER_SUBJECT_PER_TEACHER,
+      });
+    }
+
+    const updated = await this.prisma.timetableSlot.update({
+      where: { id: slotId },
+      data: {
+        dayOfWeek: input.dayOfWeek,
+        startMinute: input.startMinute,
+        endMinute: input.endMinute,
+        session,
+      },
+      select: SLOT_SELECT,
+    });
+
+    await this.audit.record({
+      action: 'timetable.edited',
+      entity: 'timetable_slot',
+      entityId: slotId,
+      actorId: user.id,
+      before: { dayOfWeek: slot.dayOfWeek },
+      after: {
+        dayOfWeek: input.dayOfWeek,
+        startMinute: input.startMinute,
+        endMinute: input.endMinute,
+      },
+    });
+
+    return updated;
   }
 
   /**

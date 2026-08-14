@@ -66,6 +66,9 @@ export function LiveRoom({
   const [state, setState] = useState<ConnectionState>(ConnectionState.Disconnected);
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [failure, setFailure] = useState<Failure>(null);
+  /** The underlying error text, shown so a failure is diagnosable on sight. */
+  const [detail, setDetail] = useState<string | null>(null);
+  const connectingRef = useRef(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [leaving, setLeaving] = useState(false);
@@ -106,7 +109,20 @@ export function LiveRoom({
   }, []);
 
   const connect = useCallback(async () => {
+    /*
+     * One connection attempt at a time.
+     *
+     * React runs an effect, cleans it up and runs it again in development, so
+     * `connect` fired twice on mount. The first attempt succeeded and the
+     * second failed against a room already in use — leaving the tiles from the
+     * first connection on screen underneath a "could not connect" error, which
+     * is exactly the confusing state this guard removes.
+     */
+    if (connectingRef.current) return;
+    connectingRef.current = true;
+
     setFailure(null);
+    setDetail(null);
     try {
       const path =
         role === 'host'
@@ -152,8 +168,16 @@ export function LiveRoom({
        *
        * A learner without the floor connects, subscribes and hears the lesson;
        * asking for their camera would prompt for a permission they cannot use.
+       *
+       * Decided from the *token response*, not from
+       * `localParticipant.permissions`. That object is populated from the
+       * server's join reply and can still be undefined immediately after
+       * `connect()` resolves — reading it here meant the host's camera was
+       * silently never published, which is precisely the black tile this was
+       * reported as.
        */
-      if (room.localParticipant.permissions?.canPublish) {
+      const mayPublish = role === 'host' ? true : join.canPublish === true;
+      if (mayPublish) {
         try {
           await room.localParticipant.enableCameraAndMicrophone();
         } catch (deviceError) {
@@ -178,8 +202,20 @@ export function LiveRoom({
       }
 
       refreshTiles(room);
-    } catch {
+    } catch (caught) {
+      /*
+       * The reason, on screen.
+       *
+       * "We could not connect you to the room" is true and useless — it does
+       * not distinguish a blocked WebSocket from an expired token from a room
+       * that is already joined, and those have completely different remedies.
+       * The message goes underneath the sentence, where whoever is debugging
+       * can read it without opening a console.
+       */
       setFailure('connect');
+      setDetail((caught as Error)?.message ?? String(caught));
+    } finally {
+      connectingRef.current = false;
     }
   }, [sessionId, role, language, refreshTiles, stopLocalTracks]);
 
@@ -193,6 +229,27 @@ export function LiveRoom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * Attach the local camera whenever it appears or changes.
+   *
+   * The ref callback on the tile fires when the element mounts, which is
+   * usually *before* `enableCameraAndMicrophone` has finished — so the first
+   * attach finds no track and the teacher sees a black rectangle of themselves.
+   * Re-running whenever the tiles or the camera state change catches the track
+   * once it exists.
+   *
+   * `attach()` on an already-attached element is a no-op, so running this more
+   * often than strictly necessary costs nothing.
+   */
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    const element = mediaRefs.current.get(room.localParticipant.identity);
+    if (!element) return;
+    const camera = room.localParticipant.getTrackPublication(Track.Source.Camera);
+    if (camera?.track) camera.track.attach(element as HTMLVideoElement);
+  }, [tiles, cameraOn, state]);
 
   const toggleMic = async () => {
     const room = roomRef.current;
@@ -265,6 +322,7 @@ export function LiveRoom({
       {failure === 'connect' && (
         <div className="mb-2 rounded-lg bg-danger-50 p-2">
           <p className="text-sm text-danger-600">{t('live.room.connectFailed')}</p>
+          {detail && <p className="mt-0.5 font-mono text-xs text-ink-600">{detail}</p>}
           <button type="button" onClick={() => void connect()} className="mt-1 text-sm underline">
             {t('live.room.retry')}
           </button>

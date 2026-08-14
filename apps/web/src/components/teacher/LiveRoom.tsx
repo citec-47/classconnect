@@ -30,7 +30,64 @@ interface Tile {
   hasVideo: boolean;
 }
 
-type Failure = 'permission' | 'no-devices' | 'connect' | 'blocked' | null;
+type Failure =
+  | 'permission'
+  | 'no-devices'
+  | 'connect'
+  | 'blocked'
+  /** Served over plain HTTP from something other than localhost. */
+  | 'insecure'
+  /** A browser with no `mediaDevices` API at all. */
+  | 'unsupported'
+  | null;
+
+/**
+ * What this browser can actually do, checked before connecting.
+ *
+ * Every one of these failures used to surface as the same "could not connect",
+ * and they have nothing in common: a page served over plain HTTP from a LAN
+ * address can never have a camera, a browser with no `mediaDevices` is missing
+ * the API entirely, and a machine with no webcam is simply a machine with no
+ * webcam. Finding out *before* connecting means the room can be joined in the
+ * best mode this browser supports instead of failing at the first obstacle.
+ */
+async function preflight(): Promise<{
+  secureContext: boolean;
+  hasMediaApi: boolean;
+  hasCamera: boolean;
+  hasMicrophone: boolean;
+}> {
+  /*
+   * `localhost` counts as secure even over plain HTTP; a LAN address does not.
+   * That distinction is the single most common reason a camera works on the
+   * developer's machine and never on the phone testing against it.
+   */
+  const secureContext = typeof window !== 'undefined' && window.isSecureContext;
+  const hasMediaApi =
+    typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
+
+  if (!secureContext || !hasMediaApi) {
+    return { secureContext, hasMediaApi, hasCamera: false, hasMicrophone: false };
+  }
+
+  try {
+    /*
+     * Labels are empty until permission is granted, but the *kinds* are not —
+     * so this answers "is there a camera on this device" without prompting.
+     */
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return {
+      secureContext,
+      hasMediaApi,
+      hasCamera: devices.some((device) => device.kind === 'videoinput'),
+      hasMicrophone: devices.some((device) => device.kind === 'audioinput'),
+    };
+  } catch {
+    // Enumeration itself can be blocked. Assume the devices exist and let the
+    // publish attempt below produce the specific error.
+    return { secureContext, hasMediaApi, hasCamera: true, hasMicrophone: true };
+  }
+}
 
 /**
  * Did the *browser* block this, rather than the user refusing it?
@@ -142,6 +199,27 @@ export function LiveRoom({
     setFailure(null);
     setDetail(null);
     try {
+      /*
+       * What this browser can do, before asking it to do anything.
+       *
+       * A page on a LAN address over plain HTTP has no camera API at all, and
+       * discovering that after connecting produces a mystifying failure in the
+       * middle of a lesson rather than a sentence before it.
+       */
+      const checks = await preflight();
+      /*
+       * Reported, but not fatal.
+       *
+       * A browser that cannot *publish* can almost always still *subscribe* —
+       * `getUserMedia` is what an insecure origin blocks, not the peer
+       * connection. So the message is set and the join continues, and somebody
+       * on a LAN address watches the lesson instead of staring at a refusal.
+       */
+      if (!checks.secureContext) setFailure('insecure');
+      else if (!checks.hasMediaApi) setFailure('unsupported');
+
+      const canUseDevices = checks.secureContext && checks.hasMediaApi;
+
       const path =
         role === 'host'
           ? `/teacher/live/${sessionId}/token`
@@ -208,32 +286,38 @@ export function LiveRoom({
        * silently never published, which is precisely the black tile this was
        * reported as.
        */
-      const mayPublish = role === 'host' ? true : join.canPublish === true;
+      const mayPublish = (role === 'host' ? true : join.canPublish === true) && canUseDevices;
       if (mayPublish) {
+        /*
+         * Camera and microphone are enabled separately, and in that order.
+         *
+         * `enableCameraAndMicrophone` is all-or-nothing: a blocked camera takes
+         * the microphone down with it, and a teacher who could have carried on
+         * by voice ends up in a silent room. Asking for each in turn means the
+         * worst a blocked camera can do is cost the camera.
+         */
         try {
-          await room.localParticipant.enableCameraAndMicrophone();
-        } catch (deviceError) {
-          /*
-           * Told apart, because the remedies differ.
-           *
-           * A refused permission is fixed in the browser's site settings; a
-           * device that is not there cannot be. Either way the participant
-           * stays in the room — audio-only, or listening — rather than being
-           * dropped out of a lesson over a camera.
-           */
-          const error = deviceError as Error;
+          if (checks.hasCamera) await room.localParticipant.setCameraEnabled(true);
+          else setCameraOn(false);
+        } catch (cameraError) {
+          const error = cameraError as Error;
           setDetail(error.message || error.name);
-          if (isBlocked(error)) {
-            setFailure('blocked');
-          } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            setFailure('permission');
-          } else {
-            setFailure('no-devices');
-            // A device may still have a microphone even with no camera.
-            await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
-          }
+          setFailure(isBlocked(error) ? 'blocked' : error.name === 'NotAllowedError' ? 'permission' : 'no-devices');
           setCameraOn(false);
         }
+
+        try {
+          if (checks.hasMicrophone) await room.localParticipant.setMicrophoneEnabled(true);
+          else setMicOn(false);
+        } catch (micError) {
+          /*
+           * Only reported if the camera did not already explain it. Two panels
+           * saying the same thing about one blocked permission is noise.
+           */
+          setMicOn(false);
+          setFailure((current) => current ?? (isBlocked(micError as Error) ? 'blocked' : 'permission'));
+        }
+
       }
 
       refreshTiles(room);
@@ -353,6 +437,24 @@ export function LiveRoom({
        * A different message from a refused permission, because the fix is in a
        * different place: the shield icon, not the camera prompt.
        */}
+      {/*
+       * The two failures no permission prompt can fix.
+       *
+       * A LAN address over plain HTTP has no camera API by browser policy, and
+       * saying "allow the camera" there sends somebody hunting for a setting
+       * that does not exist.
+       */}
+      {failure === 'insecure' && (
+        <div className="mb-2 rounded-lg bg-warning-50 p-2">
+          <p className="text-sm font-medium text-warning-600">{t('live.room.insecureTitle')}</p>
+          <p className="mt-0.5 text-sm text-ink-900">{t('live.room.insecureBody')}</p>
+        </div>
+      )}
+      {failure === 'unsupported' && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.unsupported')}
+        </p>
+      )}
       {failure === 'blocked' && (
         <div className="mb-2 rounded-lg bg-warning-50 p-2">
           <p className="text-sm font-medium text-warning-600">{t('live.room.blockedTitle')}</p>

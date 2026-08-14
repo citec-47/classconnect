@@ -624,6 +624,12 @@ export const en = {
         'No camera was found on this device. You have joined with audio only, which is enough to take part.',
       connectFailed: 'We could not connect you to the room.',
       /* Names the shield, not the camera prompt — no prompt was ever shown. */
+      /* Browser policy, not a setting anybody can grant on this page. */
+      insecureTitle: 'This address cannot use the camera',
+      insecureBody:
+        'Browsers only allow the camera on https:// or on localhost. Open the site at localhost, or over https, and the camera will work. You can still watch and listen here.',
+      unsupported:
+        'This browser does not support live video. Chrome, Edge, Firefox or Safari, kept up to date, all do.',
       blockedTitle: 'Your browser blocked the video connection',
       blockedBody:
         'This is browser protection, not a permission you refused. In Firefox, click the shield in the address bar and turn Enhanced Tracking Protection off for this site. If you use an ad blocker, allow this site there too, then reload.',

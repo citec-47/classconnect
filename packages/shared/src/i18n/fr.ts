@@ -580,6 +580,12 @@ export const fr: Messages = {
         'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
       connectFailed: 'Nous n’avons pas pu vous connecter à la salle.',
       /* Désigne le bouclier, pas l’invite caméra : aucune invite n’est apparue. */
+      /* Politique du navigateur : aucun réglage de cette page n’y change rien. */
+      insecureTitle: 'Cette adresse ne peut pas utiliser la caméra',
+      insecureBody:
+        'Les navigateurs n’autorisent la caméra qu’en https:// ou sur localhost. Ouvrez le site sur localhost, ou en https, et la caméra fonctionnera. Vous pouvez tout de même regarder et écouter ici.',
+      unsupported:
+        'Ce navigateur ne prend pas en charge la vidéo en direct. Chrome, Edge, Firefox ou Safari à jour le font tous.',
       blockedTitle: 'Votre navigateur a bloqué la connexion vidéo',
       blockedBody:
         'Il s’agit d’une protection du navigateur, pas d’une permission que vous auriez refusée. Dans Firefox, cliquez sur le bouclier dans la barre d’adresse et désactivez la protection renforcée pour ce site. Si vous utilisez un bloqueur de publicités, autorisez aussi ce site, puis rechargez.',

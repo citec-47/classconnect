@@ -484,9 +484,28 @@ export class TeacherLiveService {
   async endLive(user: AuthenticatedUser, sessionId: string) {
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
-      select: { id: true, startsAtUtc: true, timetableSlotId: true, participants: { select: { userId: true, firstJoinAt: true } } },
+      select: {
+        id: true,
+        startsAtUtc: true,
+        timetableSlotId: true,
+        egressId: true,
+        participants: { select: { userId: true, firstJoinAt: true } },
+      },
     });
     if (!session) throw AppError.notFound();
+
+    /*
+     * Stop the recording before anything else.
+     *
+     * Without this the egress job runs on after the lesson ends — the room
+     * empties, the session reads `completed`, and LiveKit keeps recording an
+     * empty room and billing for it until somebody notices. Awaited rather than
+     * fired and forgotten, because a recording that outlives its lesson is the
+     * kind of thing discovered on an invoice.
+     */
+    if (session.egressId) {
+      await this.livekit.stopRecording(session.egressId);
+    }
 
     const endedAt = new Date();
     const minutes = Math.max(0, Math.floor((endedAt.getTime() - session.startsAtUtc.getTime()) / 60_000));

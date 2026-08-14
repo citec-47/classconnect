@@ -1,0 +1,382 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ConnectionState,
+  LocalParticipant,
+  Participant,
+  RemoteParticipant,
+  Room,
+  RoomEvent,
+  Track,
+  type RemoteTrack,
+  type RemoteTrackPublication,
+} from 'livekit-client';
+import { useI18n } from '@/lib/i18n';
+import { api } from '@/lib/api';
+
+interface JoinToken {
+  url: string;
+  token: string;
+  canPublish?: boolean;
+}
+
+/** What the tiles need, kept flat so a re-render is cheap. */
+interface Tile {
+  identity: string;
+  name: string;
+  isLocal: boolean;
+  speaking: boolean;
+  hasVideo: boolean;
+}
+
+type Failure = 'permission' | 'no-devices' | 'connect' | null;
+
+/**
+ * The live room: video, audio and the controls over them.
+ *
+ * ## Where the rules live
+ *
+ * Nowhere here. Whether this participant may publish is decided by the signed
+ * grant the server issued — this component asks the room to publish and the
+ * media server refuses if the token does not allow it. So a learner without the
+ * floor cannot obtain a microphone by editing the page, and the controls below
+ * are a convenience over a permission that is enforced elsewhere.
+ *
+ * ## Ending a call
+ *
+ * `room.disconnect()` alone leaves the camera light on in some browsers,
+ * because stopping a published track is not the same as releasing the device.
+ * `stopLocalTracks` below does the second thing explicitly, and every exit path
+ * goes through it — the End button, unmounting, and closing the tab.
+ */
+export function LiveRoom({
+  sessionId,
+  role,
+  onEnded,
+}: {
+  sessionId: string;
+  /** The host may end the lesson for everyone; a guest only leaves. */
+  role: 'host' | 'guest';
+  onEnded: () => void;
+}) {
+  const { t, language } = useI18n();
+
+  const roomRef = useRef<Room | null>(null);
+  const [state, setState] = useState<ConnectionState>(ConnectionState.Disconnected);
+  const [tiles, setTiles] = useState<Tile[]>([]);
+  const [failure, setFailure] = useState<Failure>(null);
+  const [micOn, setMicOn] = useState(true);
+  const [cameraOn, setCameraOn] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+
+  /** Attached imperatively: LiveKit hands us MediaStreamTracks, not React nodes. */
+  const mediaRefs = useRef(new Map<string, HTMLVideoElement | HTMLAudioElement>());
+
+  const refreshTiles = useCallback((room: Room) => {
+    const build = (participant: Participant, isLocal: boolean): Tile => ({
+      identity: participant.identity,
+      name: participant.name || participant.identity,
+      isLocal,
+      speaking: participant.isSpeaking,
+      hasVideo: participant.getTrackPublications().some(
+        (publication) =>
+          publication.kind === Track.Kind.Video && publication.isSubscribed !== false && !publication.isMuted,
+      ),
+    });
+
+    setTiles([
+      build(room.localParticipant, true),
+      ...[...room.remoteParticipants.values()].map((p) => build(p, false)),
+    ]);
+  }, []);
+
+  /**
+   * Releases the camera and microphone for real.
+   *
+   * The browser's indicator light is tied to the device being open, not to a
+   * track being published — so unpublishing is not enough, and neither is
+   * hiding the video element. Each local track is stopped explicitly.
+   */
+  const stopLocalTracks = useCallback((room: Room | null) => {
+    if (!room) return;
+    for (const publication of room.localParticipant.getTrackPublications()) {
+      publication.track?.stop();
+    }
+  }, []);
+
+  const connect = useCallback(async () => {
+    setFailure(null);
+    try {
+      const path =
+        role === 'host'
+          ? `/teacher/live/${sessionId}/token`
+          : `/learner/live/${sessionId}/token`;
+      const join = await api<JoinToken>(path, { language });
+
+      const room = new Room({
+        // Let the SDK drop to a lower layer rather than freezing on §6.2's network.
+        adaptiveStream: true,
+        dynacast: true,
+      });
+      roomRef.current = room;
+
+      room
+        .on(RoomEvent.ParticipantConnected, () => refreshTiles(room))
+        .on(RoomEvent.ParticipantDisconnected, () => refreshTiles(room))
+        .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
+          const element = mediaRefs.current.get(
+            track.kind === Track.Kind.Video ? participant.identity : `audio:${participant.identity}`,
+          );
+          if (element) track.attach(element as HTMLMediaElement);
+          refreshTiles(room);
+        })
+        .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+          track.detach();
+          refreshTiles(room);
+        })
+        .on(RoomEvent.ActiveSpeakersChanged, () => refreshTiles(room))
+        .on(RoomEvent.TrackMuted, () => refreshTiles(room))
+        .on(RoomEvent.TrackUnmuted, () => refreshTiles(room))
+        .on(RoomEvent.ConnectionStateChanged, (next) => setState(next))
+        .on(RoomEvent.Disconnected, () => {
+          stopLocalTracks(room);
+          setState(ConnectionState.Disconnected);
+        });
+
+      await room.connect(join.url, join.token);
+      setState(room.state);
+
+      /*
+       * Publish only if the grant allows it.
+       *
+       * A learner without the floor connects, subscribes and hears the lesson;
+       * asking for their camera would prompt for a permission they cannot use.
+       */
+      if (room.localParticipant.permissions?.canPublish) {
+        try {
+          await room.localParticipant.enableCameraAndMicrophone();
+        } catch (deviceError) {
+          /*
+           * Told apart, because the remedies differ.
+           *
+           * A refused permission is fixed in the browser's site settings; a
+           * device that is not there cannot be. Either way the participant
+           * stays in the room — audio-only, or listening — rather than being
+           * dropped out of a lesson over a camera.
+           */
+          const name = (deviceError as Error).name;
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+            setFailure('permission');
+          } else {
+            setFailure('no-devices');
+            // A device may still have a microphone even with no camera.
+            await room.localParticipant.setMicrophoneEnabled(true).catch(() => undefined);
+          }
+          setCameraOn(false);
+        }
+      }
+
+      refreshTiles(room);
+    } catch {
+      setFailure('connect');
+    }
+  }, [sessionId, role, language, refreshTiles, stopLocalTracks]);
+
+  useEffect(() => {
+    void connect();
+    const room = roomRef.current;
+    return () => {
+      // Unmounting must release the devices too, not only on the End button.
+      stopLocalTracks(room);
+      void room?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleMic = async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    const next = !micOn;
+    await room.localParticipant.setMicrophoneEnabled(next).catch(() => undefined);
+    setMicOn(next);
+  };
+
+  const toggleCamera = async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    const next = !cameraOn;
+    await room.localParticipant.setCameraEnabled(next).catch(() => undefined);
+    setCameraOn(next);
+    refreshTiles(room);
+  };
+
+  /**
+   * Leaving, and — for the host — ending the lesson for everybody.
+   *
+   * The order matters. Devices are released first so the camera light goes out
+   * immediately rather than after a round trip; the server call comes second,
+   * because that is what stops the recording and the attendance clock.
+   */
+  const leave = async () => {
+    setLeaving(true);
+    const room = roomRef.current;
+    stopLocalTracks(room);
+    await room?.disconnect();
+
+    if (role === 'host') {
+      try {
+        await api(`/teacher/live/${sessionId}/end`, {
+          method: 'POST',
+          language,
+          timeoutMs: 120_000,
+        });
+      } catch {
+        /*
+         * The teacher has already left the room, so failing here must not trap
+         * them on this screen. The sweeper closes a session nobody ended.
+         */
+      }
+    }
+    onEnded();
+  };
+
+  const connecting =
+    state === ConnectionState.Connecting || state === ConnectionState.Reconnecting;
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-3">
+      {/* What is happening, in words, whenever it is not simply working. */}
+      {state === ConnectionState.Reconnecting && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.reconnecting')}
+        </p>
+      )}
+      {failure === 'permission' && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.permissionDenied')}
+        </p>
+      )}
+      {failure === 'no-devices' && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.noCamera')}
+        </p>
+      )}
+      {failure === 'connect' && (
+        <div className="mb-2 rounded-lg bg-danger-50 p-2">
+          <p className="text-sm text-danger-600">{t('live.room.connectFailed')}</p>
+          <button type="button" onClick={() => void connect()} className="mt-1 text-sm underline">
+            {t('live.room.retry')}
+          </button>
+        </div>
+      )}
+
+      {/*
+       * One column on a phone, more as the screen allows. Most learners are on
+       * a handset, so the single-column case is the design rather than a
+       * fallback squeezed out of a desktop grid.
+       */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {tiles.map((tile) => (
+          <div
+            key={tile.identity}
+            className={`relative aspect-video overflow-hidden rounded-lg bg-ink-900 ${
+              tile.speaking ? 'ring-2 ring-brand-600' : ''
+            }`}
+          >
+            <video
+              ref={(element) => {
+                if (element) mediaRefs.current.set(tile.identity, element);
+                else mediaRefs.current.delete(tile.identity);
+                // The local camera is attached here rather than on an event,
+                // because there is no subscription for one's own track.
+                const room = roomRef.current;
+                if (element && tile.isLocal && room) {
+                  const camera = room.localParticipant.getTrackPublication(Track.Source.Camera);
+                  camera?.track?.attach(element);
+                }
+              }}
+              autoPlay
+              playsInline
+              // Hearing yourself half a second late makes a room unusable.
+              muted={tile.isLocal}
+              className={`h-full w-full object-cover ${tile.hasVideo ? '' : 'hidden'}`}
+            />
+
+            {/* A name beats a black rectangle when the camera is off. */}
+            {!tile.hasVideo && (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink-700 text-lg font-semibold text-white">
+                  {initials(tile.name)}
+                </span>
+              </div>
+            )}
+
+            {!tile.isLocal && (
+              <audio
+                ref={(element) => {
+                  if (element) mediaRefs.current.set(`audio:${tile.identity}`, element);
+                  else mediaRefs.current.delete(`audio:${tile.identity}`);
+                }}
+                autoPlay
+              />
+            )}
+
+            <span className="absolute bottom-1 left-1 rounded bg-ink-900/70 px-1.5 py-0.5 text-xs text-white">
+              {tile.isLocal ? t('live.room.you') : tile.name}
+            </span>
+          </div>
+        ))}
+
+        {tiles.length === 0 && (
+          <div className="col-span-full flex aspect-video items-center justify-center rounded-lg bg-ink-100">
+            <p className="text-sm text-ink-600">
+              {connecting ? t('live.room.connecting') : t('live.room.noVideo')}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void toggleMic()}
+          aria-pressed={!micOn}
+          className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium"
+        >
+          {micOn ? t('live.room.muteMic') : t('live.room.unmuteMic')}
+        </button>
+        <button
+          type="button"
+          onClick={() => void toggleCamera()}
+          aria-pressed={!cameraOn}
+          className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium"
+        >
+          {cameraOn ? t('live.room.cameraOff') : t('live.room.cameraOn')}
+        </button>
+        <button
+          type="button"
+          onClick={() => void leave()}
+          disabled={leaving}
+          className="min-h-touch rounded-lg bg-danger-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {leaving
+            ? t('common.saving')
+            : role === 'host'
+              ? t('live.room.endCall')
+              : t('live.room.leaveCall')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** "Ariane Mbeki" → "AM". Two letters at most; one for a single name. */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}

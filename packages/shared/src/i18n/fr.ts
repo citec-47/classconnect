@@ -560,6 +560,26 @@ export const fr: Messages = {
       noEarnings:
         'Ceci est un appel sur invitation, pas un cours de l’emploi du temps. Il ne rapporte rien.',
     },
+    /** La salle : vignettes, commandes, et quoi dire quand le média échoue. */
+    room: {
+      connecting: 'Connexion à la salle…',
+      reconnecting: 'Connexion perdue. Tentative de reconnexion…',
+      noVideo: 'Personne n’a encore activé sa caméra.',
+      you: 'Vous',
+      muteMic: 'Couper le micro',
+      unmuteMic: 'Activer le micro',
+      cameraOff: 'Couper la caméra',
+      cameraOn: 'Activer la caméra',
+      endCall: 'Terminer l’appel',
+      leaveCall: 'Quitter l’appel',
+      retry: 'Réessayer',
+      /* Indique le remède : « permission refusée » seul n’aide personne. */
+      permissionDenied:
+        'Votre navigateur a bloqué la caméra et le micro. Autorisez-les dans la barre d’adresse, puis rechargez — vous pouvez rester dans le cours entre-temps.',
+      noCamera:
+        'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
+      connectFailed: 'Nous n’avons pas pu vous connecter à la salle.',
+    },
     /** Inviter quelqu’un à un appel, par son nom. */
     invite: {
       title: 'Inviter quelqu’un',
@@ -2004,6 +2024,8 @@ timetable: {
     liveNow: 'En direct',
     elapsed: 'En cours depuis {minutes} minutes',
     end: 'Terminer le cours',
+    /* Affiché quand la salle elle-même a terminé le cours. Voir en.ts. */
+    ended: 'Cours terminé. L’enregistrement a été arrêté.',
     endedEligible: 'Cours terminé après {minutes} minutes. Il compte pour vos revenus.',
     endedIneligible:
       'Cours terminé après {minutes} minutes. Il ne compte pas pour vos revenus : trop court, ou hors de votre emploi du temps confirmé.',

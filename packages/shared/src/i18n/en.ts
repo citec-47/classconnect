@@ -604,6 +604,26 @@ export const en = {
       notYet: 'This period counts once you have taught {minutes} minutes.',
       noEarnings: 'This is an invited call, not a timetabled class. It earns nothing.',
     },
+    /** The room itself: tiles, controls, and what to say when media fails. */
+    room: {
+      connecting: 'Connecting to the room…',
+      reconnecting: 'Connection lost. Trying to reconnect…',
+      noVideo: 'Nobody has their camera on yet.',
+      you: 'You',
+      muteMic: 'Mute',
+      unmuteMic: 'Unmute',
+      cameraOff: 'Camera off',
+      cameraOn: 'Camera on',
+      endCall: 'End call',
+      leaveCall: 'Leave call',
+      retry: 'Try again',
+      /* Names the remedy, because "permission denied" alone tells nobody what to do. */
+      permissionDenied:
+        'Your browser blocked the camera and microphone. Allow them in the address bar, then reload — you can stay in the lesson meanwhile.',
+      noCamera:
+        'No camera was found on this device. You have joined with audio only, which is enough to take part.',
+      connectFailed: 'We could not connect you to the room.',
+    },
     /** Inviting somebody into a call by name. */
     invite: {
       title: 'Invite someone',
@@ -2095,6 +2115,9 @@ timetable: {
     liveNow: 'Live now',
     elapsed: 'Running for {minutes} minutes',
     end: 'End the lesson',
+    /* Shown when the room itself ended the lesson, where the minutes are not
+       to hand — the countdown above already reported them. */
+    ended: 'Lesson ended. The recording has been stopped.',
     endedEligible: 'Lesson ended after {minutes} minutes. It counts towards your earnings.',
     endedIneligible:
       'Lesson ended after {minutes} minutes. It does not count towards your earnings — it was too short, or outside your confirmed timetable.',

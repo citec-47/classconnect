@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/admin/ui';
 import { ErrorAlert, SuccessAlert } from '@/components/Alert';
 import { TeacherGate } from '@/components/teacher/TeacherGate';
 import { PeriodCountdown } from '@/components/teacher/PeriodCountdown';
+import { LiveRoom } from '@/components/teacher/LiveRoom';
 import { InviteToCallDialog } from '@/components/teacher/InviteToCallDialog';
 
 interface Named {
@@ -77,25 +78,24 @@ interface RoomState {
 /**
  * BUILD-PLAN Phase 5a — the teacher's live screen.
  *
- * ## What works, and what is waiting on a media server
+ * ## The control plane, with the media on top of it
  *
- * Everything on this page is real: starting a lesson, the register, the raised
- * hands, granting and revoking the floor, the elapsed clock, and whether the
- * lesson is inside a confirmed timetable slot. All of it is database state, and the
- * learner's and admin's live screens read the same rows.
+ * Starting a lesson, the register, the raised hands, granting and revoking the
+ * floor, the elapsed clock and the timetable slot are all database state, and
+ * the learner's and admin's live screens read the same rows.
  *
- * What is *not* here is audio and video. Carrying a Cameroonian class needs an SFU
- * (LiveKit, Janus or a hosted equivalent) and that choice has not been made — see
- * `teacher-live.service.ts`. So the room id is issued and the permissions are
- * authoritative, and this screen says plainly that there is no stream yet rather
- * than showing a black rectangle and letting a teacher conclude their camera is
- * broken.
+ * The picture comes from `LiveRoom`, which connects to LiveKit with a token
+ * this API mints. The division holds: what a participant *may* do is decided by
+ * the signed grant, and the component only asks — so the controls under the
+ * video are a convenience over a permission enforced on the server.
  *
- * The same honesty applies to the minutes. The elapsed clock is wall-clock; the
- * *attended* minutes that earnings and ratings depend on come from the media
- * server's join and leave events, and read zero until it is connected. Both are on
- * screen, labelled differently, because conflating them is how a teacher comes to
- * expect money that will not arrive.
+ * ## Two clocks, still named differently
+ *
+ * `elapsedMinutes` is wall-clock, from when the room opened. `attendedMinutes`
+ * comes from LiveKit's join and leave events and is what earnings and the
+ * 40-minute rating rule count. They are close but not identical — a teacher who
+ * opens a room and steps away has elapsed minutes and no attendance — so both
+ * stay on screen under different labels rather than one standing for the other.
  */
 function TeacherLivePage() {
   const { t, language } = useI18n();
@@ -259,15 +259,14 @@ function TeacherLivePage() {
       {done && <SuccessAlert>{done}</SuccessAlert>}
 
       {/*
-       * The limitation, stated once at the top and not repeated.
+       * The "no media server" banner is gone: LiveKit is connected, and
+       * `LiveRoom` below carries the picture.
        *
-       * A teacher who reads this knows why there is no picture. One who does not
-       * would file a bug against their own webcam.
+       * What replaces it is nothing at all in the ordinary case. A room that
+       * cannot connect says so inside `LiveRoom`, next to the tiles it failed
+       * to fill, rather than as a standing warning at the top of a page where
+       * everything is in fact working.
        */}
-      <div className="mb-4 rounded-xl border border-warning-600 bg-warning-50 p-3">
-        <p className="text-sm font-medium text-warning-600">{t('teacherLive.noMediaTitle')}</p>
-        <p className="mt-1 text-sm text-ink-900">{t('teacherLive.noMediaBody')}</p>
-      </div>
 
       {board === null ? (
         <p className="text-sm text-ink-600">{t('common.loading')}</p>
@@ -318,6 +317,29 @@ function TeacherLivePage() {
                     {t('teacherLive.end')}
                   </button>
                 </div>
+              </div>
+
+              {/*
+               * The room itself, above the register.
+               *
+               * A teacher looks at faces first and at the list of names second,
+               * so the video leads and the administrative detail follows it.
+               */}
+              <div className="mt-3">
+                <LiveRoom
+                  sessionId={session.sessionId}
+                  role="host"
+                  onEnded={() => {
+                    /*
+                     * `LiveRoom` has already ended the lesson server-side, so
+                     * this only refreshes the board — calling `endLive` again
+                     * would 404 on a session that is no longer in progress.
+                     */
+                    setRoom(null);
+                    setDone(t('teacherLive.ended'));
+                    void load();
+                  }}
+                />
               </div>
 
               {/* Where this lesson stands inside its period, from the server. */}

@@ -6,6 +6,7 @@ import {
   EncodedFileOutput,
   EncodedFileType,
   RoomServiceClient,
+  S3Upload,
 } from 'livekit-server-sdk';
 import { AppError } from '../common/http-exception.filter';
 
@@ -167,6 +168,40 @@ export class LiveKitService {
   async startRecording(roomId: string): Promise<string | null> {
     if (!this.configured) return null;
 
+    /*
+     * Where the recording is *kept*, which LiveKit will not guess.
+     *
+     * A file path on its own is not a destination: LiveKit refuses the request
+     * with "missing or invalid field: output" — an accurate message that reads
+     * like a malformed call rather than absent credentials, which is how this
+     * sat silently failing while the platform reported recording as simply off.
+     *
+     * Any S3-compatible store works: AWS, Cloudflare R2, Backblaze B2, MinIO.
+     * Without one, recording cannot happen at all, so this says so once, loudly,
+     * instead of failing per lesson in a way nobody reads.
+     */
+    const storage = this.recordingStorage;
+    if (!storage) {
+      this.logger.warn(
+        `Not recording ${roomId}: no storage configured. ` +
+          'Set LIVEKIT_S3_BUCKET, LIVEKIT_S3_REGION, LIVEKIT_S3_ACCESS_KEY and ' +
+          'LIVEKIT_S3_SECRET (LIVEKIT_S3_ENDPOINT too for R2, B2 or MinIO).',
+      );
+      return null;
+    }
+
+    /*
+     * The room has to exist before anything can be recorded in it.
+     *
+     * LiveKit creates a room when its first participant arrives, and recording
+     * starts when the teacher goes live — a moment earlier, while the browser is
+     * still fetching its token. Egress was therefore asked to record a room that
+     * did not exist yet and refused with "requested room does not exist", every
+     * time, for every lesson. Creating it up front also means the recording
+     * captures the opening of the lesson rather than joining it late.
+     */
+    await this.ensureRoom(roomId);
+
     const egress = new EgressClient(this.httpUrl, this.apiKey, this.apiSecret);
     try {
       /*
@@ -181,12 +216,62 @@ export class LiveKitService {
         new EncodedFileOutput({
           fileType: EncodedFileType.MP4,
           filepath: `recordings/${roomId}.mp4`,
+          output: { case: 's3', value: storage },
         }),
       );
       return info.egressId ?? null;
     } catch (error) {
       this.logger.error(`Could not start recording ${roomId}: ${(error as Error).message}`);
       return null;
+    }
+  }
+
+  /**
+   * The S3-compatible destination recordings are written to, or null.
+   *
+   * Read per call rather than cached at construction so that adding the keys
+   * and restarting is the whole of the setup — there is no second place to
+   * change and nothing to invalidate.
+   *
+   * `endpoint` is what makes this work with Cloudflare R2, Backblaze B2 and
+   * MinIO as well as AWS; left unset it is AWS, which is the only one that
+   * needs no endpoint.
+   */
+  private get recordingStorage(): S3Upload | null {
+    const bucket = process.env.LIVEKIT_S3_BUCKET;
+    const accessKey = process.env.LIVEKIT_S3_ACCESS_KEY;
+    const secret = process.env.LIVEKIT_S3_SECRET;
+    if (!bucket || !accessKey || !secret) return null;
+
+    return new S3Upload({
+      bucket,
+      accessKey,
+      secret,
+      region: process.env.LIVEKIT_S3_REGION || 'auto',
+      endpoint: process.env.LIVEKIT_S3_ENDPOINT || undefined,
+      /*
+       * R2 and B2 reject the checksum header AWS sends by default, with an
+       * error naming neither the header nor the remedy. Off is correct for
+       * every S3-compatible store and harmless on AWS itself.
+       */
+      forcePathStyle: Boolean(process.env.LIVEKIT_S3_ENDPOINT),
+    });
+  }
+
+  /**
+   * Makes sure the room exists, so egress has something to attach to.
+   *
+   * Idempotent: LiveKit returns the existing room rather than erroring, so this
+   * is safe on a rejoin. A failure here is logged and swallowed — the class
+   * matters more than the recording, and the join that follows will create the
+   * room anyway.
+   */
+  private async ensureRoom(roomId: string): Promise<void> {
+    const rooms = new RoomServiceClient(this.httpUrl, this.apiKey, this.apiSecret);
+    try {
+      await rooms.createRoom({ name: roomId });
+    } catch (error) {
+      this.logger.error(`Could not create room ${roomId}: ${(error as Error).message}`);
     }
   }
 

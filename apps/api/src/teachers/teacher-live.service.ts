@@ -256,8 +256,14 @@ export class TeacherLiveService {
            * two of them after an incident is not a thing anyone should have to do.
            */
           roomId,
-          // FR-SAF-004: a one-to-one with a minor is recorded by default.
-          recordingEnabled: isOneToOne,
+          /*
+           * FR-SAF-004 wants a one-to-one with a minor recorded by default, and
+           * this is where that intent used to be written down as though it were
+           * a fact. It is set true a few lines below, once egress has actually
+           * started and returned an id — the difference between a policy and a
+           * recording being precisely what a safeguarding review needs.
+           */
+          recordingEnabled: false,
           timetableSlotId: input.timetableSlotId ?? null,
           /*
            * Only a timetabled lesson earns.
@@ -349,7 +355,16 @@ export class TeacherLiveService {
       sessionId: session.id,
       roomId: session.roomId,
       startedAt: session.startsAtUtc.toISOString(),
-      recordingEnabled: Boolean(egressId) || isOneToOne,
+      /*
+       * True only when a recorder actually started.
+       *
+       * This used to fall back to `isOneToOne`, so a one-to-one lesson reported
+       * "recording: yes" whether or not anything was recording — and while
+       * egress was failing on every single lesson, the screen said it was fine.
+       * A safeguarding record that claims a recording exists is worse than one
+       * that admits there is none, because only the first stops anybody looking.
+       */
+      recordingEnabled: Boolean(egressId),
       mediaServerConfigured: this.livekit.configured,
       /** Null when LiveKit is not configured; the screen says so rather than
        *  showing a black rectangle and letting the teacher blame their camera. */

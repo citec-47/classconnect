@@ -52,17 +52,35 @@ export function attachLiveKitProxy(server: Server, path = '/livekit'): void {
   const wss = new WebSocketServer({ noServer: true });
 
   /*
-   * `prependListener`, not `on`.
+   * Every other `upgrade` listener is taken off the server and re-dispatched by
+   * hand, because going first is not enough.
    *
-   * Nest's Socket.IO adapter attaches its own `upgrade` handler and destroys
-   * any socket whose path it does not recognise — so a listener added after it
-   * never runs, and the browser sees the connection hang up with no error
-   * logged anywhere. Going first means this path is claimed before Socket.IO
-   * gets the chance to reject it.
+   * Nest's Socket.IO adapter attaches its own `upgrade` handler which destroys
+   * any socket whose path it does not recognise. `prependListener` made this
+   * run first — and then Socket.IO ran too, and destroyed the socket anyway.
+   * The symptom was precise and misleading: the handshake succeeded, LiveKit
+   * accepted the token and held the room open for its full fifteen-second join
+   * timeout, while the browser reported the socket closing the instant it
+   * opened. Both ends behaved correctly; the socket was being torn down between
+   * them.
+   *
+   * Claiming a path means no one else may answer for it, so matching upgrades
+   * stop here and the rest are passed on untouched — Socket.IO still gets every
+   * connection that is actually its own.
    */
-  server.prependListener('upgrade', (request, socket: Duplex, head) => {
+  const inherited = server.listeners('upgrade') as ((
+    request: import('node:http').IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ) => void)[];
+  server.removeAllListeners('upgrade');
+
+  server.on('upgrade', (request, socket: Duplex, head) => {
     const url = request.url ?? '';
-    if (!url.startsWith(path)) return;
+    if (!url.startsWith(path)) {
+      for (const listener of inherited) listener(request, socket, head);
+      return;
+    }
 
     logger.debug(`Relaying signalling for ${url.slice(0, 60)}…`);
 

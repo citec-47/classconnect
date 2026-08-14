@@ -622,6 +622,9 @@ export const en = {
         'Your browser blocked the camera and microphone. Allow them in the address bar, then reload — you can stay in the lesson meanwhile.',
       noCamera:
         'No camera was found on this device. You have joined with audio only, which is enough to take part.',
+      /* Says the network, not the camera: naming the wrong culprit wastes the lesson. */
+      videoBlocked:
+        'Your camera works, but this network is not letting the video through. The lesson continues by voice. On another network, or without a VPN, the picture should appear.',
       connectFailed: 'We could not connect you to the room.',
       /* Only shown when the browser is actually withholding sound. */
       enableSound: 'Tap to hear everyone',

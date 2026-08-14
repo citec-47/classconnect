@@ -578,6 +578,9 @@ export const fr: Messages = {
         'Votre navigateur a bloqué la caméra et le micro. Autorisez-les dans la barre d’adresse, puis rechargez — vous pouvez rester dans le cours entre-temps.',
       noCamera:
         'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
+      /* Désigne le réseau, pas la caméra : accuser le mauvais responsable fait perdre le cours. */
+      videoBlocked:
+        'Votre caméra fonctionne, mais ce réseau ne laisse pas passer la vidéo. Le cours continue en audio. Sur un autre réseau, ou sans VPN, l’image devrait apparaître.',
       connectFailed: 'Nous n’avons pas pu vous connecter à la salle.',
       /* Affiché seulement si le navigateur retient réellement le son. */
       enableSound: 'Appuyez pour entendre tout le monde',

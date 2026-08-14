@@ -33,6 +33,14 @@ interface Tile {
 type Failure =
   | 'permission'
   | 'no-devices'
+  /**
+   * The camera works and the room connected, but the video could not travel.
+   *
+   * Distinct from `no-devices` because the remedies share nothing: this is the
+   * network refusing WebRTC, not a missing camera, and telling a teacher with a
+   * working camera that they have none sends them to fix the wrong thing.
+   */
+  | 'media-path'
   | 'connect'
   | 'blocked'
   /** Served over plain HTTP from something other than localhost. */
@@ -157,6 +165,8 @@ export function LiveRoom({
   /** The underlying error text, shown so a failure is diagnosable on sight. */
   const [detail, setDetail] = useState<string | null>(null);
   const connectingRef = useRef(false);
+  /** One retry over TURN, so a blocked media path cannot loop forever. */
+  const relayTriedRef = useRef(false);
   /** True when the browser is holding back everyone else's sound. */
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [micOn, setMicOn] = useState(true);
@@ -296,7 +306,17 @@ export function LiveRoom({
           setState(ConnectionState.Disconnected);
         });
 
-      await room.connect(join.url, join.token);
+      await room.connect(
+        join.url,
+        join.token,
+        /*
+         * `relay` rules out direct peer-to-peer paths and sends the media
+         * through LiveKit's TURN server on 443. Only on the retry: forcing it
+         * always would add a hop, and latency to §6.2's network is the one
+         * thing this platform cannot spend freely.
+         */
+        relayTriedRef.current ? { rtcConfig: { iceTransportPolicy: 'relay' } } : undefined,
+      );
       setState(room.state);
 
       /*
@@ -338,8 +358,48 @@ export function LiveRoom({
         } catch (cameraError) {
           const error = cameraError as Error;
           setDetail(error.message || error.name);
-          setFailure(isBlocked(error) ? 'blocked' : error.name === 'NotAllowedError' ? 'permission' : 'no-devices');
           setCameraOn(false);
+
+          /*
+           * Only a camera that is genuinely absent gets called absent.
+           *
+           * This previously treated everything that was not a permission
+           * refusal as "no camera was found", so a publish that timed out —
+           * camera working, room connected, media unable to travel — told the
+           * teacher their device had no camera. It sent them looking at their
+           * hardware while the fault was on the network, and it was wrong on
+           * screen while the log right beside it said `publishing track …
+           * source: camera`.
+           */
+          const missing =
+            error.name === 'NotFoundError' ||
+            error.name === 'DevicesNotFoundError' ||
+            error.name === 'OverconstrainedError';
+
+          if (isBlocked(error)) setFailure('blocked');
+          else if (error.name === 'NotAllowedError') setFailure('permission');
+          else if (missing) setFailure('no-devices');
+          else {
+            /*
+             * The camera opened and the picture had nowhere to go.
+             *
+             * WebRTC wants UDP, and where that is blocked it falls back to
+             * LiveKit's TURN relay on 443, which looks like ordinary HTTPS.
+             * The SDK does not always reach for that on its own, so one retry
+             * is made with direct paths ruled out — the same reasoning as the
+             * signalling relay: keep the traffic on ports this network already
+             * allows. If it fails again the message says so plainly rather
+             * than blaming the hardware.
+             */
+            setFailure('media-path');
+            if (!relayTriedRef.current) {
+              relayTriedRef.current = true;
+              connectingRef.current = false;
+              await room.disconnect();
+              void connect();
+              return;
+            }
+          }
         }
 
         try {
@@ -543,6 +603,12 @@ export function LiveRoom({
       {failure === 'no-devices' && (
         <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
           {t('live.room.noCamera')}
+        </p>
+      )}
+      {failure === 'media-path' && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.videoBlocked')}
+          {detail ? <span className="mt-1 block text-xs opacity-80">{detail}</span> : null}
         </p>
       )}
       {failure === 'connect' && (

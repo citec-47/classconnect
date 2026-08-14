@@ -113,6 +113,18 @@ export class TeacherTimetableController {
 export class AdminTimetableController {
   constructor(private readonly timetable: TimetableService) {}
 
+  /**
+   * Every class's week, in one screen.
+   *
+   * `teacher:verification:read` — the same staff who see the timetable queue
+   * see the timetable itself, and customer service holds it too.
+   */
+  @Get('overview')
+  @RequirePermissions('teacher:verification:read')
+  async overview() {
+    return this.timetable.wholeSchool();
+  }
+
   @Get('pending')
   @RequirePermissions('teacher:verification:decide')
   async pending() {

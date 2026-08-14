@@ -5,6 +5,7 @@ import {
   PERIODS_PER_SUBJECT_PER_WEEK,
   DAYS_PER_SUBJECT_PER_TEACHER,
   periodsFor,
+  minutesToClock,
   CONFIG_KEYS,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
@@ -73,6 +74,102 @@ export class TimetableService {
       select: SLOT_SELECT,
     });
     return { slots };
+  }
+
+  /**
+   * Every class's week, in one read — the admin's whole-school view.
+   *
+   * The brief asks for one screen covering primary, secondary, Lower and Upper
+   * Sixth and private classes, each class shown the same way, Monday to
+   * Saturday, with the subject and the teacher in every slot.
+   *
+   * One query for the slots rather than one per class: a school of thirty
+   * classes would otherwise be thirty round trips to a database in another
+   * region, and the screen is the one place somebody looks to see everything at
+   * once.
+   *
+   * Levels with no slots are still returned. "Form 2 has no timetable yet" is
+   * the single most useful thing this screen can tell an admin, and omitting
+   * the empty ones would hide exactly that.
+   */
+  async wholeSchool() {
+    const [levels, slots] = await Promise.all([
+      this.prisma.level.findMany({
+        where: { active: true },
+        orderBy: [{ schoolType: 'asc' }, { sortOrder: 'asc' }],
+        select: { id: true, code: true, nameEn: true, nameFr: true, schoolType: true },
+      }),
+      this.prisma.timetableSlot.findMany({
+        /*
+         * Confirmed and on-hold, never rejected or merely proposed.
+         *
+         * A held period still occupies the class's week — it reads as a Free
+         * Period to everyone in it — so leaving it out would show an empty slot
+         * that nobody can claim.
+         */
+        where: { state: { in: ['confirmed', 'on_hold'] } },
+        orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],
+        select: {
+          id: true,
+          levelId: true,
+          dayOfWeek: true,
+          startMinute: true,
+          endMinute: true,
+          session: true,
+          state: true,
+          subject: { select: { id: true, nameEn: true, nameFr: true } },
+          teacher: { select: { userId: true, user: { select: { fullName: true } } } },
+        },
+      }),
+    ]);
+
+    const byLevel = new Map<string, typeof slots>();
+    for (const slot of slots) {
+      const list = byLevel.get(slot.levelId) ?? [];
+      list.push(slot);
+      byLevel.set(slot.levelId, list);
+    }
+
+    /*
+     * Monday to Saturday, as the brief asks — regardless of the configured
+     * school week. A 24/5 platform shows an empty Saturday column rather than
+     * a table whose shape changes with a setting, which is what makes every
+     * class "shown the same way".
+     */
+    const days = [1, 2, 3, 4, 5, 6];
+
+    const categories: Record<string, unknown[]> = {};
+    for (const level of levels) {
+      const mine = byLevel.get(level.id) ?? [];
+      (categories[level.schoolType] ??= []).push({
+        id: level.id,
+        code: level.code,
+        nameEn: level.nameEn,
+        nameFr: level.nameFr,
+        slotCount: mine.length,
+        days: days.map((day) => ({
+          dayOfWeek: day,
+          slots: mine
+            .filter((slot) => slot.dayOfWeek === day)
+            .map((slot) => ({
+              id: slot.id,
+              startMinute: slot.startMinute,
+              endMinute: slot.endMinute,
+              clock: `${minutesToClock(slot.startMinute)}–${minutesToClock(slot.endMinute)}`,
+              session: slot.session,
+              /** An on-hold period reads as a Free Period to the class. */
+              onHold: slot.state === 'on_hold',
+              subject: slot.subject,
+              teacher: {
+                id: slot.teacher.userId,
+                fullName: slot.teacher.user.fullName,
+              },
+            })),
+        })),
+      });
+    }
+
+    return { days, categories };
   }
 
   /** Everything waiting on a decision, for the staff timetable screen. */

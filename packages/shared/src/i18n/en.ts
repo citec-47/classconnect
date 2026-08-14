@@ -1346,6 +1346,8 @@ export const en = {
       /* Says whose problem it is: the platform's, not the teacher's device. */
       not_configured:
         'Live lessons are not switched on for this platform yet. Please tell an administrator.',
+      /* Says the link is not the problem, so nobody keeps retrying it. */
+      not_invited: 'This call is invite only. Ask the teacher to invite you.',
     },
 
     /*
@@ -1619,6 +1621,11 @@ export const en = {
       body: '{applicant} has sent a teaching application for review. Open Approvals > Teachers to check it.',
     },
     /* Named and explained: a file that simply vanishes gets re-sent unchanged. */
+    /* The brief's "Click here to join me live", as an inbox message. */
+    liveInvitation: {
+      subject: 'You have been invited to a live session',
+      body: 'Hello {name}, your teacher has invited you to join them live. Open the platform and click to join.',
+    },
     teacherDocumentRemoved: {
       subject: 'A document was removed from your application',
       body: 'Hello {name}, we removed "{fileName}" from your application. Reason: {reason}. Please upload the right file when you can.',

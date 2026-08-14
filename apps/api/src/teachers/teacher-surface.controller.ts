@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import {
   createGroupSchema,
@@ -319,6 +319,60 @@ export class TeacherSurfaceController {
     @Param('sessionId', uuidParam()) sessionId: string,
   ) {
     return this.live.hostToken(user, sessionId);
+  }
+
+  /**
+   * Where the host stands inside the period, while teaching.
+   *
+   * Server-computed: the countdown, the minutes earned and whether the period
+   * is complete all come from the server's clock and its record of when the
+   * room opened, never from the browser.
+   */
+  @Get('live/:sessionId/countdown')
+  @RequirePermissions('live:host')
+  async countdown(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+  ) {
+    return this.live.countdown(user, sessionId);
+  }
+
+  /** Typing a name into Invite. Students and teachers both. */
+  @Get('live/:sessionId/invitees')
+  @RequirePermissions('live:host')
+  async searchInvitees(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+    @Query('q') q = '',
+  ) {
+    return this.live.searchInvitees(sessionId, user, q);
+  }
+
+  /**
+   * Letting somebody into an invite-only call.
+   *
+   * The invitation is what the join token is checked against, so this is the
+   * only way into such a call — holding the link is not enough.
+   */
+  @Post('live/:sessionId/invite-user/:userId')
+  @RequirePermissions('live:host')
+  async inviteToCall(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+    @Param('userId', uuidParam()) userId: string,
+  ) {
+    return this.live.inviteToCall(user, sessionId, userId);
+  }
+
+  /** Withdrawing an invitation. The next token request is refused. */
+  @Delete('live/:sessionId/invite-user/:userId')
+  @RequirePermissions('live:host')
+  async revokeInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+    @Param('userId', uuidParam()) userId: string,
+  ) {
+    return this.live.revokeInvite(user, sessionId, userId);
   }
 
   @Get('live/:sessionId')

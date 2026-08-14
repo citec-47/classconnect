@@ -111,6 +111,16 @@ export type AuditAction =
    */
   | 'live.started'
   | 'live.ended'
+  /*
+   * Somebody who was not booked into anything was let into a room with a
+   * teacher in it — and the moment that permission was taken away again.
+   *
+   * The whole of invite-only rests on these two rows: they are the record of
+   * who could enter a private call, which is the first question a safeguarding
+   * review asks about one.
+   */
+  | 'live.invited'
+  | 'live.invite_revoked'
   | 'live.floor_granted'
   | 'live.floor_revoked'
   | 'recording.deleted'

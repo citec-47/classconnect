@@ -4,8 +4,16 @@ import { PrismaService } from '../common/prisma.service';
 import { PlatformConfigService } from '../common/platform-config.service';
 import { AuditService } from '../audit/audit.service';
 import { LiveKitService } from './livekit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/http-exception.filter';
-import { CONFIG_KEYS, minutesToClock, type GoLiveInput, type DecidePublishRequestInput } from '@classconnect/shared';
+import {
+  CONFIG_KEYS,
+  minutesToClock,
+  earnedMinutes,
+  TIMETABLE_PERIOD_MINUTES,
+  type GoLiveInput,
+  type DecidePublishRequestInput,
+} from '@classconnect/shared';
 import type { AuthenticatedUser } from '../rbac/decorators';
 
 /**
@@ -42,6 +50,7 @@ export class TeacherLiveService {
     private readonly config: PlatformConfigService,
     private readonly audit: AuditService,
     private readonly livekit: LiveKitService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -371,6 +380,91 @@ export class TeacherLiveService {
     });
   }
 
+  /**
+   * Where the teacher stands inside the period, while teaching.
+   *
+   * The brief asks for a countdown on screen. Everything here is computed from
+   * the server's clock and the server's record of when the room opened —
+   * `classes.ts` establishes that attendance is observed, not self-reported,
+   * and a countdown the browser calculates for itself is a number a teacher
+   * could change.
+   *
+   * An invite-only call has no period and earns nothing, so it returns nulls
+   * rather than a countdown to a deadline that does not exist.
+   */
+  async countdown(user: AuthenticatedUser, sessionId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
+      select: {
+        id: true,
+        startsAtUtc: true,
+        periodRateXaf: true,
+        earnsFromTimetable: true,
+        timetableSlot: { select: { startMinute: true, endMinute: true } },
+        participants: { where: { userId: user.id }, select: { firstJoinAt: true } },
+      },
+    });
+    if (!session) throw AppError.notFound();
+
+    if (!session.earnsFromTimetable || !session.timetableSlot) {
+      return {
+        earns: false,
+        minutesEarned: 0,
+        minutesRemaining: null,
+        completed: false,
+        periodEndsAt: null,
+        rateXaf: null,
+        valueXaf: '0',
+      };
+    }
+
+    /*
+     * The period's real wall-clock bounds for today.
+     *
+     * `startMinute` is minutes from midnight, so it is anchored to the calendar
+     * day the lesson began rather than to "now" — a lesson running across
+     * midnight would otherwise count against tomorrow's period.
+     */
+    const dayStart = new Date(session.startsAtUtc);
+    dayStart.setHours(0, 0, 0, 0);
+    const periodStartMs = dayStart.getTime() + session.timetableSlot.startMinute * 60_000;
+    const periodEndMs = dayStart.getTime() + session.timetableSlot.endMinute * 60_000;
+
+    const connectedAtMs = (
+      session.participants[0]?.firstJoinAt ?? session.startsAtUtc
+    ).getTime();
+    const nowMs = Date.now();
+
+    const minimumMinutes = this.config.getNumber(CONFIG_KEYS.EARNING_MIN_SESSION_MINUTES);
+    const minutesEarned = earnedMinutes({
+      connectedAtMs,
+      disconnectedAtMs: nowMs,
+      periodStartMs,
+      periodEndMs,
+      minimumMinutes,
+    });
+
+    const rate = session.periodRateXaf ?? 0;
+    /*
+     * Paid pro rata within the period, in integer arithmetic with the division
+     * last: 31 of 45 minutes at 1000 is 688, not 689 and not a float.
+     */
+    const valueXaf = Math.floor((rate * minutesEarned) / TIMETABLE_PERIOD_MINUTES);
+
+    return {
+      earns: true,
+      minutesEarned,
+      /** Counts down to the period's end, not to the teacher leaving. */
+      minutesRemaining: Math.max(0, Math.ceil((periodEndMs - nowMs) / 60_000)),
+      /** FR: a period is completed once the teacher has been live 30 minutes. */
+      completed: minutesEarned >= minimumMinutes,
+      minimumMinutes,
+      periodEndsAt: new Date(periodEndMs).toISOString(),
+      rateXaf: rate,
+      valueXaf: String(valueXaf),
+    };
+  }
+
   /** The name shown on a participant's tile in the room. */
   private async displayName(userId: string): Promise<string> {
     const user = await this.prisma.user.findUnique({
@@ -596,6 +690,118 @@ export class TeacherLiveService {
   }
 
   /**
+   * Searching for somebody to invite, by name.
+   *
+   * The brief's "he clicks Invite and types the name". Students and teachers
+   * both, because a teacher may want a colleague on the call.
+   *
+   * Deliberately requires two characters and returns a short list: this is a
+   * directory of every child on the platform, and an empty query that returns
+   * all of them is a data export dressed as a search box.
+   */
+  async searchInvitees(sessionId: string, user: AuthenticatedUser, query: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
+      select: { id: true },
+    });
+    if (!session) throw AppError.notFound();
+
+    const term = query.trim();
+    if (term.length < 2) return { people: [] };
+
+    const people = await this.prisma.user.findMany({
+      where: {
+        fullName: { contains: term, mode: 'insensitive' },
+        status: 'active',
+        id: { not: user.id },
+        roles: { some: { role: { in: ['student', 'adult_learner', 'teacher'] } } },
+      },
+      select: { id: true, fullName: true, roles: { select: { role: true } } },
+      orderBy: { fullName: 'asc' },
+      take: 20,
+    });
+
+    const invited = await this.prisma.sessionInvite.findMany({
+      where: { sessionId, revokedAt: null },
+      select: { userId: true },
+    });
+    const already = new Set(invited.map((row) => row.userId));
+
+    return {
+      people: people.map((person) => ({
+        id: person.id,
+        fullName: person.fullName,
+        roles: person.roles.map((r) => r.role),
+        invited: already.has(person.id),
+      })),
+    };
+  }
+
+  /**
+   * Inviting somebody into an invite-only call.
+   *
+   * Upserted rather than inserted, and a revoked invitation is revived rather
+   * than duplicated: inviting the same person twice is one invitation, and the
+   * unique index says so.
+   */
+  async inviteToCall(user: AuthenticatedUser, sessionId: string, userId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
+      select: { id: true },
+    });
+    if (!session) throw AppError.notFound();
+
+    await this.prisma.sessionInvite.upsert({
+      where: { sessionId_userId: { sessionId, userId } },
+      create: { sessionId, userId, invitedBy: user.id },
+      update: { revokedAt: null, invitedBy: user.id, invitedAt: new Date() },
+    });
+
+    /*
+     * Audited, because this is the moment somebody who was not booked into
+     * anything became able to enter a room with a teacher in it.
+     */
+    await this.audit.record({
+      action: 'live.invited',
+      entity: 'session',
+      entityId: sessionId,
+      actorId: user.id,
+      after: { invitedUserId: userId },
+    });
+
+    // FR-NOT: the invitation arrives as a message they can act on.
+    await this.notifications
+      .notifyUser(userId, 'liveInvitation', { sessionId })
+      .catch(() => undefined);
+
+    return { invited: true };
+  }
+
+  /** Withdrawing an invitation. The row stays; only the permission goes. */
+  async revokeInvite(user: AuthenticatedUser, sessionId: string, userId: string) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id },
+      select: { id: true, roomId: true },
+    });
+    if (!session) throw AppError.notFound();
+
+    await this.prisma.sessionInvite.updateMany({
+      where: { sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await this.audit.record({
+      action: 'live.invite_revoked',
+      entity: 'session',
+      entityId: sessionId,
+      actorId: user.id,
+      after: { revokedUserId: userId },
+    });
+
+    return { revoked: true };
+  }
+
+  /**
    * A learner's own token for a lesson they are entitled to attend.
    *
    * Listen-only by default. `canPublish` follows the `MediaPublishRequest`
@@ -608,23 +814,55 @@ export class TeacherLiveService {
    * a secret worth relying on.
    */
   async learnerToken(user: AuthenticatedUser, sessionId: string) {
+    /*
+     * Two different rooms, two different guest lists.
+     *
+     * A timetabled lesson admits the class booked into it. An invite-only call
+     * has no class, so it admits exactly the people on `session_invites` — and
+     * the brief is explicit that possession of the link is not admission.
+     *
+     * Fetched first without any entitlement filter so the two cases can be told
+     * apart; nothing is issued until one of them passes below.
+     */
     const session = await this.prisma.session.findFirst({
-      where: {
-        id: sessionId,
-        status: 'in_progress',
-        /*
-         * Booked in, one way or the other: a one-to-one names the learner, and
-         * a group lesson reaches them through the cohort they belong to.
-         */
-        OR: [
-          { learnerId: user.id },
-          { cohort: { members: { some: { learnerId: user.id } } } },
-          { participants: { some: { userId: user.id } } },
-        ],
-      },
-      select: { id: true, roomId: true },
+      where: { id: sessionId, status: 'in_progress' },
+      select: { id: true, roomId: true, earnsFromTimetable: true, timetableSlotId: true },
     });
     if (!session?.roomId) throw AppError.notFound();
+
+    const isInviteOnly = session.timetableSlotId === null;
+
+    if (isInviteOnly) {
+      /*
+       * The whole of "invite only", enforced where it cannot be bypassed.
+       *
+       * No token is minted without a live invitation, so a link forwarded to a
+       * classmate gets them a 404 rather than a seat. A withdrawn invitation
+       * has `revokedAt` set and fails the same check.
+       */
+      const invite = await this.prisma.sessionInvite.findFirst({
+        where: { sessionId, userId: user.id, revokedAt: null },
+        select: { id: true },
+      });
+      if (!invite) throw AppError.forbidden('errors.live.not_invited');
+    } else {
+      /*
+       * Booked in, one way or the other: a one-to-one names the learner, and
+       * a group lesson reaches them through the cohort they belong to.
+       */
+      const booked = await this.prisma.session.findFirst({
+        where: {
+          id: sessionId,
+          OR: [
+            { learnerId: user.id },
+            { cohort: { members: { some: { learnerId: user.id } } } },
+            { participants: { some: { userId: user.id } } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!booked) throw AppError.notFound();
+    }
 
     const granted = await this.prisma.mediaPublishRequest.findFirst({
       where: { sessionId, learnerUserId: user.id, state: 'approved' },

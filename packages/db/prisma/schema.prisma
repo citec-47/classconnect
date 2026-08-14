@@ -461,6 +461,7 @@ model User {
   exercisesUnlocked WorkAssignment[]  @relation("ExerciseUnlocker")
   groupScoresAwarded GroupScore[]     @relation("GroupScoreAwarder")
   reportCardsGenerated ReportCard[]   @relation("ReportCardGenerator")
+  sessionInvites   SessionInvite[]  @relation("SessionInviteUser")
 
   @@index([status])
   @@index([createdAt])
@@ -1125,6 +1126,7 @@ model Session {
   timetableSlot TimetableSlot?      @relation(fields: [timetableSlotId], references: [id])
   participants SessionParticipant[]
   recordings   Recording[]
+  invites      SessionInvite[]
   reviews      Review[]
   publishRequests MediaPublishRequest[]
 
@@ -1171,6 +1173,37 @@ model SessionParticipant {
 }
 
 /// `recordings` — retained 90 days by default (§5.5, subject to OI-09).
+/// `session_invites` — who the host let into an invite-only call.
+///
+/// The default Go Live call is not a class: nobody is booked into it, so
+/// there is no roster to check a joiner against. This table *is* the roster,
+/// and the join token is refused to anyone not on it — "nobody can join
+/// unless the teacher has invited them, even if they have the link".
+///
+/// Rows exist only for invite-only calls. A timetabled lesson admits the
+/// class that is booked into it, which is a different question answered by
+/// the cohort, and duplicating those learners here would give one lesson two
+/// disagreeing guest lists.
+model SessionInvite {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  /// The invited account. A student or another teacher — the brief allows both.
+  userId    String   @map("user_id") @db.Uuid
+  invitedBy String   @map("invited_by") @db.Uuid
+  invitedAt DateTime @default(now()) @map("invited_at") @db.Timestamptz(6)
+  /// Set when the invitation is withdrawn, rather than deleting the row: who
+  /// was let into a call and when is a safeguarding question, and a deleted
+  /// row answers it with silence.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation("SessionInviteUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([userId, revokedAt])
+  @@map("session_invites")
+}
+
 model Recording {
   id             String    @id @default(uuid()) @db.Uuid
   sessionId      String    @map("session_id") @db.Uuid

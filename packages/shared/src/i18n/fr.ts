@@ -1294,6 +1294,8 @@ export const fr: Messages = {
       /* Dit à qui revient le problème : à la plateforme, pas à l’appareil. */
       not_configured:
         'Les cours en direct ne sont pas encore activés sur cette plateforme. Veuillez prévenir un administrateur.',
+      /* Le lien n’est pas en cause : inutile de réessayer. */
+      not_invited: 'Cet appel est sur invitation. Demandez à l’enseignant de vous inviter.',
     },
 
     /* Voir en.ts : sans ces clés, « errors.field.too_small » s'affichait tel quel. */
@@ -1561,6 +1563,11 @@ export const fr: Messages = {
       body: '{applicant} a envoyé une candidature à examiner. Ouvrez Approbations > Enseignants pour la consulter.',
     },
     /* Nommé et expliqué : un fichier qui disparaît est renvoyé à l’identique. */
+    /* « Cliquez ici pour me rejoindre en direct », en message de boîte de réception. */
+    liveInvitation: {
+      subject: 'Vous êtes invité à une session en direct',
+      body: 'Bonjour {name}, votre enseignant vous invite à le rejoindre en direct. Ouvrez la plateforme et cliquez pour rejoindre.',
+    },
     teacherDocumentRemoved: {
       subject: 'Un document a été retiré de votre candidature',
       body: 'Bonjour {name}, nous avons retiré « {fileName} » de votre candidature. Motif : {reason}. Merci d’envoyer le bon fichier dès que possible.',

@@ -594,6 +594,28 @@ export const en = {
   live: {
     title: 'Live classes',
     subtitle: 'Every lesson in progress right now.',
+    /** Where the teacher stands inside the period, computed by the server. */
+    countdown: {
+      taught: '{minutes} min taught',
+      earned: '{amount} FCFA',
+      remaining: '{minutes} min left in this period',
+      periodOver: 'This period has ended. Nothing further is earned.',
+      completed: 'Past the {minutes}-minute mark — this period counts.',
+      notYet: 'This period counts once you have taught {minutes} minutes.',
+      noEarnings: 'This is an invited call, not a timetabled class. It earns nothing.',
+    },
+    /** Inviting somebody into a call by name. */
+    invite: {
+      title: 'Invite someone',
+      hint: 'Only people you invite can join this call, even with the link.',
+      searchPlaceholder: 'Type a name',
+      typeMore: 'Type at least two letters of a name.',
+      noMatches: 'Nobody matches that name.',
+      add: 'Invite',
+      remove: 'Remove',
+      roleTeacher: 'Teacher',
+      roleStudent: 'Student',
+    },
     emptyTitle: 'No lessons in progress',
     emptyBody: 'Lessons appear here the moment a teacher starts one.',
     teacher: 'Teacher',
@@ -1842,8 +1864,33 @@ timetable: {
     confirmedHoursHint: 'Only confirmed hours count towards your earnings.',
     clashTitle: 'This overlaps hours you already have:',
     notePlaceholder: 'Reason — needed to refuse, and the teacher sees it',
-    state: { proposed: 'Waiting for approval', confirmed: 'Confirmed', rejected: 'Refused' },
-    day: { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday' },
+    state: {
+      proposed: 'Waiting for approval',
+      confirmed: 'Confirmed',
+      rejected: 'Refused',
+      on_hold: 'On hold',
+    },
+    /* Through Sunday: the school week is configurable to 24/6 or 24/7, and the
+       whole-school view always draws Monday to Saturday. */
+    day: {
+      monday: 'Monday',
+      tuesday: 'Tuesday',
+      wednesday: 'Wednesday',
+      thursday: 'Thursday',
+      friday: 'Friday',
+      saturday: 'Saturday',
+      sunday: 'Sunday',
+    },
+  },
+
+  /** Every class's week, on one admin screen. */
+  timetableOverview: {
+    description:
+      'Every class, Monday to Saturday, with the subject and the teacher in each period.',
+    empty: 'No classes have been set up yet.',
+    classesTimetabled: '{done} of {total} classes timetabled',
+    noTimetable: 'No timetable yet',
+    freePeriod: 'Free period',
   },
 
   /** BUILD-PLAN Phase 2 — lessons a teacher publishes to a class. */

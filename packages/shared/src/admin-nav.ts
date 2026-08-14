@@ -135,6 +135,19 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
     id: 'operations',
     items: [
       {
+        /*
+         * Every class's week, in one screen.
+         *
+         * Under Operations rather than Approvals: the queue above is work
+         * waiting to be done, and this is the state of the whole school —
+         * which is what somebody opens when asked "who teaches Form 2 on
+         * Thursday", not a decision they are being asked to make.
+         */
+        id: 'timetableOverview',
+        href: '/timetables',
+        permission: 'teacher:verification:read',
+      },
+      {
         // The week ahead, by band or by private lesson.
         id: 'schedule',
         href: '/schedule',

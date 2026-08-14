@@ -549,6 +549,29 @@ export const fr: Messages = {
     live: {
     title: 'Cours en direct',
     subtitle: 'Tous les cours en cours en ce moment.',
+    /** La position de l’enseignant dans la période, calculée côté serveur. */
+    countdown: {
+      taught: '{minutes} min enseignées',
+      earned: '{amount} FCFA',
+      remaining: 'Il reste {minutes} min dans cette période',
+      periodOver: 'Cette période est terminée. Plus rien n’est gagné.',
+      completed: 'Au-delà des {minutes} minutes — cette période compte.',
+      notYet: 'Cette période comptera après {minutes} minutes d’enseignement.',
+      noEarnings:
+        'Ceci est un appel sur invitation, pas un cours de l’emploi du temps. Il ne rapporte rien.',
+    },
+    /** Inviter quelqu’un à un appel, par son nom. */
+    invite: {
+      title: 'Inviter quelqu’un',
+      hint: 'Seules les personnes que vous invitez peuvent rejoindre cet appel, même avec le lien.',
+      searchPlaceholder: 'Tapez un nom',
+      typeMore: 'Tapez au moins deux lettres d’un nom.',
+      noMatches: 'Personne ne correspond à ce nom.',
+      add: 'Inviter',
+      remove: 'Retirer',
+      roleTeacher: 'Enseignant',
+      roleStudent: 'Élève',
+    },
     emptyTitle: 'Aucun cours en cours',
     emptyBody: 'Les cours apparaissent ici dès qu’un enseignant en démarre un.',
     teacher: 'Enseignant',
@@ -1758,8 +1781,32 @@ timetable: {
     confirmedHoursHint: 'Seules les heures confirmées comptent pour vos gains.',
     clashTitle: 'Cela chevauche des heures que vous avez déjà :',
     notePlaceholder: 'Motif — requis pour refuser, l’enseignant le verra',
-    state: { proposed: 'En attente d’approbation', confirmed: 'Confirmé', rejected: 'Refusé' },
-    day: { monday: 'Lundi', tuesday: 'Mardi', wednesday: 'Mercredi', thursday: 'Jeudi', friday: 'Vendredi' },
+    state: {
+      proposed: 'En attente d’approbation',
+      confirmed: 'Confirmé',
+      rejected: 'Refusé',
+      on_hold: 'Suspendu',
+    },
+    /* Jusqu’à dimanche : la semaine scolaire est configurable. */
+    day: {
+      monday: 'Lundi',
+      tuesday: 'Mardi',
+      wednesday: 'Mercredi',
+      thursday: 'Jeudi',
+      friday: 'Vendredi',
+      saturday: 'Samedi',
+      sunday: 'Dimanche',
+    },
+  },
+
+  /** La semaine de chaque classe, sur un seul écran d’administration. */
+  timetableOverview: {
+    description:
+      'Chaque classe, du lundi au samedi, avec la matière et l’enseignant de chaque période.',
+    empty: 'Aucune classe n’a encore été configurée.',
+    classesTimetabled: '{done} classes sur {total} ont un emploi du temps',
+    noTimetable: 'Pas encore d’emploi du temps',
+    freePeriod: 'Période libre',
   },
 
   /** BUILD-PLAN phase 2 — les leçons qu’un enseignant publie pour une classe. */

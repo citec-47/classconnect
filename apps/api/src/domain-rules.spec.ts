@@ -363,6 +363,9 @@ describe('i18n — NFR-LOC-001/002 and §9.2 acceptance criterion 8', () => {
        * Units. `min`, `minutes` and `questions` are the same abbreviation and
        * the same words in French; only the surrounding number changes.
        */
+      // An amount and a currency code. FCFA is not a word either language
+      // translates, and the number is substituted before anyone reads it.
+      'live.countdown.earned',
       'teacherRecordings.length',
       'student.attendance.minutes',
       'student.classes.minutes',

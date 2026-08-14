@@ -6,6 +6,8 @@ import { api, ApiError } from '@/lib/api';
 import { PageHeader } from '@/components/admin/ui';
 import { ErrorAlert, SuccessAlert } from '@/components/Alert';
 import { TeacherGate } from '@/components/teacher/TeacherGate';
+import { PeriodCountdown } from '@/components/teacher/PeriodCountdown';
+import { InviteToCallDialog } from '@/components/teacher/InviteToCallDialog';
 
 interface Named {
   id: string;
@@ -104,6 +106,8 @@ function TeacherLivePage() {
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [groupId, setGroupId] = useState('');
+  /** The session whose invite dialog is open, if any. */
+  const [inviting, setInviting] = useState<string | null>(null);
 
   const name = (item: Named) => (language === 'fr' ? item.nameFr : item.nameEn);
 
@@ -289,14 +293,36 @@ function TeacherLivePage() {
                     {t('teacherLive.elapsed', { minutes: session.elapsedMinutes })}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="cc-btn-primary"
-                  disabled={busy}
-                  onClick={() => void endLive(session.sessionId)}
-                >
-                  {t('teacherLive.end')}
-                </button>
+                <div className="flex gap-2">
+                  {/*
+                   * Invite sits next to End, on every live session.
+                   *
+                   * The brief attaches it to the default Go Live call, and it
+                   * is offered on a timetabled lesson too: a teacher who wants
+                   * a colleague to sit in on a class has the same need, and the
+                   * server decides who may actually join either way.
+                   */}
+                  <button
+                    type="button"
+                    className="cc-btn-secondary"
+                    onClick={() => setInviting(session.sessionId)}
+                  >
+                    {t('live.invite.title')}
+                  </button>
+                  <button
+                    type="button"
+                    className="cc-btn-primary"
+                    disabled={busy}
+                    onClick={() => void endLive(session.sessionId)}
+                  >
+                    {t('teacherLive.end')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Where this lesson stands inside its period, from the server. */}
+              <div className="mt-3">
+                <PeriodCountdown sessionId={session.sessionId} />
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -586,6 +612,10 @@ function TeacherLivePage() {
             </>
           )}
         </>
+      )}
+
+      {inviting && (
+        <InviteToCallDialog sessionId={inviting} onClose={() => setInviting(null)} />
       )}
     </>
   );

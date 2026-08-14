@@ -79,7 +79,8 @@ export function attachLiveKitProxy(server: Server, path = '/livekit'): void {
       const target = `${upstream.replace(/\/$/, '')}/rtc${query ? `?${query.replace(/^\?/, '')}` : ''}`;
 
       const server$ = new WebSocket(target);
-      const pending: (Buffer | string)[] = [];
+      /** Frames the browser sent before the upstream was ready, with their kind. */
+      const pending: { frame: Buffer; isBinary: boolean }[] = [];
 
       /*
        * The browser may speak before the upstream socket is open. Buffering
@@ -87,15 +88,28 @@ export function attachLiveKitProxy(server: Server, path = '/livekit'): void {
        * failing intermittently under a slow link — which is every link this
        * platform targets.
        */
-      client.on('message', (data) => {
+      /*
+       * `isBinary` travels with every frame, in both directions.
+       *
+       * A WebSocket frame is text or binary, and the two are not
+       * interchangeable: `ws` defaults to binary when told nothing, so relaying
+       * without this flag turned LiveKit's text frames into binary ones and the
+       * client's into the wrong kind coming back. The protocol rejects that and
+       * the connection closes — reported by the SDK as "Websocket got closed
+       * during a (re)connection attempt", which reads like a network fault and
+       * is not one.
+       *
+       * A proxy that alters the frames it carries is not a proxy.
+       */
+      client.on('message', (data, isBinary) => {
         const frame = data as Buffer;
-        if (server$.readyState === WebSocket.OPEN) server$.send(frame);
-        else pending.push(frame);
+        if (server$.readyState === WebSocket.OPEN) server$.send(frame, { binary: isBinary });
+        else pending.push({ frame, isBinary });
       });
 
       server$.on('open', () => {
         logger.debug(`Upstream open: ${target.slice(0, 70)}…`);
-        for (const frame of pending) server$.send(frame);
+        for (const held of pending) server$.send(held.frame, { binary: held.isBinary });
         pending.length = 0;
       });
 
@@ -105,8 +119,10 @@ export function attachLiveKitProxy(server: Server, path = '/livekit'): void {
         logger.debug(`Upstream closed ${code} ${reason?.toString().slice(0, 80) ?? ''}`);
       });
 
-      server$.on('message', (data) => {
-        if (client.readyState === WebSocket.OPEN) client.send(data as Buffer);
+      server$.on('message', (data, isBinary) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data as Buffer, { binary: isBinary });
+        }
       });
 
       // Either side closing closes the other: a half-open relay leaks a socket

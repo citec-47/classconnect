@@ -101,7 +101,24 @@ export class LiveKitService {
       canPublishData: true,
     });
 
-    return { url: this.url, token: await token.toJwt() };
+    return { url: this.clientUrl, token: await token.toJwt() };
+  }
+
+  /**
+   * The address the *browser* should dial, which is not always LiveKit's.
+   *
+   * Where `LIVEKIT_PROXY_URL` is set, the browser connects to this API instead
+   * and the signalling is relayed onwards. That exists because a browser
+   * refusing a third-party origin — an extension, tracking protection, a
+   * corporate proxy — cannot be overruled from inside the page, and the only
+   * thing an application can change is which origin it asks for. The API is one
+   * the browser already trusts.
+   *
+   * Unset, this is LiveKit's own URL and nothing is relayed, which is what a
+   * deployed platform on its own domain should use.
+   */
+  private get clientUrl(): string {
+    return process.env.LIVEKIT_PROXY_URL || this.url;
   }
 
   /**

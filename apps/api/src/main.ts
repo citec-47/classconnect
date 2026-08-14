@@ -1,3 +1,5 @@
+import type { Server } from 'node:http';
+import { attachLiveKitProxy } from './teachers/livekit-proxy';
 import { createApp } from './create-app';
 
 /**
@@ -17,6 +19,16 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.API_PORT ?? 4000);
   await app.listen(port, '0.0.0.0');
+
+  /*
+   * The LiveKit signalling relay, on this server's own port.
+   *
+   * Attached here rather than inside a module because it needs the raw HTTP
+   * server to handle the upgrade, and only this entry point has one — Vercel's
+   * does not, which is correct: a serverless function cannot hold a socket open
+   * and the browser there talks to LiveKit directly.
+   */
+  attachLiveKitProxy(app.getHttpServer() as Server);
 
   // eslint-disable-next-line no-console
   console.log(

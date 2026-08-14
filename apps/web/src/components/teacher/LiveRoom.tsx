@@ -80,6 +80,29 @@ async function preflight(): Promise<{
 }
 
 /**
+ * The media server's address, asked for again purely to test reachability.
+ *
+ * Cheap, and it keeps the probe honest: it aims at the same host the failing
+ * connection aimed at, rather than at one hard-coded here that could drift.
+ */
+async function probeUrl(
+  sessionId: string,
+  role: 'host' | 'guest',
+  language: string,
+): Promise<string | null> {
+  try {
+    const path =
+      role === 'host'
+        ? `/teacher/live/${sessionId}/token`
+        : `/learner/live/${sessionId}/token`;
+    const join = await api<{ url: string }>(path, { language });
+    return join.url;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Did the *browser* block this, rather than the user refusing it?
  *
  * Firefox reports tracking protection and extension blocking as
@@ -345,7 +368,38 @@ export function LiveRoom({
        * can read it without opening a console.
        */
       setFailure('connect');
-      setDetail((caught as Error)?.message ?? String(caught));
+      const message = (caught as Error)?.message ?? String(caught);
+
+      /*
+       * "Failed to fetch" names the symptom and hides the cause.
+       *
+       * It is what a browser reports for anything it refused to send — an
+       * extension, tracking protection, a proxy, DNS — and it reads identically
+       * to a genuine server outage. So when the signal connection fails, the
+       * page asks the media server one plain question of its own and reports
+       * the answer: if this reaches LiveKit, the network is fine and the
+       * problem is the token or the room; if it does not, nothing in this
+       * application can fix it and the browser or the network is blocking it.
+       *
+       * Diagnosing from the failing machine beats diagnosing from mine, which
+       * can reach LiveKit perfectly well and therefore proves nothing.
+       */
+      let reach = '';
+      try {
+        const host = (await probeUrl(sessionId, role, language)) ?? '';
+        if (host) {
+          await fetch(host.replace(/^wss/, 'https'), {
+            mode: 'no-cors',
+            signal: AbortSignal.timeout(10_000),
+          });
+          reach = ' — the media server is reachable from this browser, so the block is not the network.';
+        }
+      } catch {
+        reach =
+          ' — this browser cannot reach the media server at all. An extension, tracking protection, a proxy or a firewall is blocking it.';
+      }
+
+      setDetail(message + reach);
     } finally {
       connectingRef.current = false;
     }

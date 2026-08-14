@@ -623,6 +623,8 @@ export const en = {
       noCamera:
         'No camera was found on this device. You have joined with audio only, which is enough to take part.',
       connectFailed: 'We could not connect you to the room.',
+      /* Only shown when the browser is actually withholding sound. */
+      enableSound: 'Tap to hear everyone',
       /* Names the shield, not the camera prompt — no prompt was ever shown. */
       /* Browser policy, not a setting anybody can grant on this page. */
       insecureTitle: 'This address cannot use the camera',

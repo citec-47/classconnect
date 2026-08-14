@@ -579,6 +579,8 @@ export const fr: Messages = {
       noCamera:
         'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
       connectFailed: 'Nous n’avons pas pu vous connecter à la salle.',
+      /* Affiché seulement si le navigateur retient réellement le son. */
+      enableSound: 'Appuyez pour entendre tout le monde',
       /* Désigne le bouclier, pas l’invite caméra : aucune invite n’est apparue. */
       /* Politique du navigateur : aucun réglage de cette page n’y change rien. */
       insecureTitle: 'Cette adresse ne peut pas utiliser la caméra',

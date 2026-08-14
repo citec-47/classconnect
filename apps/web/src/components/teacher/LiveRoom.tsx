@@ -54,8 +54,6 @@ type Failure =
 async function preflight(): Promise<{
   secureContext: boolean;
   hasMediaApi: boolean;
-  hasCamera: boolean;
-  hasMicrophone: boolean;
 }> {
   /*
    * `localhost` counts as secure even over plain HTTP; a LAN address does not.
@@ -66,27 +64,19 @@ async function preflight(): Promise<{
   const hasMediaApi =
     typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
 
-  if (!secureContext || !hasMediaApi) {
-    return { secureContext, hasMediaApi, hasCamera: false, hasMicrophone: false };
-  }
-
-  try {
-    /*
-     * Labels are empty until permission is granted, but the *kinds* are not —
-     * so this answers "is there a camera on this device" without prompting.
-     */
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    return {
-      secureContext,
-      hasMediaApi,
-      hasCamera: devices.some((device) => device.kind === 'videoinput'),
-      hasMicrophone: devices.some((device) => device.kind === 'audioinput'),
-    };
-  } catch {
-    // Enumeration itself can be blocked. Assume the devices exist and let the
-    // publish attempt below produce the specific error.
-    return { secureContext, hasMediaApi, hasCamera: true, hasMicrophone: true };
-  }
+  /*
+   * Deliberately no device enumeration.
+   *
+   * An earlier version asked `enumerateDevices()` whether a camera existed and
+   * skipped the camera when it said no. Before permission is granted that call
+   * is not trustworthy — Firefox, and Edge with privacy settings on, return an
+   * empty list — so the answer was always "no camera" and the camera was never
+   * switched on in either browser.
+   *
+   * Only the two facts that are knowable without a prompt are checked here.
+   * Whether a camera exists is answered by asking for it.
+   */
+  return { secureContext, hasMediaApi };
 }
 
 /**
@@ -144,6 +134,8 @@ export function LiveRoom({
   /** The underlying error text, shown so a failure is diagnosable on sight. */
   const [detail, setDetail] = useState<string | null>(null);
   const connectingRef = useRef(false);
+  /** True when the browser is holding back everyone else's sound. */
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [leaving, setLeaving] = useState(false);
@@ -264,6 +256,17 @@ export function LiveRoom({
           setDetail(deviceError.message || deviceError.name);
           setCameraOn(false);
         })
+        /*
+         * Browsers refuse to play sound until the user has interacted.
+         *
+         * A teacher who opens the room from a link has not clicked anything
+         * inside it, so the first participant to speak is silent — and nothing
+         * on screen explains why. LiveKit reports this, and the remedy is one
+         * gesture, so the button below appears only when it is actually needed.
+         */
+        .on(RoomEvent.AudioPlaybackStatusChanged, () => {
+          setAudioBlocked(!room.canPlaybackAudio);
+        })
         .on(RoomEvent.ConnectionStateChanged, (next) => setState(next))
         .on(RoomEvent.Disconnected, () => {
           stopLocalTracks(room);
@@ -296,9 +299,19 @@ export function LiveRoom({
          * by voice ends up in a silent room. Asking for each in turn means the
          * worst a blocked camera can do is cost the camera.
          */
+        /*
+         * Always ask. Never pre-judge from `enumerateDevices`.
+         *
+         * Before permission is granted, Firefox — and Edge with privacy
+         * settings on — return an empty device list or entries with no `kind`.
+         * Gating the camera on that meant `hasCamera` was false and
+         * `setCameraEnabled` was never called at all, so the camera silently
+         * never came on in either browser. The browser's own prompt is the
+         * gate; asking and handling the refusal is both simpler and correct.
+         */
         try {
-          if (checks.hasCamera) await room.localParticipant.setCameraEnabled(true);
-          else setCameraOn(false);
+          await room.localParticipant.setCameraEnabled(true);
+          setCameraOn(true);
         } catch (cameraError) {
           const error = cameraError as Error;
           setDetail(error.message || error.name);
@@ -307,8 +320,8 @@ export function LiveRoom({
         }
 
         try {
-          if (checks.hasMicrophone) await room.localParticipant.setMicrophoneEnabled(true);
-          else setMicOn(false);
+          await room.localParticipant.setMicrophoneEnabled(true);
+          setMicOn(true);
         } catch (micError) {
           /*
            * Only reported if the camera did not already explain it. Two panels
@@ -423,6 +436,17 @@ export function LiveRoom({
   return (
     <div className="rounded-xl border border-ink-200 bg-white p-3">
       {/* What is happening, in words, whenever it is not simply working. */}
+      {/* One tap, and only while the browser is actually withholding sound. */}
+      {audioBlocked && (
+        <button
+          type="button"
+          onClick={() => void roomRef.current?.startAudio().then(() => setAudioBlocked(false))}
+          className="mb-2 w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
+        >
+          {t('live.room.enableSound')}
+        </button>
+      )}
+
       {state === ConnectionState.Reconnecting && (
         <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
           {t('live.room.reconnecting')}

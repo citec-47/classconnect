@@ -1398,6 +1398,8 @@ export const en = {
       not_your_learner: 'You are not assigned to teach that learner.',
       slot_not_confirmed: 'That timetable slot is not yours, or has not been confirmed.',
       /* Says whose problem it is: the platform's, not the teacher's device. */
+      upstream_unreachable:
+        'The media server is not answering. This is on our side, not yours — please try again shortly.',
       not_configured:
         'Live lessons are not switched on for this platform yet. Please tell an administrator.',
       /* Says the link is not the problem, so nobody keeps retrying it. */

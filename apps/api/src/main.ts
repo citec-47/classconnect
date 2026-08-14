@@ -28,7 +28,10 @@ async function bootstrap(): Promise<void> {
    * does not, which is correct: a serverless function cannot hold a socket open
    * and the browser there talks to LiveKit directly.
    */
-  attachLiveKitProxy(app.getHttpServer() as Server);
+  attachLiveKitProxy(
+    app.getHttpServer() as Server,
+    `${process.env.API_PREFIX ?? '/api/v1'}/livekit`,
+  );
 
   // eslint-disable-next-line no-console
   console.log(

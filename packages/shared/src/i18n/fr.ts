@@ -1347,6 +1347,8 @@ export const fr: Messages = {
       not_your_learner: 'Vous n’êtes pas affecté à cet élève.',
       slot_not_confirmed: 'Ce créneau n’est pas le vôtre, ou n’a pas été confirmé.',
       /* Dit à qui revient le problème : à la plateforme, pas à l’appareil. */
+      upstream_unreachable:
+        'Le serveur média ne répond pas. Le problème vient de nous, pas de vous — réessayez dans un instant.',
       not_configured:
         'Les cours en direct ne sont pas encore activés sur cette plateforme. Veuillez prévenir un administrateur.',
       /* Le lien n’est pas en cause : inutile de réessayer. */

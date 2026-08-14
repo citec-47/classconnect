@@ -30,7 +30,25 @@ interface Tile {
   hasVideo: boolean;
 }
 
-type Failure = 'permission' | 'no-devices' | 'connect' | null;
+type Failure = 'permission' | 'no-devices' | 'connect' | 'blocked' | null;
+
+/**
+ * Did the *browser* block this, rather than the user refusing it?
+ *
+ * Firefox reports tracking protection and extension blocking as
+ * `NS_ERROR_CONTENT_BLOCKED`, and Chromium-family browsers as a `SecurityError`
+ * — neither is a permission the user can grant from the camera prompt, because
+ * no prompt was ever shown. Telling the two apart matters: "allow the camera"
+ * is useless advice to somebody whose shield icon is blocking the connection.
+ */
+function isBlocked(error: Error): boolean {
+  const text = `${error.name} ${error.message}`;
+  return (
+    text.includes('NS_ERROR_CONTENT_BLOCKED') ||
+    text.includes('SecurityError') ||
+    text.includes('blocked')
+  );
+}
 
 /**
  * The live room: video, audio and the controls over them.
@@ -154,6 +172,20 @@ export function LiveRoom({
         .on(RoomEvent.ActiveSpeakersChanged, () => refreshTiles(room))
         .on(RoomEvent.TrackMuted, () => refreshTiles(room))
         .on(RoomEvent.TrackUnmuted, () => refreshTiles(room))
+        /*
+         * Device failures arrive here, not from the call that caused them.
+         *
+         * LiveKit retries a camera or microphone internally, so a browser that
+         * refuses one throws *after* `enableCameraAndMicrophone` has resolved —
+         * outside any try/catch of ours, which is how a Firefox
+         * `NS_ERROR_CONTENT_BLOCKED` reached Next's runtime overlay and took
+         * the whole page down instead of showing a message.
+         */
+        .on(RoomEvent.MediaDevicesError, (deviceError: Error) => {
+          setFailure(isBlocked(deviceError) ? 'blocked' : 'permission');
+          setDetail(deviceError.message || deviceError.name);
+          setCameraOn(false);
+        })
         .on(RoomEvent.ConnectionStateChanged, (next) => setState(next))
         .on(RoomEvent.Disconnected, () => {
           stopLocalTracks(room);
@@ -189,8 +221,11 @@ export function LiveRoom({
            * stays in the room — audio-only, or listening — rather than being
            * dropped out of a lesson over a camera.
            */
-          const name = (deviceError as Error).name;
-          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          const error = deviceError as Error;
+          setDetail(error.message || error.name);
+          if (isBlocked(error)) {
+            setFailure('blocked');
+          } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
             setFailure('permission');
           } else {
             setFailure('no-devices');
@@ -313,6 +348,17 @@ export function LiveRoom({
         <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
           {t('live.room.permissionDenied')}
         </p>
+      )}
+      {/*
+       * A different message from a refused permission, because the fix is in a
+       * different place: the shield icon, not the camera prompt.
+       */}
+      {failure === 'blocked' && (
+        <div className="mb-2 rounded-lg bg-warning-50 p-2">
+          <p className="text-sm font-medium text-warning-600">{t('live.room.blockedTitle')}</p>
+          <p className="mt-0.5 text-sm text-ink-900">{t('live.room.blockedBody')}</p>
+          {detail && <p className="mt-0.5 font-mono text-xs text-ink-600">{detail}</p>}
+        </div>
       )}
       {failure === 'no-devices' && (
         <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">

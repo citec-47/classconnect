@@ -623,6 +623,10 @@ export const en = {
       noCamera:
         'No camera was found on this device. You have joined with audio only, which is enough to take part.',
       connectFailed: 'We could not connect you to the room.',
+      /* Names the shield, not the camera prompt — no prompt was ever shown. */
+      blockedTitle: 'Your browser blocked the video connection',
+      blockedBody:
+        'This is browser protection, not a permission you refused. In Firefox, click the shield in the address bar and turn Enhanced Tracking Protection off for this site. If you use an ad blocker, allow this site there too, then reload.',
     },
     /** Inviting somebody into a call by name. */
     invite: {

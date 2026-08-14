@@ -579,6 +579,10 @@ export const fr: Messages = {
       noCamera:
         'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
       connectFailed: 'Nous n’avons pas pu vous connecter à la salle.',
+      /* Désigne le bouclier, pas l’invite caméra : aucune invite n’est apparue. */
+      blockedTitle: 'Votre navigateur a bloqué la connexion vidéo',
+      blockedBody:
+        'Il s’agit d’une protection du navigateur, pas d’une permission que vous auriez refusée. Dans Firefox, cliquez sur le bouclier dans la barre d’adresse et désactivez la protection renforcée pour ce site. Si vous utilisez un bloqueur de publicités, autorisez aussi ce site, puis rechargez.',
     },
     /** Inviter quelqu’un à un appel, par son nom. */
     invite: {

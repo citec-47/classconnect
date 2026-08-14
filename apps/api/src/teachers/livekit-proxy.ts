@@ -68,15 +68,21 @@ export function attachLiveKitProxy(server: Server, path = '/livekit'): void {
 
     wss.handleUpgrade(request, socket, head, (client) => {
       /*
-       * The query string is carried across untouched.
+       * Everything after the mount point is carried across exactly as it came.
        *
-       * LiveKit puts the access token, the protocol version and the client's
-       * capabilities there. Rebuilding it would mean tracking every parameter
-       * the SDK adds in future versions; passing it through means this proxy
-       * keeps working when the SDK changes.
+       * The client asks for `/rtc/v1?access_token=…` — a path *and* a query —
+       * and an earlier version here stripped the leading slash and then pasted
+       * the remainder in as the query string, producing
+       * `…/rtc?rtc/v1?access_token=…`. The token was no longer a parameter at
+       * all, LiveKit answered 401, and the SDK reported it as a socket that
+       * closed during connection: three layers away from the actual mistake.
+       *
+       * Splicing a URL by hand is what caused that, so this no longer does. The
+       * suffix is passed through untouched, which also means a future SDK that
+       * calls a different path keeps working.
        */
-      const query = url.slice(path.length).replace(/^\/?/, '');
-      const target = `${upstream.replace(/\/$/, '')}/rtc${query ? `?${query.replace(/^\?/, '')}` : ''}`;
+      const suffix = url.slice(path.length);
+      const target = `${upstream.replace(/\/$/, '')}${suffix}`;
 
       const server$ = new WebSocket(target);
       /** Frames the browser sent before the upstream was ready, with their kind. */

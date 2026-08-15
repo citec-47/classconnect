@@ -78,6 +78,32 @@ export class RecordingStorageService {
   }
 
   /**
+   * The contents of a small text object, or null.
+   *
+   * For playlists only. A `.m3u8` is a few kilobytes of line-separated text, and
+   * the API rewrites it before handing it to a player. Nothing else should read
+   * an object through the server: segments are megabytes and go straight from
+   * the store to the browser on their own signed URLs, because proxying them
+   * would put every lesson's video through this process.
+   */
+  async fetchText(storageKey: string): Promise<string | null> {
+    const url = this.presign('GET', storageKey, 60);
+    if (!url) return null;
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      if (!response.ok) {
+        this.logger.error(`Could not read ${storageKey}: HTTP ${response.status}`);
+        return null;
+      }
+      return await response.text();
+    } catch (error) {
+      this.logger.error(`Could not read ${storageKey}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
    * Every object under a prefix, with its size.
    *
    * A segmented recording is a folder, so its size is the sum of its parts and

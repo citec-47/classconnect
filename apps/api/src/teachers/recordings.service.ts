@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AppError } from '../common/http-exception.filter';
@@ -180,6 +181,28 @@ export class RecordingsService {
     const key = audioOnly ? recording.audioKey : recording.storageKey;
     if (!key) throw AppError.notFound();
 
+    /*
+     * A playlist is served by this API, not by the store.
+     *
+     * A signed link to the `.m3u8` alone plays nothing: the playlist names
+     * segments the player then fetches for itself, and against a private bucket
+     * every one of those comes back 403. The playlist has to be rewritten so
+     * each segment carries its own signature, and only the server can do that.
+     *
+     * The ticket exists because the player cannot help. `<video>` and hls.js
+     * fetch media without the session cookie or bearer token, so the entitlement
+     * check that just passed cannot be repeated on the media request. Instead it
+     * is *carried*: a short-lived signature over this recording and this user,
+     * useless for any other recording and expired within hours.
+     */
+    if (key.endsWith('.m3u8')) {
+      return {
+        url: `${this.apiPrefix}/recordings/${recording.id}/playlist.m3u8?t=${this.mintTicket(recording.id, user.id)}`,
+        format: 'hls' as const,
+        expiresInSeconds: RecordingStorageService.TTL_SECONDS,
+      };
+    }
+
     const url = this.storage.signedUrl(key);
     if (!url) {
       /*
@@ -227,6 +250,111 @@ export class RecordingsService {
 
     await this.prisma.recording.delete({ where: { id: recordingId } });
     return { deleted: true };
+  }
+
+  /**
+   * The playlist, rewritten so every segment carries its own signature.
+   *
+   * This is the only place a media URL is minted for a browser, and it is
+   * reached with a ticket rather than a session, because players do not send
+   * credentials. The ticket is the entitlement check's receipt: it was issued
+   * only after `playbackUrl` passed, it names one recording and one user, and it
+   * is signed, so it cannot be edited into a ticket for a different lesson.
+   *
+   * Segments get their own expiring URLs pointing straight at the store. The
+   * video never passes through this process — a 200 MB lesson proxied per
+   * viewer would take the API down long before it took the network down.
+   */
+  async playlist(recordingId: string, ticket: string): Promise<string> {
+    if (!this.verifyTicket(recordingId, ticket)) throw AppError.notFound();
+
+    const recording = await this.prisma.recording.findFirst({
+      where: { id: recordingId },
+      select: { storageKey: true, availableUntil: true },
+    });
+    if (!recording || recording.availableUntil.getTime() <= Date.now()) throw AppError.notFound();
+
+    const body = await this.storage.fetchText(recording.storageKey);
+    if (body === null) throw AppError.serviceUnavailable('errors.recording.storage_unavailable');
+
+    /*
+     * Segment references are relative to the playlist, so they resolve against
+     * its folder. Comment lines (`#EXTINF`, `#EXT-X-…`) and blank lines are
+     * structure and pass through untouched — rewriting one would corrupt the
+     * playlist in a way that fails silently in some players and loudly in others.
+     */
+    const folder = recording.storageKey.slice(0, recording.storageKey.lastIndexOf('/') + 1);
+
+    return body
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        /* Already absolute: leave it alone rather than signing a foreign host. */
+        if (/^https?:\/\//i.test(trimmed)) return line;
+        return this.storage.signedUrl(`${folder}${trimmed}`) ?? line;
+      })
+      .join('\n');
+  }
+
+  /**
+   * A signature over "this user may watch this recording", valid for as long as
+   * the segment links are.
+   *
+   * Deliberately not a JWT: it is not an identity, it grants nothing beyond one
+   * recording, and it travels in a URL that ends up in browser history and
+   * server logs. Small, opaque and short-lived is the whole specification.
+   *
+   * The user id is inside the signature rather than merely alongside it, so a
+   * ticket cannot be re-pointed at another recording or lifted into another
+   * account without invalidating itself.
+   */
+  private mintTicket(recordingId: string, userId: string): string {
+    const expiresAt = Date.now() + RecordingStorageService.TTL_SECONDS * 1000;
+    const payload = `${recordingId}.${userId}.${expiresAt}`;
+    return `${Buffer.from(payload).toString('base64url')}.${this.signTicket(payload)}`;
+  }
+
+  private verifyTicket(recordingId: string, ticket: string): boolean {
+    const [encoded, signature] = (ticket ?? '').split('.');
+    if (!encoded || !signature) return false;
+
+    let payload: string;
+    try {
+      payload = Buffer.from(encoded, 'base64url').toString();
+    } catch {
+      return false;
+    }
+
+    const expected = this.signTicket(payload);
+    /*
+     * Constant-time, and length-checked first because `timingSafeEqual` throws
+     * on a length mismatch rather than returning false — which would turn a
+     * malformed ticket into a 500 and hand an attacker a distinguishable
+     * response.
+     */
+    if (signature.length !== expected.length) return false;
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
+
+    const [ticketRecordingId, , expiresAt] = payload.split('.');
+    return ticketRecordingId === recordingId && Number(expiresAt) > Date.now();
+  }
+
+  private signTicket(payload: string): string {
+    /*
+     * The API's own signing secret. A recording ticket is exactly as sensitive
+     * as a session, so it is not given a weaker key of its own — and a missing
+     * secret must stop the process at boot rather than silently produce
+     * signatures anybody can forge.
+     */
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) throw new Error('JWT_ACCESS_SECRET is required to sign recording tickets');
+    return createHmac('sha256', secret).update(payload).digest('base64url');
+  }
+
+  /** Where this API is mounted, so the player is handed a URL that resolves. */
+  private get apiPrefix(): string {
+    return process.env.API_PREFIX ?? '/api/v1';
   }
 
   /**

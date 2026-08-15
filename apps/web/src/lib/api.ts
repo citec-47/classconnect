@@ -155,11 +155,18 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   // FR-AUT-006: a short-lived access token is expected to expire mid-session.
   // Rotate once and replay, so the user never sees a spurious sign-in prompt.
   if (response.status === 401 && retryOnUnauthorised && tokenStore.refresh) {
-    const rotated = await tryRefresh();
-    if (rotated) {
+    const outcome = await tryRefresh();
+    if (outcome === 'rotated') {
       return api<T>(path, { ...options, retryOnUnauthorised: false });
     }
-    tokenStore.clear();
+    /*
+     * Signed out only when the server actually refused the refresh token.
+     *
+     * `offline` leaves the tokens alone: the session outlives a restart, a tunnel
+     * and a flat patch of signal, and the user is asked to sign in again only
+     * when they genuinely are signed out.
+     */
+    if (outcome === 'refused') tokenStore.clear();
   }
 
   const correlationId = response.headers.get('x-correlation-id') ?? undefined;
@@ -232,33 +239,93 @@ export async function apiUpload(
   }
 
   if (response.status === 401 && retryOnUnauthorised && tokenStore.refresh) {
-    const rotated = await tryRefresh();
-    if (rotated) {
+    const outcome = await tryRefresh();
+    if (outcome === 'rotated') {
       return apiUpload(path, file, { ...options, retryOnUnauthorised: false });
     }
-    tokenStore.clear();
+    // Same rule as `api()`: only an outright refusal ends the session. An
+    // upload that failed because the network dropped must not sign the teacher
+    // out — they are usually mid-way through a 100 MB lesson when it happens.
+    if (outcome === 'refused') tokenStore.clear();
   }
 
   return response;
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = tokenStore.refresh;
-  if (!refreshToken) return false;
+/**
+ * The outcome of trying to rotate an expired access token.
+ *
+ * Three states, not two, and the distinction is the whole point:
+ *
+ *   rotated   a fresh pair is in hand; replay the request.
+ *   refused   the server looked at the refresh token and said no — it is
+ *             revoked, expired or forged. The session really is over.
+ *   offline   we never got an answer. The session is untouched and probably
+ *             still perfectly good.
+ *
+ * These used to collapse into `false`, and the caller wiped the tokens on it.
+ * So an API restart, a dropped connection or a momentary 502 signed the user out
+ * — indistinguishable, from their side, from being kicked out for no reason, and
+ * on a Cameroonian mobile connection (§6.2) it happened constantly.
+ */
+type RefreshOutcome = 'rotated' | 'refused' | 'offline';
 
+/**
+ * The one rotation in flight, shared by everyone waiting on it.
+ *
+ * `POST /auth/refresh` rotates: it revokes the token presented and issues a new
+ * pair, so that a stolen token works at most once. Correct — and it makes
+ * concurrent refreshes fatal. A dashboard fires several requests at once; fifteen
+ * minutes in they all return 401 together; each calls `tryRefresh` with the same
+ * token; the first rotates it and the rest present one the server has just
+ * revoked. They get 401, read it as "your session is over", and sign the user out
+ * — in the middle of a lesson, having done nothing wrong.
+ *
+ * So the first caller performs the rotation and the others await its result.
+ * One rotation per expiry, no race, and nobody is signed out for being second.
+ */
+let inFlightRefresh: Promise<RefreshOutcome> | null = null;
+
+function tryRefresh(): Promise<RefreshOutcome> {
+  inFlightRefresh ??= performRefresh().finally(() => {
+    inFlightRefresh = null;
+  });
+  return inFlightRefresh;
+}
+
+async function performRefresh(): Promise<RefreshOutcome> {
+  const refreshToken = tokenStore.refresh;
+  if (!refreshToken) return 'refused';
+
+  let response: Response;
   try {
-    const response = await fetch(`${apiBase()}/auth/refresh`, {
+    response = await fetch(`${apiBase()}/auth/refresh`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
-    if (!response.ok) return false;
-
-    const tokens = (await response.json()) as { accessToken: string; refreshToken: string };
-    tokenStore.set(tokens);
-    return true;
   } catch {
-    return false;
+    // Never reached the server. Says nothing about whether the token is valid.
+    return 'offline';
   }
+
+  if (response.ok) {
+    const tokens = (await response.json().catch(() => null)) as
+      | { accessToken: string; refreshToken: string }
+      | null;
+    if (!tokens?.accessToken) return 'offline';
+    tokenStore.set(tokens);
+    return 'rotated';
+  }
+
+  /*
+   * Only a judgement on the token itself ends the session.
+   *
+   * 401 and 403 mean the server read it and rejected it. A 5xx, a 429 or a
+   * gateway error mean the server could not answer — which is the same
+   * information as no answer at all, so it is treated the same way.
+   */
+  if (response.status === 401 || response.status === 403) return 'refused';
+  return 'offline';
 }

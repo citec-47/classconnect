@@ -64,9 +64,30 @@ export function AuthProvider({
       setUser(me);
       return me;
     } catch (error) {
-      // A 401 here means the refresh token is gone or revoked (FR-AUT-006).
-      if (error instanceof ApiError && error.status === 401) tokenStore.clear();
-      setUser(null);
+      const failure = error instanceof ApiError ? error : null;
+
+      /*
+       * Only a refusal ends the session. Unreachable does not.
+       *
+       * `api()` has already tried to rotate the token by the time a 401 reaches
+       * here, so a 401 now means the refresh token itself was rejected — revoked,
+       * expired, or from a session an admin ended (FR-AUT-006). That is a real
+       * sign-out and the tokens go.
+       *
+       * A network error or a timeout is a different animal, and it used to be
+       * treated the same: the user was blanked to `null` and the whole app
+       * behaved as though they had signed out, because the API had restarted or a
+       * lift had eaten the signal. The tokens stay, the last known user stays, and
+       * the next call picks up where it left off.
+       */
+      if (failure?.status === 401) {
+        tokenStore.clear();
+        setUser(null);
+        return null;
+      }
+
+      // Unreachable: keep whoever was signed in. `user` is deliberately not
+      // cleared here — see above.
       return null;
     } finally {
       setLoading(false);

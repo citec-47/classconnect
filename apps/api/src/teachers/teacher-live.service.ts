@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { PlatformConfigService } from '../common/platform-config.service';
@@ -45,6 +45,8 @@ import type { AuthenticatedUser } from '../rbac/decorators';
  */
 @Injectable()
 export class TeacherLiveService {
+  private readonly logger = new Logger(TeacherLiveService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: PlatformConfigService,
@@ -504,6 +506,77 @@ export class TeacherLiveService {
 
   /** The name shown on a participant's tile in the room. */
   /**
+   * Records what egress produced, against the session it came from.
+   *
+   * One row per session, holding the object key rather than a copy of the file:
+   * every audience reaches the same object through its own entitlement check.
+   *
+   * Nothing is written when no file landed. A row with no object behind it is
+   * worse than no row at all — it puts a broken player in front of a teacher and
+   * tells a safeguarding review a recording exists when it does not.
+   */
+  private async fileRecording(sessionId: string, egressId: string): Promise<void> {
+    try {
+      const result = await this.livekit.recordingResult(egressId);
+
+      if (!result) {
+        /*
+         * Said out loud and written down. `recordingEnabled` goes back to false
+         * because it means "there is a recording", and there is not — the rule
+         * agreed for this: no file and no size means never captured.
+         */
+        this.logger.error(`Session ${sessionId}: egress ${egressId} produced no file`);
+        await this.prisma.session.update({
+          where: { id: sessionId },
+          data: { recordingEnabled: false },
+        });
+        return;
+      }
+
+      /*
+       * Looked up first because `sessionId` carries no unique constraint, so
+       * `upsert` cannot key on it. One row per lesson is still the rule — a
+       * second would show the class the same video twice and double what
+       * storage appears to hold — so a re-run updates rather than inserts.
+       */
+      const existing = await this.prisma.recording.findFirst({
+        where: { sessionId },
+        select: { id: true },
+      });
+
+      const facts = {
+        storageKey: result.storageKey,
+        durationSec: result.durationSec,
+        sizeBytes: BigInt(result.sizeBytes),
+      };
+
+      if (existing) {
+        await this.prisma.recording.update({ where: { id: existing.id }, data: facts });
+      } else {
+        await this.prisma.recording.create({
+          data: {
+            sessionId,
+            ...facts,
+            /* §5.5 retention: ninety days unless a hold suspends the clock. */
+            availableUntil: new Date(Date.now() + 90 * 86_400_000),
+          },
+        });
+      }
+
+      this.logger.log(
+        `Session ${sessionId}: recorded ${result.storageKey} (${result.sizeBytes} bytes)`,
+      );
+    } catch (error) {
+      /*
+       * Swallowed here and nowhere else. This runs after the lesson has already
+       * been closed and the teacher has left; throwing would surface on nobody's
+       * screen and could only take out the process.
+       */
+      this.logger.error(`Could not file recording for ${sessionId}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * The learner record behind a signed-in user, or null.
    *
    * Null is ordinary rather than exceptional: most learners on this platform are
@@ -558,6 +631,17 @@ export class TeacherLiveService {
      */
     if (session.egressId) {
       await this.livekit.stopRecording(session.egressId);
+      /*
+       * Filed here, once the file exists, because until now nothing ever wrote a
+       * `Recording` row: egress uploaded to the bucket and the platform kept no
+       * record of what it had, so every list was empty and every lesson looked
+       * unrecorded.
+       *
+       * Deliberately not awaited into the lesson's critical path below — the
+       * teacher's screen must not wait on an upload — but not fired and
+       * forgotten either: a failure marks the row rather than vanishing.
+       */
+      void this.fileRecording(sessionId, session.egressId);
     }
 
     const endedAt = new Date();

@@ -295,6 +295,62 @@ export class LiveKitService {
     }
   }
 
+  /**
+   * What a finished egress actually produced, or null.
+   *
+   * Asked for after stopping rather than waiting on a webhook, because a webhook
+   * needs a publicly reachable URL and this platform is developed on a laptop
+   * behind a Cameroonian domestic connection. The trade is honest: this is a few
+   * seconds of polling at the end of a lesson instead of infrastructure nobody
+   * has yet, and the webhook can replace it later without changing the caller.
+   *
+   * The file is written by LiveKit's own uploader, so this waits for the upload
+   * to finish rather than assuming it: a size of zero means the object is not
+   * there yet, and reporting a recording that has not landed is exactly the lie
+   * this platform keeps telling itself.
+   */
+  async recordingResult(
+    egressId: string,
+  ): Promise<{ storageKey: string; durationSec: number; sizeBytes: number } | null> {
+    if (!this.configured) return null;
+
+    const egress = new EgressClient(this.httpUrl, this.apiKey, this.apiSecret);
+
+    /*
+     * Six attempts, five seconds apart. Composing and uploading a lesson takes
+     * longer than stopping it does, and giving up immediately would file every
+     * recording as failed while the file was still being written.
+     */
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const [info] = await egress.listEgress({ egressId });
+        const file = info?.fileResults?.[0];
+
+        if (file?.filename && Number(file.size ?? 0) > 0) {
+          return {
+            storageKey: file.filename,
+            /* LiveKit reports nanoseconds; the column is seconds. */
+            durationSec: Math.round(Number(file.duration ?? 0) / 1_000_000_000),
+            sizeBytes: Number(file.size),
+          };
+        }
+
+        /* Terminal and empty-handed: no amount of waiting will produce a file. */
+        if (info && ['EGRESS_FAILED', 'EGRESS_ABORTED'].includes(String(info.status))) {
+          this.logger.error(`Egress ${egressId} ended as ${info.status}: ${info.error ?? ''}`);
+          return null;
+        }
+      } catch (error) {
+        this.logger.error(`Could not read egress ${egressId}: ${(error as Error).message}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
+
+    this.logger.error(`Egress ${egressId} produced no file within 30s`);
+    return null;
+  }
+
   /** Stops a recording when the teacher ends the lesson. */
   async stopRecording(egressId: string): Promise<void> {
     if (!this.configured) return;

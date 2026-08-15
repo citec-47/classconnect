@@ -199,6 +199,13 @@ export class RecordingsService {
       return {
         url: `${this.apiPrefix}/recordings/${recording.id}/playlist.m3u8?t=${this.mintTicket(recording.id, user.id)}`,
         format: 'hls' as const,
+        /*
+         * Stated rather than left undefined. The player picks its element from
+         * this field, and an absent one happens to be falsy today — which is the
+         * right answer by accident, and the kind of accident that stops being
+         * right the moment an audio rendition is segmented too.
+         */
+        audioOnly: false,
         expiresInSeconds: RecordingStorageService.TTL_SECONDS,
       };
     }

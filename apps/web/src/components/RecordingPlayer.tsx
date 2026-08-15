@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { api, ApiError } from '@/lib/api';
 import type { RecordingStateDto } from '@classconnect/shared';
@@ -50,9 +50,71 @@ export function RecordingPlayer({
 }) {
   const { t, language } = useI18n();
 
-  const [source, setSource] = useState<{ url: string; audioOnly: boolean } | null>(null);
+  const [source, setSource] = useState<{ url: string; audioOnly: boolean; format?: 'hls' } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+
+  /*
+   * Attaching an HLS playlist, which no browser but Safari will do for itself.
+   *
+   * Declared above every early return below, because a hook that only sometimes
+   * runs is a hook React will complain about on the second render.
+   *
+   * hls.js is imported here rather than at the top of the file so that the
+   * library — a few hundred kilobytes — is fetched by the people who press play
+   * and by nobody else. On the connections this platform is built for, shipping
+   * it to every page that merely *lists* lessons would be the most expensive
+   * thing on the screen.
+   */
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!source || source.format !== 'hls' || source.audioOnly || !video) return;
+
+    /* Safari and iOS play the playlist directly, and do it better than we can. */
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = source.url;
+      return;
+    }
+
+    let destroy: (() => void) | undefined;
+    let cancelled = false;
+
+    void import('hls.js').then(({ default: Hls }) => {
+      if (cancelled || !Hls.isSupported()) {
+        if (!cancelled) setFailure('recordings.unavailable');
+        return;
+      }
+      const hls = new Hls({
+        /*
+         * The segment URLs inside the playlist are already signed, and the
+         * playlist itself carries its ticket in the query string. Nothing here
+         * needs cookies, and asking for them would trip CORS for no gain.
+         */
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = false;
+        },
+      });
+      hls.loadSource(source.url);
+      hls.attachMedia(video);
+      /*
+       * A fatal error is reported in words rather than left as a black
+       * rectangle — the same rule the rest of this component follows.
+       */
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          setFailure('recordings.unavailable');
+          hls.destroy();
+        }
+      });
+      destroy = () => hls.destroy();
+    });
+
+    return () => {
+      cancelled = true;
+      destroy?.();
+    };
+  }, [source]);
 
   /*
    * A row the platform cannot serve says so before anyone presses anything.
@@ -79,11 +141,11 @@ export function RecordingPlayer({
             ? '/teacher/recordings'
             : '/admin/recordings';
 
-      const result = await api<{ url: string; audioOnly: boolean }>(
+      const result = await api<{ url: string; audioOnly: boolean; format?: 'hls' }>(
         `${base}/${recordingId}/url${audio ? '?audio=1' : ''}`,
         { language },
       );
-      setSource({ url: result.url, audioOnly: result.audioOnly });
+      setSource({ url: result.url, audioOnly: result.audioOnly, format: result.format });
     } catch (caught) {
       const error = caught as ApiError;
       /*
@@ -109,7 +171,16 @@ export function RecordingPlayer({
            * spend this data, and metadata is enough for a duration and a scrubber.
            */
           <video
-            src={source.url}
+            ref={videoRef}
+            /*
+             * An HLS playlist is attached by the effect below, not set here.
+             *
+             * Safari plays `.m3u8` from `src` natively; Chrome, Edge and Firefox
+             * do not, and setting it there would leave most of this platform's
+             * students — Android, on Chrome — with a player that reports an
+             * unsupported format for a recording that is perfectly fine.
+             */
+            src={source.format === 'hls' ? undefined : source.url}
             controls
             autoPlay
             playsInline

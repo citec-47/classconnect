@@ -68,6 +68,26 @@ export class LiveKitService {
   }
 
   /**
+   * Whether a lesson started right now could actually be recorded.
+   *
+   * Asked *before* going live rather than discovered afterwards. Recording needs
+   * two separate things — a media server to record, and somewhere to put the
+   * file — and the second was silently absent for weeks: every lesson went ahead,
+   * the warning went to a log nobody reads, and the teacher's screen said
+   * "Recording: No" without saying why. A safeguarding control that fails quietly
+   * is one nobody notices has failed.
+   *
+   * Returns the reason rather than a boolean so the screen can name it, and so
+   * "no media server" and "nowhere to store it" stay distinguishable — they are
+   * fixed in completely different places.
+   */
+  get recordingUnavailableReason(): 'media_server' | 'storage' | null {
+    if (!this.configured) return 'media_server';
+    if (!this.recordingStorage) return 'storage';
+    return null;
+  }
+
+  /**
    * A short-lived token for one participant in one room.
    *
    * Ten minutes: long enough to survive a slow join on §6.2's network, short

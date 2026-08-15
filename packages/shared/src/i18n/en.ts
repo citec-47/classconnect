@@ -2123,6 +2123,20 @@ timetable: {
   /** BUILD-PLAN Phase 5 — live. */
   teacherLive: {
     description: 'Start a lesson from your timetable, and decide who may speak in it.',
+    /**
+     * Why this lesson is not being kept, said while it is still running.
+     *
+     * Three causes, three sentences, because they are fixed in three different
+     * places and "Recording: No" reads as a setting rather than a fault.
+     */
+    notRecording: {
+      storage:
+        'This lesson is NOT being recorded. The platform has nowhere to store recordings yet — the storage keys are missing. Nothing you do in the room can fix it; tell whoever runs the platform.',
+      media_server:
+        'This lesson is NOT being recorded, because the media server is not connected.',
+      egress_failed:
+        'This lesson is NOT being recorded. The recorder was asked to start and refused; the lesson continues, but it is not being kept.',
+    },
     /*
      * The missing media server, stated once and plainly. A teacher who reads this
      * knows why there is no picture; one who does not would blame their webcam.

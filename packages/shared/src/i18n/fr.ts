@@ -2035,6 +2035,15 @@ timetable: {
   teacherLive: {
     description:
       'Démarrez un cours depuis votre emploi du temps et décidez qui peut y prendre la parole.',
+    /* Trois causes, trois phrases — voir en.ts : « Non » se lit comme un réglage. */
+    notRecording: {
+      storage:
+        'Ce cours n’est PAS enregistré. La plateforme n’a pas encore d’espace de stockage — les clés sont manquantes. Rien de ce que vous faites dans la salle ne peut y remédier ; prévenez la personne qui administre la plateforme.',
+      media_server:
+        'Ce cours n’est PAS enregistré, car le serveur média n’est pas connecté.',
+      egress_failed:
+        'Ce cours n’est PAS enregistré. L’enregistreur a refusé de démarrer ; le cours continue, mais il n’est pas conservé.',
+    },
     /* Le serveur média manquant, dit une fois et clairement. Voir en.ts. */
     noMediaTitle: 'La vidéo et le son ne sont pas encore branchés',
     noMediaBody:

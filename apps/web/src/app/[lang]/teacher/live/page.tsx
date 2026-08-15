@@ -26,6 +26,8 @@ interface LiveSession {
   startedAt: string;
   elapsedMinutes: number;
   recordingEnabled: boolean;
+  /** Named cause when `recordingEnabled` is false, so the tile can say why. */
+  recordingUnavailableReason: 'media_server' | 'storage' | 'egress_failed' | null;
   countsTowardEarnings: boolean;
   insideTimetableSlot: boolean;
   presentCount: number;
@@ -371,6 +373,25 @@ function TeacherLivePage() {
                   }
                 />
               </div>
+
+              {/*
+               * A lesson that is not being kept says so, in words, while it is
+               * still running.
+               *
+               * "Recording: No" on its own is the failure this fixes: it reads as
+               * a setting rather than a fault, so a teacher taught on believing
+               * the class was saved and found out afterwards that it was not.
+               * FR-SAF-004 makes the recording a safeguarding control, and a
+               * control that fails silently is one nobody knows has failed.
+               */}
+              {!session.recordingEnabled && session.recordingUnavailableReason && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-lg border border-warning-600 bg-warning-50 p-3 text-sm text-ink-900"
+                >
+                  {t(`teacherLive.notRecording.${session.recordingUnavailableReason}`)}
+                </p>
+              )}
 
               {/*
                * Two minute counts, side by side and named differently.

@@ -136,6 +136,16 @@ export class TeacherLiveService {
           elapsedMinutes,
           recordingEnabled: session.recordingEnabled,
           /*
+           * Why the lesson is not being recorded, while it is still running.
+           *
+           * On the board rather than only in the go-live response, because a
+           * teacher who reloads mid-lesson would otherwise lose the warning and
+           * carry on believing the class is being kept.
+           */
+          recordingUnavailableReason: session.recordingEnabled
+            ? null
+            : (this.livekit.recordingUnavailableReason ?? 'egress_failed'),
+          /*
            * Whether this lesson has passed the earnings floor.
            *
            * Reported off the wall clock as guidance for the teacher watching the
@@ -365,6 +375,18 @@ export class TeacherLiveService {
        * that admits there is none, because only the first stops anybody looking.
        */
       recordingEnabled: Boolean(egressId),
+      /*
+       * Why not, when not.
+       *
+       * `recordingEnabled: false` on its own sent a teacher looking at their own
+       * camera and their own network for a fault that was neither. This names the
+       * real cause — no media server, or nowhere to store the file — so the lesson
+       * is taught in the knowledge that it is not being kept, and whoever runs the
+       * platform can see which of the two to fix.
+       */
+      recordingUnavailableReason: egressId
+        ? null
+        : (this.livekit.recordingUnavailableReason ?? 'egress_failed'),
       mediaServerConfigured: this.livekit.configured,
       /** Null when LiveKit is not configured; the screen says so rather than
        *  showing a black rectangle and letting the teacher blame their camera. */

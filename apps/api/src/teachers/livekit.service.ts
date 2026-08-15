@@ -3,8 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import {
   AccessToken,
   EgressClient,
-  EncodedFileOutput,
-  EncodedFileType,
+  EncodingOptions,
+  SegmentedFileOutput,
+  SegmentedFileProtocol,
   RoomServiceClient,
   S3Upload,
 } from 'livekit-server-sdk';
@@ -174,7 +175,7 @@ export class LiveKitService {
   }
 
   /**
-   * Starts recording the room to Cloudinary-compatible storage.
+   * Starts recording the room to S3-compatible storage.
    *
    * FR-LIV: every live lesson is recorded automatically and only an admin may
    * delete it. Recording is started server-side when the room opens rather than
@@ -231,13 +232,54 @@ export class LiveKitService {
        * methods (`clone`, `equals`, …) beyond their fields — a structurally
        * similar literal does not satisfy them.
        */
+      /*
+       * Segmented HLS, not one MP4.
+       *
+       * The Supabase free plan rejects any object over 50 MB with a 413, and
+       * that limit is fixed — only Pro can change it. A 45-minute lesson as a
+       * single file is around a gigabyte, so it failed mid-upload every time
+       * and the platform correctly reported no recording. Six-second segments
+       * are a few hundred kilobytes each, so no object ever approaches the
+       * limit, whatever the lesson's length.
+       *
+       * It is also the better shape for the students this is for: playback
+       * starts on the first segment instead of after a gigabyte, and a dropped
+       * connection resumes at a segment boundary rather than at the beginning.
+       */
       const info = await egress.startRoomCompositeEgress(
         roomId,
-        new EncodedFileOutput({
-          fileType: EncodedFileType.MP4,
-          filepath: `recordings/${roomId}.mp4`,
-          output: { case: 's3', value: storage },
-        }),
+        {
+          segments: new SegmentedFileOutput({
+            protocol: SegmentedFileProtocol.HLS_PROTOCOL,
+            /* One folder per room, so a lesson's segments stay together. */
+            filenamePrefix: `recordings/${roomId}/segment`,
+            playlistName: `recordings/${roomId}/index.m3u8`,
+            segmentDuration: 6,
+            output: { case: 's3', value: storage },
+          }),
+        },
+        {
+          /*
+           * 480×360 at 500 kbps, 15fps, audio at 64 kbps.
+           *
+           * Chosen for the network the lesson is watched on, not the one it is
+           * recorded on: students here are on mobile data, and a sharper video
+           * they cannot afford to load is worse than a legible one they can. It
+           * also brings a 45-minute lesson to roughly 200 MB rather than a
+           * gigabyte, which is what makes a 1 GB bucket hold more than one.
+           *
+           * Audio bitrate is kept ahead of what the picture gets proportionally
+           * — a lesson survives a blurry diagram far better than it survives a
+           * teacher who cannot be understood.
+           */
+          encodingOptions: new EncodingOptions({
+            width: 480,
+            height: 360,
+            framerate: 15,
+            videoBitrate: 500,
+            audioBitrate: 64,
+          }),
+        },
       );
       return info.egressId ?? null;
     } catch (error) {
@@ -311,7 +353,7 @@ export class LiveKitService {
    */
   async recordingResult(
     egressId: string,
-  ): Promise<{ storageKey: string; durationSec: number; sizeBytes: number } | null> {
+  ): Promise<{ storageKey: string; durationSec: number; sizeBytes: number; segmentCount: number } | null> {
     if (!this.configured) return null;
 
     const egress = new EgressClient(this.httpUrl, this.apiKey, this.apiSecret);
@@ -324,14 +366,35 @@ export class LiveKitService {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const [info] = await egress.listEgress({ egressId });
-        const file = info?.fileResults?.[0];
 
+        /*
+         * The playlist, not a file.
+         *
+         * Segmented egress writes many small objects and one `.m3u8` naming
+         * them in order. That playlist is the recording as far as the rest of
+         * the platform is concerned: it is what gets signed, what the player
+         * opens, and what a size is reported against. The segments themselves
+         * are reached through it and never listed individually.
+         */
+        const segments = info?.segmentResults?.[0];
+        if (segments?.playlistName && Number(segments.size ?? 0) > 0) {
+          return {
+            storageKey: segments.playlistName,
+            /* LiveKit reports nanoseconds; the column is seconds. */
+            durationSec: Math.round(Number(segments.duration ?? 0) / 1_000_000_000),
+            sizeBytes: Number(segments.size),
+            segmentCount: segments.segmentCount ? Number(segments.segmentCount) : 0,
+          };
+        }
+
+        /* A single-file egress from before the switch still reports this way. */
+        const file = info?.fileResults?.[0];
         if (file?.filename && Number(file.size ?? 0) > 0) {
           return {
             storageKey: file.filename,
-            /* LiveKit reports nanoseconds; the column is seconds. */
             durationSec: Math.round(Number(file.duration ?? 0) / 1_000_000_000),
             sizeBytes: Number(file.size),
+            segmentCount: 0,
           };
         }
 

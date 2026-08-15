@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, API_BASE } from '@/lib/api';
 import type { RecordingStateDto } from '@classconnect/shared';
 
 /**
@@ -145,7 +145,19 @@ export function RecordingPlayer({
         `${base}/${recordingId}/url${audio ? '?audio=1' : ''}`,
         { language },
       );
-      setSource({ url: result.url, audioOnly: result.audioOnly, format: result.format });
+      /*
+       * Resolved against the API's origin, not the page's.
+       *
+       * A playlist URL comes back as `/api/v1/recordings/…`, which is absolute
+       * *for the API* — and the browser, sitting on the web origin, resolved it
+       * against port 3000 and got a 404 from Next. Signed segment URLs already
+       * carry their own host, so `new URL` leaves those untouched.
+       */
+      setSource({
+        url: new URL(result.url, API_BASE).toString(),
+        audioOnly: result.audioOnly,
+        format: result.format,
+      });
     } catch (caught) {
       const error = caught as ApiError;
       /*

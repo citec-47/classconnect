@@ -71,18 +71,31 @@ export function RecordingPlayer({
     const video = videoRef.current;
     if (!source || source.format !== 'hls' || source.audioOnly || !video) return;
 
-    /* Safari and iOS play the playlist directly, and do it better than we can. */
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = source.url;
-      return;
-    }
-
     let destroy: (() => void) | undefined;
     let cancelled = false;
 
+    /*
+     * hls.js first, native second — not the other way round.
+     *
+     * The obvious order is to ask `canPlayType('application/vnd.apple.mpegurl')`
+     * and let a browser that says yes handle it. Edge says `"maybe"`, which is
+     * truthy, and then cannot play it: the element loaded the playlist as media,
+     * the CSP refused the API origin, and the console reported a policy
+     * violation for a file the browser was never going to decode anyway.
+     *
+     * `Hls.isSupported()` asks about Media Source Extensions, which is a fact
+     * rather than an opinion. Native playback is the fallback for Safari and
+     * iOS, where MSE is unavailable and native HLS genuinely works.
+     */
     void import('hls.js').then(({ default: Hls }) => {
-      if (cancelled || !Hls.isSupported()) {
-        if (!cancelled) setFailure('recordings.unavailable');
+      if (cancelled) return;
+
+      if (!Hls.isSupported()) {
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = source.url;
+        } else {
+          setFailure('recordings.unavailable');
+        }
         return;
       }
       const hls = new Hls({

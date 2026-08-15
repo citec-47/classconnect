@@ -114,14 +114,61 @@ const nextConfig = {
      */
     const storageOrigin = 'https://res.cloudinary.com';
 
+    /**
+     * Where lesson recordings are served from, which is two places, not one.
+     *
+     * The playlist comes from this API — rewritten per request so each segment
+     * carries its own signature — and the segments themselves come straight from
+     * object storage. Both have to be named, and for different directives:
+     *
+     * - `connect-src`, because hls.js fetches both by XHR.
+     * - `media-src`, because Safari hands the playlist to the media element
+     *   itself and never uses XHR at all.
+     *
+     * Overridable rather than constant, because unlike Cloudinary this host
+     * changes when the bucket does — and the brief already anticipates moving to
+     * a larger one. Set `NEXT_PUBLIC_RECORDINGS_ORIGIN` in `apps/web/.env` when
+     * that happens; the default is the bucket in use today. It cannot be read
+     * from `LIVEKIT_S3_ENDPOINT`, because that lives in the monorepo root where
+     * Next does not look — the same trap documented for Cloudinary above.
+     */
+    const recordingsOrigin =
+      process.env.NEXT_PUBLIC_RECORDINGS_ORIGIN ??
+      'https://jwiifqyrivspyslbbiyq.storage.supabase.co';
+
+    /*
+     * The API's *origin*, with any path removed.
+     *
+     * `NEXT_PUBLIC_API_URL` carries the `/api/v1` prefix for the fetch helper,
+     * and a CSP source with a path matches by path prefix — narrower than
+     * intended and silently wrong the day a route moves.
+     */
+    const apiMediaOrigin = (() => {
+      try {
+        return new URL(apiOrigin).origin;
+      } catch {
+        return apiOrigin;
+      }
+    })();
+
     const csp = [
       "default-src 'self'",
       `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: ${storageOrigin}`.trim(),
-      `media-src 'self' blob: ${storageOrigin}`.trim(),
+      /*
+       * `blob:` stays, and is not optional: hls.js plays through Media Source
+       * Extensions, which means the video element's source is a blob URL rather
+       * than any of the hosts named here. Removing it would block every
+       * recording on every browser except Safari.
+       *
+       * Cloudinary stays too. Recordings have moved, but voice notes and message
+       * attachments are still served from there, and `img-src` does not cover
+       * audio or video.
+       */
+      `media-src 'self' blob: ${storageOrigin} ${apiMediaOrigin} ${recordingsOrigin}`.trim(),
       "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} ${socketOrigin}`,
+      `connect-src 'self' ${apiOrigin} ${socketOrigin} ${recordingsOrigin}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

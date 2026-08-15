@@ -53,6 +53,73 @@ export class RecordingStorageService {
   }
 
   /**
+   * Does this object exist, and how big is it?
+   *
+   * The question the platform should have been asking all along. LiveKit
+   * reported an egress as COMPLETE while returning no result details at all, so
+   * the ingest concluded nothing had been produced — while the segments sat in
+   * the bucket. The store is where the file is; it is also where to ask whether
+   * the file is there.
+   *
+   * Null means absent, which is a real answer and not an error.
+   */
+  async head(storageKey: string): Promise<{ sizeBytes: number } | null> {
+    const url = this.presign('HEAD', storageKey, 60);
+    if (!url) return null;
+
+    try {
+      const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(20_000) });
+      if (!response.ok) return null;
+      return { sizeBytes: Number(response.headers.get('content-length') ?? 0) };
+    } catch (error) {
+      this.logger.error(`Could not stat ${storageKey}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Every object under a prefix, with its size.
+   *
+   * A segmented recording is a folder, so its size is the sum of its parts and
+   * its integrity is "the playlist and at least one segment are present". Both
+   * need the listing rather than a single stat.
+   *
+   * Deliberately unpaginated: a lesson is a few hundred segments at most, well
+   * inside one response. A prefix that could exceed a thousand keys would need
+   * the continuation token, and nothing here produces one.
+   */
+  async list(prefix: string): Promise<{ key: string; sizeBytes: number }[]> {
+    const url = this.presign('GET', '', 60, { 'list-type': '2', prefix });
+    if (!url) return [];
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+      if (!response.ok) {
+        this.logger.error(`Could not list ${prefix}: HTTP ${response.status}`);
+        return [];
+      }
+
+      /*
+       * Parsed with a regular expression rather than an XML library.
+       *
+       * S3 list responses are a flat, machine-generated shape — `<Contents>`
+       * holding `<Key>` and `<Size>` — and adding an XML parser to the
+       * dependency tree for two fields is not a trade worth making on a
+       * four-core machine. Anything more structural than this should use one.
+       */
+      const body = await response.text();
+      return [...body.matchAll(/<Contents>[\s\S]*?<\/Contents>/g)].flatMap((match) => {
+        const key = /<Key>([^<]+)<\/Key>/.exec(match[0])?.[1];
+        const size = /<Size>(\d+)<\/Size>/.exec(match[0])?.[1];
+        return key ? [{ key, sizeBytes: Number(size ?? 0) }] : [];
+      });
+    } catch (error) {
+      this.logger.error(`Could not list ${prefix}: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
    * Deletes a stored object. Admin-only at the callers; unauthenticated here.
    *
    * Reported, never swallowed: a row disappearing while the file remains would
@@ -87,7 +154,20 @@ export class RecordingStorageService {
    * One routine for every verb: writing it twice is how a delete ends up signed
    * as a read, which fails in production and nowhere else.
    */
-  private presign(method: 'GET' | 'DELETE', storageKey: string, ttlSeconds: number): string | null {
+  private presign(
+    method: 'GET' | 'HEAD' | 'DELETE',
+    storageKey: string,
+    ttlSeconds: number,
+    /**
+     * Extra query parameters, which must be signed along with everything else.
+     *
+     * Used for listing, where `list-type` and `prefix` are part of the request
+     * rather than decoration: appending them after signing produces a URL whose
+     * signature covers a different request, and the store answers 403 with no
+     * indication of which parameter was the problem.
+     */
+    extraQuery?: Record<string, string>,
+  ): string | null {
     if (!this.configured) return null;
 
     const bucket = process.env.LIVEKIT_S3_BUCKET!;
@@ -110,13 +190,20 @@ export class RecordingStorageService {
      * is valid for a URL nobody will ever request.
      */
     const prefix = base.pathname.replace(/\/$/, '');
-    const canonicalUri = `${prefix}/${bucket}/${this.encodeKey(storageKey)}`;
+    /*
+     * An empty key addresses the bucket itself, which is what a listing asks
+     * for. The trailing slash matters to the signature and must not be added.
+     */
+    const canonicalUri = storageKey
+      ? `${prefix}/${bucket}/${this.encodeKey(storageKey)}`
+      : `${prefix}/${bucket}`;
 
     const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
     const dateStamp = amzDate.slice(0, 8);
     const scope = `${dateStamp}/${region}/s3/aws4_request`;
 
     const params = new URLSearchParams({
+      ...extraQuery,
       'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
       'X-Amz-Credential': `${accessKey}/${scope}`,
       'X-Amz-Date': amzDate,

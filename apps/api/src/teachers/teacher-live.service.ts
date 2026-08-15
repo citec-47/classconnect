@@ -515,9 +515,13 @@ export class TeacherLiveService {
    * worse than no row at all — it puts a broken player in front of a teacher and
    * tells a safeguarding review a recording exists when it does not.
    */
-  private async fileRecording(sessionId: string, egressId: string): Promise<void> {
+  private async fileRecording(
+    sessionId: string,
+    egressId: string,
+    roomId: string | null,
+  ): Promise<void> {
     try {
-      const result = await this.livekit.recordingResult(egressId);
+      const result = roomId ? await this.livekit.recordingResult(egressId, roomId) : null;
 
       if (!result) {
         /*
@@ -615,6 +619,7 @@ export class TeacherLiveService {
         startsAtUtc: true,
         timetableSlotId: true,
         egressId: true,
+        roomId: true,
         participants: { select: { userId: true, firstJoinAt: true } },
       },
     });
@@ -641,7 +646,7 @@ export class TeacherLiveService {
        * teacher's screen must not wait on an upload — but not fired and
        * forgotten either: a failure marks the row rather than vanishing.
        */
-      void this.fileRecording(sessionId, session.egressId);
+      void this.fileRecording(sessionId, session.egressId, session.roomId);
     }
 
     const endedAt = new Date();

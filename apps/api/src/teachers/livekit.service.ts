@@ -10,6 +10,7 @@ import {
   S3Upload,
 } from 'livekit-server-sdk';
 import { AppError } from '../common/http-exception.filter';
+import { RecordingStorageService } from '../files/recording-storage.service';
 
 /** What a participant may do once they are in the room. */
 export interface RoomGrant {
@@ -58,7 +59,10 @@ export class LiveKitService {
   private readonly apiKey: string;
   private readonly apiSecret: string;
 
-  constructor(env: ConfigService) {
+  constructor(
+    env: ConfigService,
+    private readonly storage: RecordingStorageService,
+  ) {
     this.url = env.get<string>('LIVEKIT_URL') ?? '';
     this.apiKey = env.get<string>('LIVEKIT_API_KEY') ?? '';
     this.apiSecret = env.get<string>('LIVEKIT_API_SECRET') ?? '';
@@ -252,8 +256,8 @@ export class LiveKitService {
           segments: new SegmentedFileOutput({
             protocol: SegmentedFileProtocol.HLS_PROTOCOL,
             /* One folder per room, so a lesson's segments stay together. */
-            filenamePrefix: `recordings/${roomId}/segment`,
-            playlistName: `recordings/${roomId}/index.m3u8`,
+            filenamePrefix: `${LiveKitService.recordingPrefix(roomId)}segment`,
+            playlistName: `${LiveKitService.recordingPrefix(roomId)}index.m3u8`,
             segmentDuration: 6,
             output: { case: 's3', value: storage },
           }),
@@ -353,55 +357,49 @@ export class LiveKitService {
    */
   async recordingResult(
     egressId: string,
+    roomId: string,
   ): Promise<{ storageKey: string; durationSec: number; sizeBytes: number; segmentCount: number } | null> {
     if (!this.configured) return null;
 
+    /*
+     * The playlist path is known without asking anybody.
+     *
+     * `startRecording` chose it, so it can be reconstructed here rather than
+     * read back — which is the whole fix. LiveKit reported a completed egress
+     * with empty `segmentResults`, the ingest believed it, and a lesson sitting
+     * in the bucket was filed as never recorded. A derived path checked against
+     * the store cannot disagree with itself that way.
+     */
+    const playlistKey = `${LiveKitService.recordingPrefix(roomId)}index.m3u8`;
     const egress = new EgressClient(this.httpUrl, this.apiKey, this.apiSecret);
 
     /*
      * Six attempts, five seconds apart. Composing and uploading a lesson takes
      * longer than stopping it does, and giving up immediately would file every
-     * recording as failed while the file was still being written.
+     * recording as failed while the segments were still being written.
      */
     for (let attempt = 0; attempt < 6; attempt += 1) {
+      const found = await this.storedRecording(roomId, playlistKey);
+      if (found) return found;
+
+      /*
+       * Egress is still consulted — for the one thing it answers reliably.
+       *
+       * Not for *what* was produced, which is what proved unreliable, but for
+       * whether it has given up. A failed or aborted egress will never write
+       * anything, so waiting the full thirty seconds only delays telling the
+       * truth.
+       */
       try {
         const [info] = await egress.listEgress({ egressId });
-
-        /*
-         * The playlist, not a file.
-         *
-         * Segmented egress writes many small objects and one `.m3u8` naming
-         * them in order. That playlist is the recording as far as the rest of
-         * the platform is concerned: it is what gets signed, what the player
-         * opens, and what a size is reported against. The segments themselves
-         * are reached through it and never listed individually.
-         */
-        const segments = info?.segmentResults?.[0];
-        if (segments?.playlistName && Number(segments.size ?? 0) > 0) {
-          return {
-            storageKey: segments.playlistName,
-            /* LiveKit reports nanoseconds; the column is seconds. */
-            durationSec: Math.round(Number(segments.duration ?? 0) / 1_000_000_000),
-            sizeBytes: Number(segments.size),
-            segmentCount: segments.segmentCount ? Number(segments.segmentCount) : 0,
-          };
-        }
-
-        /* A single-file egress from before the switch still reports this way. */
-        const file = info?.fileResults?.[0];
-        if (file?.filename && Number(file.size ?? 0) > 0) {
-          return {
-            storageKey: file.filename,
-            durationSec: Math.round(Number(file.duration ?? 0) / 1_000_000_000),
-            sizeBytes: Number(file.size),
-            segmentCount: 0,
-          };
-        }
-
-        /* Terminal and empty-handed: no amount of waiting will produce a file. */
         if (info && ['EGRESS_FAILED', 'EGRESS_ABORTED'].includes(String(info.status))) {
           this.logger.error(`Egress ${egressId} ended as ${info.status}: ${info.error ?? ''}`);
-          return null;
+          /*
+           * Checked once more even so. An abort during upload can still leave a
+           * usable playlist behind, and a partial lesson is worth more to the
+           * class than nothing.
+           */
+          return this.storedRecording(roomId, playlistKey);
         }
       } catch (error) {
         this.logger.error(`Could not read egress ${egressId}: ${(error as Error).message}`);
@@ -410,8 +408,58 @@ export class LiveKitService {
       await new Promise((resolve) => setTimeout(resolve, 5_000));
     }
 
-    this.logger.error(`Egress ${egressId} produced no file within 30s`);
+    this.logger.error(`Egress ${egressId} left nothing under ${playlistKey} within 30s`);
     return null;
+  }
+
+  /**
+   * Where a room's recording lives, decided in exactly one place.
+   *
+   * Both the egress request and the ingest that looks for its output need this
+   * path, and the two being written separately is how a recording ends up
+   * uploaded to one place and searched for in another.
+   */
+  static recordingPrefix(roomId: string): string {
+    return `recordings/${roomId}/`;
+  }
+
+  /**
+   * The recording as the *store* has it, or null if it is not there yet.
+   *
+   * Requires a playlist and at least one segment. A playlist alone is written
+   * early and names segments that may never arrive, so treating it as proof
+   * would file an empty lesson as recorded — the same false claim in a new
+   * place.
+   *
+   * The size is the sum of the folder rather than the playlist's own few
+   * kilobytes, because that is what the lesson actually occupies and what the
+   * storage warning has to count.
+   */
+  private async storedRecording(
+    roomId: string,
+    playlistKey: string,
+  ): Promise<{ storageKey: string; durationSec: number; sizeBytes: number; segmentCount: number } | null> {
+    const playlist = await this.storage.head(playlistKey);
+    if (!playlist) return null;
+
+    const objects = await this.storage.list(LiveKitService.recordingPrefix(roomId));
+    const segments = objects.filter((o) => o.key.endsWith('.ts'));
+    if (segments.length === 0) return null;
+
+    return {
+      storageKey: playlistKey,
+      /*
+       * Duration from the segments themselves.
+       *
+       * `segmentDuration: 6` is what egress was asked for, so the count is the
+       * length. Read from the playlist's `#EXTINF` lines it would be exact, but
+       * that means fetching and parsing it for a number used to label a card —
+       * and the last segment being short is the whole of the error.
+       */
+      durationSec: segments.length * 6,
+      sizeBytes: objects.reduce((total, object) => total + object.sizeBytes, 0),
+      segmentCount: segments.length,
+    };
   }
 
   /** Stops a recording when the teacher ends the lesson. */

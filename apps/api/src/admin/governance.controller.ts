@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { ROLES } from '@classconnect/shared';
 import { zodBody } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import { AuditService } from '../audit/audit.service';
+import { uuidParam } from '../common/zod-validation.pipe';
+import { RecordingsService } from '../teachers/recordings.service';
 import { GovernanceService } from './governance.service';
 import { SafeguardingService } from './safeguarding.service';
 import { DashboardService } from './dashboard.service';
@@ -41,6 +43,7 @@ export class GovernanceController {
     private readonly safeguarding: SafeguardingService,
     private readonly dashboard: DashboardService,
     private readonly earnings: EarningsService,
+    private readonly recordings: RecordingsService,
     private readonly payouts: PayoutsService,
     private readonly payments: PaymentsAdminService,
   ) {}
@@ -230,5 +233,55 @@ export class GovernanceController {
       default:
         return [];
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Recordings
+  // -------------------------------------------------------------------------
+
+  /**
+   * Every recording on the platform, in one place.
+   *
+   * The admin's list is unfiltered by design — safeguarding review is the reason
+   * the recordings exist at all, and a review that can only see part of the
+   * archive is not one.
+   */
+  @Get('recordings')
+  @RequirePermissions('recording:delete')
+  async allRecordings(@CurrentUser() user: AuthenticatedUser) {
+    return this.recordings.forUser(user);
+  }
+
+  /**
+   * A signed link, for the admin as for everybody else.
+   *
+   * Seeing every recording is not the same as holding a permanent URL to one:
+   * the link expires here too, so an administrator forwarding it does not create
+   * an unauthenticated copy of a room full of children.
+   */
+  @Get('recordings/:recordingId/url')
+  @RequirePermissions('recording:delete')
+  async adminRecordingUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('recordingId', uuidParam()) recordingId: string,
+  ) {
+    return this.recordings.playbackUrl(user, recordingId);
+  }
+
+  /**
+   * Deleting one. Admin only, and the file goes before the row.
+   *
+   * The `recording:delete` permission is held by the admin alone — not by a
+   * teacher, and not
+   * by customer service — so the permission is the rule rather than a check the
+   * interface performs.
+   */
+  @Delete('recordings/:recordingId')
+  @RequirePermissions('recording:delete')
+  async deleteRecording(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('recordingId', uuidParam()) recordingId: string,
+  ) {
+    return this.recordings.remove(user, recordingId);
   }
 }

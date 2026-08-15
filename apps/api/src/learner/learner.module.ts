@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { RecordingsModule } from '../teachers/recordings.module';
 import { LearnerController } from './learner.controller';
 import { LearnerService } from './learner.service';
 import { LearnerScheduleService } from './learner-schedule.service';
@@ -44,7 +45,7 @@ import { TeachersModule } from '../teachers/teachers.module';
    * one shared service into a file of its own and leave the same cycle between
    * messaging and threads.
    */
-  imports: [forwardRef(() => TeachersModule)],
+  imports: [forwardRef(() => TeachersModule), RecordingsModule],
   controllers: [LearnerController],
   providers: [
     LearnerService,

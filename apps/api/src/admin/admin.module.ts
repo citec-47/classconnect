@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RecordingsModule } from '../teachers/recordings.module';
 import { AdminAccountsService } from './admin-accounts.service';
 import { AdminAccountsController } from './admin-accounts.controller';
 import { AdminDashboardController } from './admin-dashboard.controller';
@@ -31,6 +32,7 @@ import { EarningsModule } from '../earnings/earnings.module';
  */
 @Module({
   imports: [
+    RecordingsModule,
     // PasswordService for the credentials it sets, TokenService for the badge
     // socket's authentication and for forcing sign-out.
     AuthModule,

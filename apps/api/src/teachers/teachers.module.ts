@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { RecordingsModule } from './recordings.module';
 import { TeachersService } from './teachers.service';
 import { TeachersController, VerificationController } from './teachers.controller';
 import { TeacherDashboardController } from './teacher-dashboard.controller';
@@ -29,7 +30,7 @@ import { LearnerModule } from '../learner/learner.module';
    * matters more than it looks.
    */
   // See LearnerModule: the cycle is declared on both sides or not at all.
-  imports: [forwardRef(() => LearnerModule)],
+  imports: [forwardRef(() => LearnerModule), RecordingsModule],
   controllers: [
     LiveKitProxyController,
     TeachersController,

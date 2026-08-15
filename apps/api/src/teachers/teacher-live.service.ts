@@ -481,6 +481,22 @@ export class TeacherLiveService {
   }
 
   /** The name shown on a participant's tile in the room. */
+  /**
+   * The learner record behind a signed-in user, or null.
+   *
+   * Null is ordinary rather than exceptional: most learners on this platform are
+   * registered by an administrator and have no login at all, and an adult
+   * signing in is not a learner in the first place. Callers treat null as "no
+   * learner-side entitlement" and fall through to their other checks.
+   */
+  private async learnerIdFor(userId: string): Promise<string | null> {
+    const learner = await this.prisma.learner.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    return learner?.id ?? null;
+  }
+
   private async displayName(userId: string): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -883,13 +899,26 @@ export class TeacherLiveService {
       /*
        * Booked in, one way or the other: a one-to-one names the learner, and
        * a group lesson reaches them through the cohort they belong to.
+       *
+       * `Session.learnerId` and `CohortMember.learnerId` are *learner* ids, and
+       * this had been comparing them against the signed-in *user* id. The two
+       * are never equal — not once in the whole table — so both clauses were
+       * dead and only the third could ever match. The effect was that a student
+       * booked into a timetabled lesson was refused entry unless they were
+       * already a participant, which is exactly the class of person who is not
+       * one yet.
        */
+      const learnerId = await this.learnerIdFor(user.id);
       const booked = await this.prisma.session.findFirst({
         where: {
           id: sessionId,
           OR: [
-            { learnerId: user.id },
-            { cohort: { members: { some: { learnerId: user.id } } } },
+            ...(learnerId
+              ? [
+                  { learnerId },
+                  { cohort: { members: { some: { learnerId } } } },
+                ]
+              : []),
             { participants: { some: { userId: user.id } } },
           ],
         },

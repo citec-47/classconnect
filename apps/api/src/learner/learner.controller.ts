@@ -21,6 +21,7 @@ import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import { uuidParam } from '../common/zod-validation.pipe';
+import { RecordingsService } from '../teachers/recordings.service';
 import {
   PLATFORM_TIMEZONE,
   resolveLevelConfig,
@@ -54,6 +55,7 @@ export class LearnerController {
     private readonly messaging: LearnerMessagingService,
     private readonly fees: LearnerFeesService,
     private readonly ratings: LearnerRatingsService,
+    private readonly recordings: RecordingsService,
     private readonly contacts: LearnerContactsService,
     private readonly attendance: LearnerAttendanceService,
     private readonly live: TeacherLiveService,
@@ -345,6 +347,39 @@ export class LearnerController {
     @Param('sessionId', uuidParam()) sessionId: string,
   ) {
     return this.live.requestFloor(user, sessionId);
+  }
+
+  // -------------------------------------------------------------------------
+  // My Class Videos
+  // -------------------------------------------------------------------------
+
+  /**
+   * The lessons this learner may watch back.
+   *
+   * Their class's timetabled lessons in the subjects they offer, the groups they
+   * belong to, and any invited call they were on — decided in the service from
+   * the session behind each recording. A classmate who does not take the subject
+   * gets a shorter list, not a hidden row.
+   */
+  @Get('recordings')
+  @RequirePermissions('profile:read:own')
+  async myClassVideos(@CurrentUser() user: AuthenticatedUser) {
+    return this.recordings.forUser(user);
+  }
+
+  /**
+   * A signed, expiring link to one of them.
+   *
+   * The entitlement is re-checked here, so the direct link a classmate forwards
+   * is a 404 rather than a way in.
+   */
+  @Get('recordings/:recordingId/url')
+  @RequirePermissions('profile:read:own')
+  async classVideoUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('recordingId', uuidParam()) recordingId: string,
+  ) {
+    return this.recordings.playbackUrl(user, recordingId);
   }
 }
 

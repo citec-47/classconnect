@@ -1,0 +1,186 @@
+import { createHash, createHmac } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
+
+/**
+ * Signed, expiring links to lesson recordings in S3-compatible storage.
+ *
+ * ## Why the URL is signed rather than the bucket public
+ *
+ * A recording is a room full of children. A public object URL is a permanent,
+ * unauthenticated key to it that keeps working after it is forwarded, screenshot
+ * or indexed — and nothing in the platform can withdraw it. Every link handed
+ * out here expires, so a shared link becomes useless rather than becoming a
+ * distribution channel.
+ *
+ * Signing is deliberately separate from deciding *who may watch*. This class
+ * mints a link for a key it is given and asks no questions; the entitlement
+ * check lives with the session rules, where the answer is knowable. Keeping the
+ * two apart means holding this service alone gets nobody a recording.
+ *
+ * ## Why SigV4 by hand instead of the AWS SDK
+ *
+ * `@aws-sdk/client-s3` and its presigner are tens of megabytes for one
+ * deterministic string-building routine, on a platform whose development machine
+ * has four cores and whose deployment target is not generous either. The
+ * algorithm below is the published one, and it is verified against the real
+ * bucket rather than trusted.
+ *
+ * Works with any S3-compatible store — Supabase, R2, B2, MinIO, AWS.
+ */
+@Injectable()
+export class RecordingStorageService {
+  private readonly logger = new Logger(RecordingStorageService.name);
+
+  /** Long enough to watch a 45-minute lesson, short enough that sharing fails. */
+  static readonly TTL_SECONDS = 3 * 60 * 60;
+
+  get configured(): boolean {
+    return Boolean(
+      process.env.LIVEKIT_S3_BUCKET &&
+        process.env.LIVEKIT_S3_ACCESS_KEY &&
+        process.env.LIVEKIT_S3_SECRET,
+    );
+  }
+
+  /**
+   * A time-limited link to one stored object.
+   *
+   * The expiry is part of what is signed, so it cannot be extended by editing
+   * the URL: any tampering invalidates the signature and the store returns 403.
+   */
+  signedUrl(storageKey: string, ttlSeconds = RecordingStorageService.TTL_SECONDS): string | null {
+    return this.presign('GET', storageKey, ttlSeconds);
+  }
+
+  /**
+   * Deletes a stored object. Admin-only at the callers; unauthenticated here.
+   *
+   * Reported, never swallowed: a row disappearing while the file remains would
+   * leave a recording of children in storage that the platform believes it has
+   * destroyed — and nobody would look again.
+   */
+  async remove(storageKey: string): Promise<boolean> {
+    /*
+     * Signed for DELETE specifically. The read link cannot authorise this, which
+     * is the entire point of scoping a signature to a verb.
+     */
+    const url = this.presign('DELETE', storageKey, 60);
+    if (!url) return false;
+
+    try {
+      const response = await fetch(url, { method: 'DELETE', signal: AbortSignal.timeout(20_000) });
+      /* Already gone is the outcome we wanted, so 404 is success, not failure. */
+      if (!response.ok && response.status !== 404) {
+        this.logger.error(`Could not delete ${storageKey}: HTTP ${response.status}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error(`Could not delete ${storageKey}: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * AWS Signature Version 4, query-parameter form, for one verb and one object.
+   *
+   * One routine for every verb: writing it twice is how a delete ends up signed
+   * as a read, which fails in production and nowhere else.
+   */
+  private presign(method: 'GET' | 'DELETE', storageKey: string, ttlSeconds: number): string | null {
+    if (!this.configured) return null;
+
+    const bucket = process.env.LIVEKIT_S3_BUCKET!;
+    const accessKey = process.env.LIVEKIT_S3_ACCESS_KEY!;
+    const secret = process.env.LIVEKIT_S3_SECRET!;
+    const region = process.env.LIVEKIT_S3_REGION || 'auto';
+    const endpoint = process.env.LIVEKIT_S3_ENDPOINT || `https://s3.${region}.amazonaws.com`;
+
+    const base = new URL(endpoint);
+
+    /*
+     * Path-style, always: `<endpoint>/<bucket>/<key>`.
+     *
+     * Supabase, MinIO and R2 all serve this way and AWS still accepts it. The
+     * virtual-host form would need a different signing host per store, which is
+     * one more thing to get wrong for no gain.
+     *
+     * The endpoint's own path is part of the signature and is easy to drop:
+     * Supabase's ends in `/storage/v1/s3`, and a signature computed without it
+     * is valid for a URL nobody will ever request.
+     */
+    const prefix = base.pathname.replace(/\/$/, '');
+    const canonicalUri = `${prefix}/${bucket}/${this.encodeKey(storageKey)}`;
+
+    const amzDate = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.slice(0, 8);
+    const scope = `${dateStamp}/${region}/s3/aws4_request`;
+
+    const params = new URLSearchParams({
+      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+      'X-Amz-Credential': `${accessKey}/${scope}`,
+      'X-Amz-Date': amzDate,
+      'X-Amz-Expires': String(ttlSeconds),
+      'X-Amz-SignedHeaders': 'host',
+    });
+    params.sort();
+    const canonicalQuery = this.encodeQuery(params);
+
+    const canonicalRequest = [
+      method,
+      canonicalUri,
+      canonicalQuery,
+      `host:${base.host}\n`,
+      'host',
+      /* A presigned request carries no body, and a browser cannot add one. */
+      'UNSIGNED-PAYLOAD',
+    ].join('\n');
+
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      amzDate,
+      scope,
+      createHash('sha256').update(canonicalRequest).digest('hex'),
+    ].join('\n');
+
+    const signature = this.sign(secret, dateStamp, region, stringToSign);
+    return `${base.protocol}//${base.host}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
+  }
+
+  /** The signing key: four chained HMACs, narrowing secret → date → region → service. */
+  private sign(secret: string, dateStamp: string, region: string, stringToSign: string): string {
+    const hmac = (key: Buffer | string, data: string) =>
+      createHmac('sha256', key).update(data).digest();
+
+    const dateKey = hmac(`AWS4${secret}`, dateStamp);
+    const regionKey = hmac(dateKey, region);
+    const serviceKey = hmac(regionKey, 's3');
+    const signingKey = hmac(serviceKey, 'aws4_request');
+    return createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+  }
+
+  /**
+   * Percent-encoding as S3 defines it, which is not what `encodeURIComponent` does.
+   *
+   * Slashes stay literal — they separate path segments, and encoding them signs a
+   * different object. `!*'()` must be escaped, which `encodeURIComponent` leaves
+   * alone; a key containing an apostrophe would otherwise sign correctly for a
+   * string the store never sees, failing on some recordings and not others.
+   */
+  private encodeKey(key: string): string {
+    return key
+      .split('/')
+      .map((segment) => this.rfc3986(encodeURIComponent(segment)))
+      .join('/');
+  }
+
+  private encodeQuery(params: URLSearchParams): string {
+    return [...params.entries()]
+      .map(([k, v]) => `${this.rfc3986(encodeURIComponent(k))}=${this.rfc3986(encodeURIComponent(v))}`)
+      .join('&');
+  }
+
+  private rfc3986(value: string): string {
+    return value.replace(/[!*'()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  }
+}

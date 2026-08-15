@@ -35,6 +35,7 @@ import { TeacherExamsService } from './teacher-exams.service';
 import { TeacherReportsService } from './teacher-reports.service';
 import { TeacherLiveService } from './teacher-live.service';
 import { TeacherMessagingService } from './teacher-messaging.service';
+import { RecordingsService } from './recordings.service';
 import { zodBody, uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 
@@ -80,6 +81,7 @@ export class TeacherSurfaceController {
     private readonly reports: TeacherReportsService,
     private readonly live: TeacherLiveService,
     private readonly messaging: TeacherMessagingService,
+    private readonly recordings: RecordingsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -421,6 +423,22 @@ export class TeacherSurfaceController {
   @RequirePermissions('recording:read:own')
   async myRecordings(@CurrentUser() user: AuthenticatedUser) {
     return this.live.ownRecordings(user.id);
+  }
+
+  /**
+   * A signed, expiring link to one recording.
+   *
+   * Separate from the list because the link is the sensitive part: it is minted
+   * per request, lives for hours rather than for ever, and is checked again
+   * here — a recording id travelling in a URL is not evidence of entitlement.
+   */
+  @Get('recordings/:recordingId/url')
+  @RequirePermissions('recording:read:own')
+  async recordingUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('recordingId', uuidParam()) recordingId: string,
+  ) {
+    return this.recordings.playbackUrl(user, recordingId);
   }
 
   // -------------------------------------------------------------------------

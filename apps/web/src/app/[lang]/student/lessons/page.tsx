@@ -2,58 +2,80 @@
 
 import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import type { PastLessonDto } from '@classconnect/shared';
+import type { RecordingLibraryDto } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
-import { fileSize, fullDate, timeOfDay } from '@/lib/student-format';
+import { fullDate, timeOfDay } from '@/lib/student-format';
 import { PageTitle, Pill, ScreenState, SkeletonList } from '@/components/student/ui';
 import { VideoIcon } from '@/components/student/icons';
 import { subjectAccent } from '@/lib/subject-accent';
+import { RecordingPlayer } from '@/components/RecordingPlayer';
 
 /**
- * My past lessons.
+ * My class videos.
  *
- * The organising idea, and the reason this is its own screen rather than a
- * filter inside Classes: **every lesson is here whether or not the learner
- * attended.** In Cameroon a missed lesson usually means the power went out or
- * the phone was with someone else (AS-08), and a platform that withheld the
- * recording would be charging a child for the grid.
+ * ## What is in this list, and why the learner never has to ask
  *
- * So attendance changes the badge on the card and nothing about access. A
- * learner who missed Tuesday is told they missed Tuesday, and then told they
- * can still watch it — in that order, because the second sentence is the one
- * that matters.
- */
-/**
- * `useSearchParams` forces this route out of static rendering unless the
- * component that reads it sits under a Suspense boundary. Without one,
- * `next build` fails rather than warning, so the boundary is part of the page
- * rather than something to remember later.
+ * Everything they are entitled to and nothing else, decided on the server from
+ * the lesson behind each recording (`recordings.service.ts`):
+ *
+ * - their class's timetabled lessons **in the subjects they offer** — a classmate
+ *   who does not take maths does not see the maths lesson;
+ * - the groups they belong to;
+ * - a private lesson taught to them;
+ * - any invited call they were actually invited to.
+ *
+ * The filtering is a database `where`, not something this screen does. A list
+ * filtered in the browser is one view-source away from being the whole archive,
+ * and these are rooms full of children.
+ *
+ * ## Attendance changes the badge and nothing about access
+ *
+ * In Cameroon a missed lesson usually means the power went out or the phone was
+ * with someone else (AS-08), and a platform that withheld the recording would be
+ * charging a child for the grid. So a learner who missed Tuesday is told they
+ * missed Tuesday, and then told they can still watch it — in that order, because
+ * the second sentence is the one that matters.
  */
 export default function StudentLessonsPage() {
+  /*
+   * `useSearchParams` forces this route out of static rendering unless the
+   * component that reads it sits under a Suspense boundary. Without one,
+   * `next build` fails rather than warning.
+   */
   return (
     <Suspense fallback={<SkeletonList rows={4} />}>
-      <StudentLessons />
+      <StudentClassVideos />
     </Suspense>
   );
 }
 
-function StudentLessons() {
+function StudentClassVideos() {
   const { t, language } = useI18n();
   const { config } = useStudent();
   const params = useSearchParams();
-  const subjectParam = params.get('subject');
-  const [subjectId, setSubjectId] = useState<string | null>(subjectParam);
+  const [subjectId, setSubjectId] = useState<string | null>(params.get('subject'));
 
-  const path = subjectId ? `/learner/lessons?subjectId=${subjectId}` : '/learner/lessons';
-  const { data, loading, error, refresh } = useCachedApi<PastLessonDto[]>(path, { language });
+  const { data, loading, error, refresh } = useCachedApi<{ recordings: RecordingLibraryDto[] }>(
+    '/learner/recordings',
+    { language },
+  );
+
+  const all = useMemo(() => data?.recordings ?? [], [data]);
 
   const subjects = useMemo(() => {
     const map = new Map<string, string>();
-    for (const lesson of data ?? []) map.set(lesson.subject.id, lesson.subject.name);
+    for (const item of all) {
+      if (!item.subject) continue;
+      map.set(item.subject.id, language === 'fr' ? item.subject.nameFr : item.subject.nameEn);
+    }
     return [...map.entries()];
-  }, [data]);
+  }, [all, language]);
+
+  // Filtered here only for the chips the learner pressed. Entitlement was
+  // settled before the response left the API.
+  const shown = subjectId ? all.filter((item) => item.subject?.id === subjectId) : all;
 
   if (!config) return null;
   const large = config.typeScale === 'large';
@@ -62,7 +84,7 @@ function StudentLessons() {
     <>
       <PageTitle large={large}>{t('student.lessons.title')}</PageTitle>
       {/*
-       * Said once, at the top. This is the screen's promise and a learner should
+       * Said once, at the top. This is the screen's promise, and a learner should
        * not have to infer it from a card they were afraid to open.
        */}
       <p className="text-sm text-ink-600">{t('student.lessons.subtitle')}</p>
@@ -88,19 +110,19 @@ function StudentLessons() {
       <ScreenState
         loading={loading}
         error={error}
-        isEmpty={Boolean(data && data.length === 0)}
+        isEmpty={Boolean(data && shown.length === 0)}
         emptyTitle={t('student.lessons.none')}
         emptyBody={t('student.lessons.noneBody')}
         onRetry={() => void refresh()}
       >
         {/*
          * One column on a phone, two from `sm`. A three-across grid of video
-         * thumbnails is the shape this content takes on a laptop and the shape
-         * it must not take on 360px, where each card would be 110px wide.
+         * thumbnails is the shape this content takes on a laptop and the shape it
+         * must not take at 360px, where each card would be 110px wide.
          */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {(data ?? []).map((lesson) => (
-            <LessonCard key={lesson.sessionId} lesson={lesson} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {shown.map((recording) => (
+            <VideoCard key={recording.id} recording={recording} />
           ))}
         </div>
       </ScreenState>
@@ -108,27 +130,30 @@ function StudentLessons() {
   );
 }
 
-function LessonCard({ lesson }: { lesson: PastLessonDto }) {
+function VideoCard({ recording }: { recording: RecordingLibraryDto }) {
   const { t, language } = useI18n();
-  const startedAt = new Date(lesson.startedAt);
-  const ready = lesson.recordingState === 'ready' && lesson.recording;
+  const startedAt = new Date(recording.startedAt);
+  const subjectName = recording.subject
+    ? language === 'fr'
+      ? recording.subject.nameFr
+      : recording.subject.nameEn
+    : t('common.none');
+
+  const accent = subjectAccent(recording.subject?.id ?? recording.id);
 
   return (
     <article className="overflow-hidden rounded-xl border border-ink-300 bg-white">
       {/*
-       * A generated poster rather than a real video frame. A thumbnail sheet is
-       * an extra image request per card on a metered connection, and a still
-       * from a lesson can show a child's face — which FR-SAF-007 keeps off any
-       * surface a screenshot could travel from.
+       * A generated poster rather than a real video frame. A thumbnail sheet is an
+       * extra image request per card on a metered connection, and a still from a
+       * lesson can show a child's face — which FR-SAF-007 keeps off any surface a
+       * screenshot could travel from.
        */}
-      {/* Tinted by subject, so a wall of lesson cards is scannable. */}
-      <div
-        className={`relative flex h-24 items-center justify-center ${subjectAccent(lesson.subject.id).bg}`}
-      >
-        <VideoIcon className={`h-8 w-8 ${subjectAccent(lesson.subject.id).text}`} />
-        {ready && lesson.recording && (
+      <div className={`relative flex h-24 items-center justify-center ${accent.bg}`}>
+        <VideoIcon className={`h-8 w-8 ${accent.text}`} />
+        {recording.state === 'ready' && (
           <span className="absolute bottom-2 right-2 rounded bg-ink-900/80 px-1.5 py-0.5 text-xs tabular-nums text-white">
-            {Math.round(lesson.recording.durationSec / 60)} min
+            {Math.max(1, Math.round(recording.durationSec / 60))} min
           </span>
         )}
       </div>
@@ -136,87 +161,47 @@ function LessonCard({ lesson }: { lesson: PastLessonDto }) {
       <div className="space-y-2 p-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink-900">{lesson.subject.name}</p>
+            <p className="truncate text-sm font-semibold text-ink-900">{subjectName}</p>
             <p className="truncate text-xs text-ink-600">
               {fullDate(startedAt, language)} · {timeOfDay(startedAt, language)}
             </p>
           </div>
-          <Pill tone={lesson.attended ? 'success' : 'neutral'}>
-            {lesson.attended ? t('student.lessons.attended') : t('student.lessons.missed')}
-          </Pill>
+          {/*
+           * Which guest list this came from, so a learner can tell their class
+           * lesson from a group exercise from a private call at a glance.
+           */}
+          <Pill tone="neutral">{t(`recordings.scope.${recording.scope}`)}</Pill>
         </div>
 
-        {lesson.teacher && (
+        {recording.cohort && (
+          <p className="truncate text-xs text-ink-600">{recording.cohort.name}</p>
+        )}
+        {recording.teacherName && (
           <p className="truncate text-xs text-ink-600">
-            {t('student.subjects.taughtBy', { teacher: lesson.teacher.displayName })}
+            {t('student.subjects.taughtBy', { teacher: recording.teacherName })}
           </p>
         )}
 
-        {/* The reassurance goes with the bad news, not on a help page. */}
-        {!lesson.attended && ready && (
-          <p className="text-xs text-ink-600">{t('student.lessons.missedBody')}</p>
-        )}
+        {/* The link is minted on the tap, and it expires. See RecordingPlayer. */}
+        <RecordingPlayer
+          endpoint="learner"
+          recordingId={recording.id}
+          state={recording.state}
+          audioAvailable={recording.audioAvailable}
+          audioSizeBytes={recording.audioSizeBytes}
+          sizeBytes={recording.sizeBytes}
+        />
 
-        {ready && lesson.recording ? (
-          <div className="space-y-1.5">
-            <a
-              href={`/api/v1/learner/recordings/${lesson.recording.id}`}
-              className="flex min-h-touch items-center justify-center rounded-lg bg-brand-600 px-3 text-sm font-medium text-white"
-            >
-              {t('student.lessons.watch')}
-              {lesson.recording.estimatedBytes && (
-                <span className="ml-2 text-xs font-normal text-white/80">
-                  {t('student.data.estimate', {
-                    size: fileSize(lesson.recording.estimatedBytes),
-                  })}
-                </span>
-              )}
-            </a>
-
-            {/*
-             * NFR-BAN-001/002: audio is roughly a twelfth of the bytes. On a
-             * metered 3G connection this is the difference between a learner
-             * revising and a learner deciding they cannot afford to.
-             */}
-            {lesson.recording.audioAvailable && (
-              <a
-                href={`/api/v1/learner/recordings/${lesson.recording.id}?audio=1`}
-                className="flex min-h-touch items-center justify-center rounded-lg border border-ink-300 px-3 text-sm text-ink-700"
-              >
-                {t('student.lessons.watchAudio')}
-                {lesson.recording.audioEstimatedBytes && (
-                  <span className="ml-2 text-xs text-ink-600">
-                    {t('student.data.estimate', {
-                      size: fileSize(lesson.recording.audioEstimatedBytes),
-                    })}
-                  </span>
-                )}
-              </a>
-            )}
-
-            <p className="text-xs text-ink-600">
-              {t('student.lessons.availableUntil', {
-                date: fullDate(new Date(lesson.recording.availableUntil), language),
-              })}
-            </p>
-          </div>
-        ) : (
-          /*
-           * NFR-USA-004: four different reasons there is no video, and the
-           * learner is told which one. "Ready in an hour" and "gone for good"
-           * are not the same news.
-           */
-          <p className="rounded-lg bg-ink-100 px-3 py-2 text-xs text-ink-600">
-            {t(`student.lessons.${camel(lesson.recordingState)}`)}
+        {recording.state === 'ready' && (
+          <p className="text-xs text-ink-600">
+            {t('student.lessons.availableUntil', {
+              date: fullDate(new Date(recording.availableUntil), language),
+            })}
           </p>
         )}
       </div>
     </article>
   );
-}
-
-function camel(state: PastLessonDto['recordingState']): string {
-  return state === 'not_recorded' ? 'notRecorded' : state;
 }
 
 function FilterChip({

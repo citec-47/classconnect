@@ -29,6 +29,8 @@ import {
   type DecidePublishRequestInput,
   type InviteToSpeakInput,
   type SendTeacherMessageInput,
+  recordingUrlQuerySchema,
+  type RecordingUrlQuery,
 } from '@classconnect/shared';
 import { TeacherGroupsService } from './teacher-groups.service';
 import { TeacherExamsService } from './teacher-exams.service';
@@ -437,8 +439,9 @@ export class TeacherSurfaceController {
   async recordingUrl(
     @CurrentUser() user: AuthenticatedUser,
     @Param('recordingId', uuidParam()) recordingId: string,
+    @Query(new ZodValidationPipe(recordingUrlQuerySchema)) query: RecordingUrlQuery,
   ) {
-    return this.recordings.playbackUrl(user, recordingId);
+    return this.recordings.playbackUrl(user, recordingId, query.audio);
   }
 
   // -------------------------------------------------------------------------

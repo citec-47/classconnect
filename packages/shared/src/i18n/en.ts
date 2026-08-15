@@ -720,6 +720,7 @@ export const en = {
     teacherRoster: 'All teachers',
     studentRoster: 'All students',
     live: 'Live classes',
+    recordings: 'Recorded lessons',
     schedule: 'Schedules',
     support: 'Assign customer service',
     messages: 'Messages',
@@ -2193,6 +2194,53 @@ timetable: {
     },
   },
 
+  /** The admin's archive of every recorded lesson. */
+  adminRecordings: {
+    description:
+      'Every recorded lesson on the platform, by band, subject and teacher. Deleting one is permanent and removes the file itself.',
+    none: 'No recordings match this filter.',
+    search: 'Search subject, teacher or class',
+    showing: 'Showing {shown} of {total}',
+    delete: 'Delete this recording',
+    /* Names the lesson: a mis-click on the wrong card is the failure worth a sentence. */
+    confirmDelete:
+      'Permanently delete the {subject} recording? The video file is destroyed and this cannot be undone.',
+    deleted: 'The {subject} recording has been deleted.',
+    legalHold: 'Held for a safeguarding or dispute review. It cannot be deleted until the hold is lifted.',
+    band: {
+      all: 'All',
+      primary: 'Primary',
+      secondary: 'Secondary',
+      sixth_form: 'Lower & Upper Sixth',
+      private: 'Private classes',
+    },
+  },
+
+  /** Watching a lesson back — shared by the learner, teacher and admin libraries. */
+  recordings: {
+    watch: 'Watch',
+    opening: 'Getting it…',
+    audioOnly: 'Listen only',
+    /* NFR-SEC: said once, so nobody treats a link as something to forward. */
+    linkExpires: 'This link is yours and stops working after a few hours.',
+    unavailable: 'We cannot play this one for you.',
+    state: {
+      /*
+       * Three different pieces of news. A spinner would be all three at once, and
+       * a broken player sends a teacher to check their own connection first.
+       */
+      failed: 'This lesson was not saved. There is no video to watch.',
+      expired: 'This lesson is past the date we keep recordings until.',
+      ready: 'Ready',
+    },
+    scope: {
+      class: 'Class lesson',
+      group: 'Group',
+      'one-to-one': 'Private lesson',
+      invite: 'Invited call',
+    },
+  },
+
   teacherNav: {
     label: 'Teaching',
     soon: 'Soon',
@@ -2383,9 +2431,10 @@ timetable: {
     },
 
     lessons: {
-      title: 'My past lessons',
-      subtitle: 'Every lesson is recorded and kept for you, even the ones you missed.',
-      none: 'No past lessons yet',
+      title: 'My class videos',
+      subtitle:
+        'Your class lessons in the subjects you take, your groups, and any call you were invited to — including the ones you missed.',
+      none: 'No class videos yet',
       noneBody: 'After your first class, you will be able to watch it again here.',
       watch: 'Watch again',
       watchAudio: 'Listen only',

@@ -661,6 +661,7 @@ export const fr: Messages = {
     teacherRoster: 'Tous les enseignants',
     studentRoster: 'Tous les élèves',
     live: 'Cours en direct',
+    recordings: 'Cours enregistrés',
     schedule: 'Emplois du temps',
     support: 'Affecter le service client',
     messages: 'Messages',
@@ -2101,6 +2102,48 @@ timetable: {
     },
   },
 
+  /** L’archive de tous les cours enregistrés, côté administration. */
+  adminRecordings: {
+    description:
+      'Tous les cours enregistrés de la plateforme, par cycle, matière et enseignant. La suppression est définitive et détruit le fichier lui-même.',
+    none: 'Aucun enregistrement ne correspond à ce filtre.',
+    search: 'Rechercher une matière, un enseignant ou une classe',
+    showing: '{shown} sur {total} affichés',
+    delete: 'Supprimer cet enregistrement',
+    confirmDelete:
+      'Supprimer définitivement l’enregistrement de {subject} ? Le fichier vidéo est détruit et cette action est irréversible.',
+    deleted: 'L’enregistrement de {subject} a été supprimé.',
+    legalHold:
+      'Conservé pour un examen de protection de l’enfance ou un litige. Il ne peut pas être supprimé tant que la conservation est en vigueur.',
+    band: {
+      all: 'Tous',
+      primary: 'Primaire',
+      secondary: 'Secondaire',
+      sixth_form: 'Première & Terminale',
+      private: 'Cours particuliers',
+    },
+  },
+
+  /** Revoir un cours — partagé par les bibliothèques élève, enseignant et admin. */
+  recordings: {
+    watch: 'Revoir',
+    opening: 'Récupération…',
+    audioOnly: 'Écouter seulement',
+    linkExpires: 'Ce lien vous appartient et cesse de fonctionner après quelques heures.',
+    unavailable: 'Nous ne pouvons pas lire celui-ci pour vous.',
+    state: {
+      failed: 'Ce cours n’a pas été enregistré. Il n’y a aucune vidéo à revoir.',
+      expired: 'Ce cours a dépassé la date jusqu’à laquelle nous gardons les enregistrements.',
+      ready: 'Prêt',
+    },
+    scope: {
+      class: 'Cours de classe',
+      group: 'Groupe',
+      'one-to-one': 'Cours particulier',
+      invite: 'Appel sur invitation',
+    },
+  },
+
   teacherNav: {
     label: 'Enseignement',
     soon: 'Bientôt',
@@ -2268,9 +2311,10 @@ timetable: {
     },
 
     lessons: {
-      title: 'Mes cours passés',
-      subtitle: 'Chaque cours est enregistré et gardé pour toi, même ceux que tu as manqués.',
-      none: 'Pas encore de cours passés',
+      title: 'Mes vidéos de classe',
+      subtitle:
+        'Les cours de ta classe dans les matières que tu suis, tes groupes et les appels auxquels tu as été invité — y compris ceux que tu as manqués.',
+      none: 'Pas encore de vidéos de classe',
       noneBody: 'Après ton premier cours, tu pourras le revoir ici.',
       watch: 'Revoir',
       watchAudio: 'Écouter seulement',

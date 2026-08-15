@@ -1,8 +1,12 @@
 import { Body, Controller, Delete, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { ROLES } from '@classconnect/shared';
-import { zodBody } from '../common/zod-validation.pipe';
+import {
+  ROLES,
+  recordingUrlQuerySchema,
+  type RecordingUrlQuery,
+} from '@classconnect/shared';
+import { zodBody, ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import { AuditService } from '../audit/audit.service';
 import { uuidParam } from '../common/zod-validation.pipe';
@@ -264,8 +268,9 @@ export class GovernanceController {
   async adminRecordingUrl(
     @CurrentUser() user: AuthenticatedUser,
     @Param('recordingId', uuidParam()) recordingId: string,
+    @Query(new ZodValidationPipe(recordingUrlQuerySchema)) query: RecordingUrlQuery,
   ) {
-    return this.recordings.playbackUrl(user, recordingId);
+    return this.recordings.playbackUrl(user, recordingId, query.audio);
   }
 
   /**

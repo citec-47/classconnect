@@ -161,6 +161,19 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         badge: 'liveClasses',
       },
       {
+        /*
+         * Every recording on the platform, in one place.
+         *
+         * Gated on `recording:delete` rather than `live:watch`, which customer
+         * service also holds. The brief puts deletion in the admin's hands alone,
+         * and the whole archive is a stronger read than the lessons happening
+         * right now: it is every room full of children the platform has kept.
+         */
+        id: 'recordings',
+        href: '/recordings',
+        permission: 'recording:delete',
+      },
+      {
         id: 'support',
         href: '/support',
         // An agent holds `support:read:own` and sees the screen filtered to their

@@ -20,11 +20,13 @@ import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
-import { uuidParam } from '../common/zod-validation.pipe';
+import { uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
 import { RecordingsService } from '../teachers/recordings.service';
 import {
   PLATFORM_TIMEZONE,
   resolveLevelConfig,
+  recordingUrlQuerySchema,
+  type RecordingUrlQuery,
   type LearnerHomeDto,
 } from '@classconnect/shared';
 
@@ -378,8 +380,9 @@ export class LearnerController {
   async classVideoUrl(
     @CurrentUser() user: AuthenticatedUser,
     @Param('recordingId', uuidParam()) recordingId: string,
+    @Query(new ZodValidationPipe(recordingUrlQuerySchema)) query: RecordingUrlQuery,
   ) {
-    return this.recordings.playbackUrl(user, recordingId);
+    return this.recordings.playbackUrl(user, recordingId, query.audio);
   }
 }
 

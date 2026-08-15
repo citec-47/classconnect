@@ -1,5 +1,5 @@
 import { ArgumentMetadata, BadRequestException, Injectable, type PipeTransform } from '@nestjs/common';
-import { ZodError, ZodSchema } from 'zod';
+import { ZodError, ZodType, ZodTypeDef } from 'zod';
 
 /**
  * FR-RBA-002: validation happens server-side. Client-side checks are a
@@ -24,9 +24,18 @@ export class ValidationFailure extends BadRequestException {
   }
 }
 
+/**
+ * `ZodSchema<T>` is `ZodType<T, ZodTypeDef, T>` — output and *input* both `T`.
+ *
+ * That silently rules out any schema with a `.transform()`, whose input differs
+ * from its output: a query flag arriving as the string `'1'` and leaving as a
+ * boolean is exactly the case, and it fails at the call site with an error about
+ * `_input` that says nothing about transforms. Naming the input separately lets a
+ * transforming schema through while keeping `T` as what the handler receives.
+ */
 @Injectable()
-export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
-  constructor(private readonly schema: ZodSchema<T>) {}
+export class ZodValidationPipe<T, In = unknown> implements PipeTransform<unknown, T> {
+  constructor(private readonly schema: ZodType<T, ZodTypeDef, In>) {}
 
   transform(value: unknown, _metadata: ArgumentMetadata): T {
     try {
@@ -50,7 +59,7 @@ export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
 }
 
 /** Convenience factory so controllers read as `@Body(zodBody(schema))`. */
-export function zodBody<T>(schema: ZodSchema<T>): ZodValidationPipe<T> {
+export function zodBody<T, In>(schema: ZodType<T, ZodTypeDef, In>): ZodValidationPipe<T, In> {
   return new ZodValidationPipe(schema);
 }
 

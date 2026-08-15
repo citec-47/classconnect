@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api';
 import { PageHeader } from '@/components/admin/ui';
 import { ErrorAlert } from '@/components/Alert';
 import { TeacherGate } from '@/components/teacher/TeacherGate';
+import { RecordingPlayer } from '@/components/RecordingPlayer';
 
 interface Named {
   id: string;
@@ -131,25 +132,29 @@ function TeacherRecordingsPage() {
                             ? ` · ${megabytes(lesson.recording.sizeBytes)}`
                             : ''}
                         </p>
-                        <a
-                          href={`/api/v1/teacher/recordings/${lesson.recording.id}`}
-                          className="flex min-h-touch items-center justify-center rounded-lg bg-brand-600 px-3 text-sm font-medium text-white"
-                        >
-                          {t('teacherRecordings.watch')}
-                        </a>
+
                         {/*
-                         * NFR-BAN-001/002: audio is roughly a twelfth of the bytes.
-                         * On a metered connection that is the difference between
-                         * reviewing a lesson and deciding not to.
+                         * The link is minted on the tap and it expires.
+                         *
+                         * This used to be a plain `<a href="/api/v1/teacher/...">`,
+                         * which could not have worked: a browser navigation carries
+                         * no `Authorization` header, so it reached the API
+                         * unauthenticated — and the endpoint returns JSON describing
+                         * a signed URL rather than the video itself. Both problems
+                         * live in `RecordingPlayer`, once, for all three surfaces.
                          */}
-                        {lesson.recording.audioAvailable && (
-                          <a
-                            href={`/api/v1/teacher/recordings/${lesson.recording.id}?audio=1`}
-                            className="flex min-h-touch items-center justify-center rounded-lg border border-ink-300 px-3 text-sm text-ink-700"
-                          >
-                            {t('teacherRecordings.audioOnly')}
-                          </a>
-                        )}
+                        <RecordingPlayer
+                          endpoint="teacher"
+                          recordingId={lesson.recording.id}
+                          state="ready"
+                          audioAvailable={lesson.recording.audioAvailable}
+                          sizeBytes={
+                            lesson.recording.sizeBytes === null
+                              ? null
+                              : Number(lesson.recording.sizeBytes)
+                          }
+                        />
+
                         <p className="text-xs text-ink-600">
                           {t('teacherRecordings.availableUntil', {
                             date: new Date(lesson.recording.availableUntil).toLocaleDateString(

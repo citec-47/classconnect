@@ -356,3 +356,59 @@ export const sendTeacherMessageSchema = z.object({
   attachmentIds: z.array(z.string().uuid()).max(5).default([]),
 });
 export type SendTeacherMessageInput = z.infer<typeof sendTeacherMessageSchema>;
+
+// ---------------------------------------------------------------------------
+// Recordings
+// ---------------------------------------------------------------------------
+
+/**
+ * Which rendition of a recording to sign a link for.
+ *
+ * Spelled out rather than `z.coerce.boolean()`, which is actively wrong for a
+ * query string: it follows JavaScript truthiness, so `?audio=0` and
+ * `?audio=false` both arrive as `true` and would hand a learner on a metered
+ * connection the full video they explicitly declined.
+ */
+export const recordingUrlQuerySchema = z.object({
+  audio: z
+    .enum(['0', '1', 'true', 'false'])
+    .optional()
+    .transform((value) => value === '1' || value === 'true'),
+});
+export type RecordingUrlQuery = z.infer<typeof recordingUrlQuerySchema>;
+
+/** What a recording's row in any of the three libraries looks like. */
+export type RecordingScopeDto = 'class' | 'group' | 'one-to-one' | 'invite';
+
+/**
+ * `ready` is playable. `failed` is a row whose file never landed, and `expired`
+ * is one past its retention date — different news, and neither is a spinner.
+ */
+export type RecordingStateDto = 'ready' | 'failed' | 'expired';
+
+/**
+ * One row in a recording library.
+ *
+ * Named apart from `RecordingDto` in `learner-dto.ts`, which is the three-field
+ * summary embedded in a past-lesson card. This is the standalone row the three
+ * libraries list — it carries the scope, the band and the teacher, none of which
+ * the embedded one needs.
+ */
+export interface RecordingLibraryDto {
+  id: string;
+  sessionId: string;
+  scope: RecordingScopeDto;
+  subject: { id: string; nameEn: string; nameFr: string } | null;
+  cohort: { id: string; name: string } | null;
+  level: { id: string; nameEn: string; nameFr: string; schoolType: string } | null;
+  teacherName: string | null;
+  learner: { id: string; fullName: string } | null;
+  startedAt: string;
+  durationSec: number;
+  sizeBytes: number | null;
+  audioAvailable: boolean;
+  audioSizeBytes: number | null;
+  availableUntil: string;
+  legalHold: boolean;
+  state: RecordingStateDto;
+}

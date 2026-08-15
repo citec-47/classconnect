@@ -64,8 +64,12 @@ export class RecordingsService {
         id: true,
         durationSec: true,
         sizeBytes: true,
+        storageKey: true,
+        audioKey: true,
+        audioSizeBytes: true,
         createdAt: true,
         availableUntil: true,
+        legalHold: true,
         session: {
           select: {
             id: true,
@@ -74,12 +78,23 @@ export class RecordingsService {
             timetableSlotId: true,
             teacherId: true,
             subject: { select: { id: true, nameEn: true, nameFr: true } },
-            cohort: { select: { id: true, name: true } },
+            cohort: {
+              select: {
+                id: true,
+                name: true,
+                // The band the admin library files it under (primary, secondary,
+                // lower/upper sixth), which lives on the level, not the cohort.
+                level: { select: { id: true, nameEn: true, nameFr: true, schoolType: true } },
+              },
+            },
             learner: { select: { id: true, fullName: true } },
+            teacher: { select: { user: { select: { fullName: true } } } },
           },
         },
       },
     });
+
+    const now = Date.now();
 
     return {
       recordings: recordings.map((r: (typeof recordings)[number]) => ({
@@ -87,11 +102,36 @@ export class RecordingsService {
         sessionId: r.session.id,
         scope: this.scopeOf(r.session),
         subject: r.session.subject,
-        cohort: r.session.cohort,
+        cohort: r.session.cohort ? { id: r.session.cohort.id, name: r.session.cohort.name } : null,
+        level: r.session.cohort?.level ?? null,
+        /*
+         * Named for the admin library, which files by teacher. Everyone else
+         * already knows who taught it — it is their own lesson or their own
+         * class — but it costs one join and removes a whole endpoint.
+         */
+        teacherName: r.session.teacher?.user.fullName ?? null,
+        learner: r.session.learner,
         startedAt: r.session.startsAtUtc.toISOString(),
         durationSec: r.durationSec,
         sizeBytes: r.sizeBytes === null ? null : Number(r.sizeBytes),
+        audioAvailable: Boolean(r.audioKey),
+        audioSizeBytes: r.audioSizeBytes === null ? null : Number(r.audioSizeBytes),
         availableUntil: r.availableUntil.toISOString(),
+        legalHold: r.legalHold,
+        /*
+         * The dashboard's own words for what it may show.
+         *
+         * `failed` is a row whose file never landed — the session ended, the row
+         * was written, and the upload did not arrive. Saying so beats rendering a
+         * player that spins for ever and sends a teacher to check their own
+         * connection. `expired` is the retention date having passed, which is a
+         * different piece of news and not a fault.
+         */
+        state: !r.storageKey
+          ? ('failed' as const)
+          : r.availableUntil.getTime() <= now
+            ? ('expired' as const)
+            : ('ready' as const),
       })),
     };
   }
@@ -103,14 +143,14 @@ export class RecordingsService {
    * was shown. A recording id in someone's hands is not permission, and the
    * direct link is precisely how a child in the wrong class would arrive.
    */
-  async playbackUrl(user: AuthenticatedUser, recordingId: string) {
+  async playbackUrl(user: AuthenticatedUser, recordingId: string, audioOnly = false) {
     const where = this.isAdmin(user)
       ? { id: recordingId }
       : { id: recordingId, session: await this.visibilityFilter(user) };
 
     const recording = await this.prisma.recording.findFirst({
       where,
-      select: { id: true, storageKey: true, availableUntil: true },
+      select: { id: true, storageKey: true, audioKey: true, availableUntil: true },
     });
 
     /*
@@ -121,7 +161,26 @@ export class RecordingsService {
      */
     if (!recording) throw AppError.notFound();
 
-    const url = this.storage.signedUrl(recording.storageKey);
+    /*
+     * §5.5: past its retention date the file is going or gone, so a link to it
+     * is at best a broken player and at worst a recording of children served
+     * after the date the platform promised to stop serving it.
+     */
+    if (recording.availableUntil.getTime() <= Date.now()) {
+      throw AppError.notFound();
+    }
+
+    /*
+     * NFR-BAN-001/002: the audio rendition is roughly a twelfth of the bytes,
+     * which on a metered connection is the difference between reviewing a lesson
+     * and deciding not to. It is a separate stored object, so it needs its own
+     * signature — and falling back to the video when it is absent would spend
+     * twelve times the data the learner agreed to.
+     */
+    const key = audioOnly ? recording.audioKey : recording.storageKey;
+    if (!key) throw AppError.notFound();
+
+    const url = this.storage.signedUrl(key);
     if (!url) {
       /*
        * Said plainly rather than handing back a link that plays nothing. A
@@ -131,7 +190,16 @@ export class RecordingsService {
       throw AppError.serviceUnavailable('errors.recording.storage_unavailable');
     }
 
-    return { url, expiresInSeconds: RecordingStorageService.TTL_SECONDS };
+    return {
+      url,
+      audioOnly,
+      expiresInSeconds: RecordingStorageService.TTL_SECONDS,
+      /*
+       * Returned so the player can re-request before the link dies mid-lesson
+       * rather than stalling at the 43rd minute of a 45-minute recording.
+       */
+      expiresAt: new Date(Date.now() + RecordingStorageService.TTL_SECONDS * 1000).toISOString(),
+    };
   }
 
   /**

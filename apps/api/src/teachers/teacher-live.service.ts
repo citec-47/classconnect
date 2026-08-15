@@ -360,6 +360,8 @@ export class TeacherLiveService {
            */
           displayName: await this.displayName(user.id),
           canPublish: true,
+          /* The host shares without asking: it is their lesson. */
+          screenShare: true,
         })
       : null;
 
@@ -416,6 +418,8 @@ export class TeacherLiveService {
       identity: user.id,
       displayName: await this.displayName(user.id),
       canPublish: true,
+      /* The host shares without asking: it is their lesson. */
+      screenShare: true,
     });
   }
 
@@ -844,6 +848,13 @@ export class TeacherLiveService {
         room.roomId,
         updated.learnerUserId,
         updated.state === 'approved',
+        /*
+         * The screen half of the same decision. A teacher who approves speaking
+         * has not approved sharing, and passing only the first would hand over
+         * both — the media server grants every source when it is told nothing
+         * more specific.
+         */
+        updated.state === 'approved' && updated.screenShare,
       );
     }
 
@@ -1038,9 +1049,17 @@ export class TeacherLiveService {
       if (!booked) throw AppError.notFound();
     }
 
+    /*
+     * The standing grant, re-read on every join.
+     *
+     * This is what makes a screen-share permission survive a reload: the token
+     * is built from the database rather than from anything the browser
+     * remembers, so a learner who was allowed to share comes back able to and
+     * everybody else comes back unable to.
+     */
     const granted = await this.prisma.mediaPublishRequest.findFirst({
-      where: { sessionId, learnerUserId: user.id, state: 'approved' },
-      select: { id: true },
+      where: { sessionId, learnerUserId: user.id, state: 'approved', revokedAt: null },
+      select: { id: true, screenShare: true },
     });
 
     const token = await this.livekit.issueToken({
@@ -1048,6 +1067,7 @@ export class TeacherLiveService {
       identity: user.id,
       displayName: await this.displayName(user.id),
       canPublish: Boolean(granted),
+      screenShare: granted?.screenShare === true,
     });
 
     /*
@@ -1165,7 +1185,7 @@ export class TeacherLiveService {
       select: { roomId: true },
     });
     if (room?.roomId) {
-      await this.livekit.setCanPublish(room.roomId, learnerUserId, true);
+      await this.livekit.setCanPublish(room.roomId, learnerUserId, true, screenShare);
     }
 
     return { requestId: request.id, state: request.state };

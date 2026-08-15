@@ -8,6 +8,7 @@ import {
   SegmentedFileProtocol,
   RoomServiceClient,
   S3Upload,
+  TrackSource,
 } from 'livekit-server-sdk';
 import { AppError } from '../common/http-exception.filter';
 import { RecordingStorageService } from '../files/recording-storage.service';
@@ -29,6 +30,18 @@ export interface RoomGrant {
    * the token does not carry.
    */
   canPublish: boolean;
+  /**
+   * May this participant share their screen?
+   *
+   * Separate from `canPublish` because the two are different permissions, and
+   * `canPublish` alone grants every source there is: a learner allowed to answer
+   * a question could also put their screen in front of the class. FR-LIV-005
+   * says sharing is its own grant, and this is where that becomes true rather
+   * than merely intended.
+   *
+   * The host is the exception and is granted it on sight — it is their lesson.
+   */
+  screenShare?: boolean;
 }
 
 /**
@@ -116,6 +129,29 @@ export class LiveKitService {
       roomJoin: true,
       canPublish: grant.canPublish,
       /*
+       * Which sources, not merely whether.
+       *
+       * `canPublish: true` on its own authorises every track source LiveKit
+       * knows, screen share included — so a learner granted the floor to answer
+       * a question could also start sharing their screen to the class, and the
+       * media server would accept it. Naming the sources is what makes the
+       * screen a separate permission rather than a button we chose not to draw.
+       *
+       * This is also how the grant survives a reload: the token minted on the
+       * next join is built from the same database state, so somebody who was
+       * allowed to share comes back able to, and everybody else comes back
+       * unable to, without anyone re-approving anything.
+       */
+      canPublishSources: grant.canPublish
+        ? [
+            TrackSource.CAMERA,
+            TrackSource.MICROPHONE,
+            ...(grant.screenShare
+              ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
+              : []),
+          ]
+        : [],
+      /*
        * Everyone subscribes, including a learner who may not speak — that is
        * how they see and hear the lesson.
        */
@@ -154,7 +190,12 @@ export class LiveKitService {
    * learner out of the lesson to let them answer a question. This updates the
    * live permission in place, so the microphone simply becomes available.
    */
-  async setCanPublish(roomId: string, identity: string, canPublish: boolean): Promise<void> {
+  async setCanPublish(
+    roomId: string,
+    identity: string,
+    canPublish: boolean,
+    screenShare = false,
+  ): Promise<void> {
     if (!this.configured) return;
 
     const rooms = new RoomServiceClient(this.httpUrl, this.apiKey, this.apiSecret);
@@ -163,6 +204,21 @@ export class LiveKitService {
         canPublish,
         canSubscribe: true,
         canPublishData: true,
+        /*
+         * Sent on every update, including the revoking one.
+         *
+         * Permissions are replaced rather than merged, so omitting the sources
+         * when withdrawing a share would leave the participant with the blanket
+         * `canPublish` and their screen still going out to the class. Revoking
+         * has to say what remains, not only what stops.
+         */
+        canPublishSources: canPublish
+          ? [
+              TrackSource.CAMERA,
+              TrackSource.MICROPHONE,
+              ...(screenShare ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
+            ]
+          : [],
       });
     } catch (error) {
       /*
@@ -263,6 +319,17 @@ export class LiveKitService {
           }),
         },
         {
+          /*
+           * `speaker`, so a shared screen is what the recording shows.
+           *
+           * The default grid gives every participant an equal square, which for
+           * a lesson about what is on the teacher's screen means the screen
+           * arrives as one thumbnail among several and nothing on it can be
+           * read. This layout promotes the active speaker — and a screen share
+           * when there is one — to the main frame, which is the same rule the
+           * room applies on screen.
+           */
+          layout: 'speaker',
           /*
            * 480×360 at 500 kbps, 15fps, audio at 64 kbps.
            *

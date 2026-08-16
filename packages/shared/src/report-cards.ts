@@ -92,12 +92,21 @@ export function rankByAverage(learners: readonly RankedLearner[]): RankedPositio
   let lastAverage: number | null = null;
   let lastPosition = 0;
 
+  /*
+   * A tie is decided on the mark as it is *shown*, to two decimal places.
+   *
+   * Comparing the raw floats separates 14.2551 from 14.2549 and puts one child
+   * above another on a difference no report card prints and no family can see.
+   * Two averages that read the same on the page are the same position.
+   */
+  const shown = (average: number | null) => (average === null ? null : Math.round(average * 100) / 100);
+
   sorted.forEach((learner, index) => {
     // Competition ranking: equal averages share a position, and the position
     // after a tie skips by the size of the tie.
-    const position = learner.average === lastAverage ? lastPosition : index + 1;
+    const position = shown(learner.average) === lastAverage ? lastPosition : index + 1;
     positionByLearner.set(learner.learnerId, position);
-    lastAverage = learner.average;
+    lastAverage = shown(learner.average);
     lastPosition = position;
   });
 

@@ -12,6 +12,8 @@ import {
 } from 'livekit-server-sdk';
 import { AppError } from '../common/http-exception.filter';
 import { RecordingStorageService } from '../files/recording-storage.service';
+import { PlatformConfigService } from '../common/platform-config.service';
+import { CONFIG_KEYS } from '@classconnect/shared';
 
 /** What a participant may do once they are in the room. */
 export interface RoomGrant {
@@ -75,6 +77,7 @@ export class LiveKitService {
   constructor(
     env: ConfigService,
     private readonly storage: RecordingStorageService,
+    private readonly platformConfig: PlatformConfigService,
   ) {
     this.url = env.get<string>('LIVEKIT_URL') ?? '';
     this.apiKey = env.get<string>('LIVEKIT_API_KEY') ?? '';
@@ -331,25 +334,24 @@ export class LiveKitService {
            */
           layout: 'speaker',
           /*
-           * 480×360 at 500 kbps, 15fps, audio at 64 kbps.
+           * The size is configuration, because it is a trade with no free side.
            *
-           * Chosen for the network the lesson is watched on, not the one it is
-           * recorded on: students here are on mobile data, and a sharper video
-           * they cannot afford to load is worse than a legible one they can. It
-           * also brings a 45-minute lesson to roughly 200 MB rather than a
-           * gigabyte, which is what makes a 1 GB bucket hold more than one.
+           * 720p by default, so text on a shared screen can be read — a
+           * recording of a lesson about a screen nobody can read is worthless,
+           * whatever it costs to store. The price is real and is the admin's to
+           * pay or not: roughly 500 MB for a 45-minute lesson against 200 MB at
+           * 360p, so a 1 GB bucket holds two lessons instead of five.
            *
-           * Audio bitrate is kept ahead of what the picture gets proportionally
-           * — a lesson survives a blurry diagram far better than it survives a
-           * teacher who cannot be understood.
+           * Read here rather than held as a constant, so dropping back to 360
+           * the day storage bites is a setting and not a deployment. It takes
+           * effect on the next lesson: LiveKit encodes one composite at one
+           * size and cannot be re-sized part-way through.
+           *
+           * Audio does not scale with the picture — a lesson survives a blurry
+           * diagram far better than it survives a teacher who cannot be
+           * understood — so cutting the video back leaves the voice alone.
            */
-          encodingOptions: new EncodingOptions({
-            width: 480,
-            height: 360,
-            framerate: 15,
-            videoBitrate: 500,
-            audioBitrate: 64,
-          }),
+          encodingOptions: new EncodingOptions(this.recordingEncoding),
         },
       );
       return info.egressId ?? null;
@@ -477,6 +479,35 @@ export class LiveKitService {
 
     this.logger.error(`Egress ${egressId} left nothing under ${playlistKey} within 30s`);
     return null;
+  }
+
+  /**
+   * The composite's size and bitrates, from configuration.
+   *
+   * Width is derived from height at 16:9 rather than configured separately: two
+   * numbers that must agree are two numbers that will eventually not, and an
+   * admin who sets a height has not agreed to think about aspect ratios.
+   *
+   * Framerate stays at 15. A lesson is a person talking and a screen being
+   * pointed at; doubling the frames doubles the file to no benefit either the
+   * teacher or the student would notice.
+   */
+  private get recordingEncoding(): {
+    width: number;
+    height: number;
+    framerate: number;
+    videoBitrate: number;
+    audioBitrate: number;
+  } {
+    const height = this.platformConfig.getNumber(CONFIG_KEYS.RECORDING_HEIGHT_PX);
+    return {
+      /* Even numbers only: H.264 rejects odd dimensions. */
+      width: Math.round((height * 16) / 9 / 2) * 2,
+      height,
+      framerate: 15,
+      videoBitrate: this.platformConfig.getNumber(CONFIG_KEYS.RECORDING_VIDEO_BITRATE_KBPS),
+      audioBitrate: this.platformConfig.getNumber(CONFIG_KEYS.RECORDING_AUDIO_BITRATE_KBPS),
+    };
   }
 
   /**

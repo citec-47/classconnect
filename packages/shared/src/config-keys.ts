@@ -92,10 +92,45 @@ export const CONFIG_KEYS = {
   /**
    * How long a learner must attend before they may rate the teacher.
    *
-   * The brief says forty minutes. FR-RAT-* gives the rating its meaning: someone
-   * who saw ten minutes of a lesson is rating the connection, not the teaching.
+   * Thirty minutes, corrected from the forty this carried: the product owner has
+   * confirmed the threshold matches the earnings floor rather than sitting ten
+   * minutes above it. FR-RAT-* gives the rating its meaning: someone who saw ten
+   * minutes of a lesson is rating the connection, not the teaching.
    */
   RATING_MIN_ATTENDED_MINUTES: 'ratings.min_attended_minutes',
+
+  // --- FR-LIV: what a lesson recording looks like ---
+
+  /**
+   * The height of the recorded composite, in pixels. 720 or 360.
+   *
+   * Configuration rather than a constant because it is a live trade between two
+   * things that both matter and cannot both be had. At 360 a shared screen is
+   * unreadable, which makes the recording of a lesson about that screen
+   * worthless. At 720 a 45-minute lesson is roughly 500 MB rather than 200 MB,
+   * so a 1 GB bucket holds two lessons instead of five.
+   *
+   * The admin can drop back to 360 the day storage bites, without a deployment.
+   * Read when egress starts, so it applies from the next lesson onwards and
+   * never mid-recording — LiveKit encodes one composite at one size.
+   */
+  RECORDING_HEIGHT_PX: 'recording.height_px',
+  /**
+   * Video bitrate in kbps, which has to move with the height.
+   *
+   * Separate rather than derived: 720p at 500 kbps is a worse picture than 360p
+   * at 500 kbps, so an admin halving the height without touching this would
+   * make the recording worse and the file no smaller.
+   */
+  RECORDING_VIDEO_BITRATE_KBPS: 'recording.video_bitrate_kbps',
+  /**
+   * Audio bitrate in kbps.
+   *
+   * Deliberately not scaled with the video. A lesson survives a blurry diagram
+   * far better than a teacher who cannot be understood, so this stays where it
+   * is when the picture is cut back.
+   */
+  RECORDING_AUDIO_BITRATE_KBPS: 'recording.audio_bitrate_kbps',
 
   // --- FR-NOT-004/008: notifications ---
   QUIET_HOURS_START: 'notifications.quiet_hours_start',
@@ -246,7 +281,11 @@ export const CONFIG_DEFAULTS: Record<ConfigKey, unknown> = {
   [CONFIG_KEYS.EARNING_MIN_SESSION_MINUTES]: 30, // the brief's 30-minute floor
   [CONFIG_KEYS.SCHOOL_WEEK_DAYS]: 5, // 24/5 by default; 6 or 7 without a deploy
   [CONFIG_KEYS.TIMETABLE_PERIOD_RATE_XAF]: 1000, // one 45-minute period
-  [CONFIG_KEYS.RATING_MIN_ATTENDED_MINUTES]: 40, // the brief's 40-minute rule
+  [CONFIG_KEYS.RATING_MIN_ATTENDED_MINUTES]: 30, // corrected: 30, matching the earnings floor
+  // 720p: shared screens have to be readable. Drop to 360 if storage bites.
+  [CONFIG_KEYS.RECORDING_HEIGHT_PX]: 720,
+  [CONFIG_KEYS.RECORDING_VIDEO_BITRATE_KBPS]: 1500,
+  [CONFIG_KEYS.RECORDING_AUDIO_BITRATE_KBPS]: 64,
 
   [CONFIG_KEYS.QUIET_HOURS_START]: '21:00', // FR-NOT-004
   [CONFIG_KEYS.QUIET_HOURS_END]: '06:00', // FR-NOT-004

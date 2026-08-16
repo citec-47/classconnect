@@ -38,7 +38,7 @@ import type { AuthenticatedUser } from '../rbac/decorators';
  * **`attendedMinutes` stays 0 until a media server reports it.** `classes.ts`
  * already establishes that attendance comes from the media server's events and
  * never from self-report, so nothing here writes a minute it did not observe —
- * which means the 30-minute earnings floor and the 40-minute rating rule are
+ * which means the 30-minute earnings floor and the 30-minute rating rule are
  * wired and correct, and will read zero until the SFU is connected. Filling them
  * in from the wall clock would be inventing attendance, and it would be invisible
  * once it reached a payslip.
@@ -1073,7 +1073,7 @@ export class TeacherLiveService {
     /*
      * The seat is opened here, not by the client saying it arrived.
      *
-     * `firstJoinAt` is what attendance and the 40-minute rating rule are
+     * `firstJoinAt` is what attendance and the 30-minute rating rule are
      * measured from, and a client-reported arrival is a number a learner could
      * choose for themselves.
      */

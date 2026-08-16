@@ -2113,6 +2113,13 @@ timetable: {
 
   /** L’archive de tous les cours enregistrés, côté administration. */
   adminRecordings: {
+    /* Le parcours : catégorie, puis classe, puis matière. */
+    breadcrumb: 'Où vous êtes',
+    lessonCount: '{count} leçons',
+    otherSection: 'Groupes et appels sur invitation',
+    otherHint: '{count} enregistrements qui n’appartiennent à aucune classe',
+    emptyCategory: 'Aucune leçon n’a encore été enregistrée dans cette catégorie.',
+    emptyClass: 'Aucune leçon n’a encore été enregistrée pour cette classe.',
     description:
       'Tous les cours enregistrés de la plateforme, par cycle, matière et enseignant. La suppression est définitive et détruit le fichier lui-même.',
     none: 'Aucun enregistrement ne correspond à ce filtre.',

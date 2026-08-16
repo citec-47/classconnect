@@ -381,6 +381,16 @@ export type RecordingUrlQuery = z.infer<typeof recordingUrlQuerySchema>;
 export type RecordingScopeDto = 'class' | 'group' | 'one-to-one' | 'invite';
 
 /**
+ * The admin library's four categories, and the section for everything else.
+ *
+ * Matches the school bands on `Level.schoolType` rather than restating them, so
+ * a new band cannot appear in one list and not the other. `private` is not a
+ * band: it is a one-to-one lesson, which the brief files separately whatever
+ * class the learner is in.
+ */
+export type RecordingCategoryDto = 'primary' | 'secondary' | 'sixth_form' | 'private' | 'other';
+
+/**
  * `ready` is playable. `failed` is a row whose file never landed, and `expired`
  * is one past its retention date — different news, and neither is a spinner.
  */
@@ -401,6 +411,15 @@ export interface RecordingLibraryDto {
   subject: { id: string; nameEn: string; nameFr: string } | null;
   cohort: { id: string; name: string } | null;
   level: { id: string; nameEn: string; nameFr: string; schoolType: string } | null;
+  /**
+   * Which shelf of the admin library this belongs on.
+   *
+   * Server-derived, so the four categories mean the same thing on every screen.
+   * `other` is a group session or an invited call: neither has a class or a
+   * subject enrolment behind it, so they are listed separately rather than being
+   * forced into a tree they do not belong in.
+   */
+  category: RecordingCategoryDto;
   teacherName: string | null;
   learner: { id: string; fullName: string } | null;
   startedAt: string;

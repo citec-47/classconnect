@@ -88,7 +88,20 @@ export class RecordingsService {
                 level: { select: { id: true, nameEn: true, nameFr: true, schoolType: true } },
               },
             },
-            learner: { select: { id: true, fullName: true } },
+            learner: {
+              select: {
+                id: true,
+                fullName: true,
+                /*
+                 * A private lesson has no cohort, so its class comes from the
+                 * learner. Without this the admin library would file every
+                 * one-to-one under no class at all — and "Private classes, Class
+                 * One through to Upper Sixth" is exactly a private lesson filed
+                 * by the learner's own level.
+                 */
+                level: { select: { id: true, nameEn: true, nameFr: true, schoolType: true } },
+              },
+            },
             teacher: { select: { user: { select: { fullName: true } } } },
           },
         },
@@ -104,7 +117,26 @@ export class RecordingsService {
         scope: this.scopeOf(r.session),
         subject: r.session.subject,
         cohort: r.session.cohort ? { id: r.session.cohort.id, name: r.session.cohort.name } : null,
-        level: r.session.cohort?.level ?? null,
+        /*
+         * The class this lesson belongs to, from whichever side names it: a
+         * group lesson through its cohort, a private one through its learner.
+         */
+        level: r.session.cohort?.level ?? r.session.learner?.level ?? null,
+        /*
+         * Which shelf of the admin library this sits on.
+         *
+         * Derived here rather than in the browser so that the four categories
+         * mean the same thing everywhere, and so a lesson cannot appear under
+         * one heading on one screen and another elsewhere. `private` wins over
+         * the school band deliberately: a one-to-one at Class One is a private
+         * lesson that happens to be at Class One, which is how the brief lists
+         * it — Private classes, Class One through to Upper Sixth.
+         *
+         * A group or an invited call has no class and no subject enrolment
+         * behind it, so it gets its own section rather than being forced into a
+         * tree it does not belong in.
+         */
+        category: this.categoryOf(r.session),
         /*
          * Named for the admin library, which files by teacher. Everyone else
          * already knows who taught it — it is their own lesson or their own
@@ -411,6 +443,29 @@ export class RecordingsService {
     }
 
     return { OR: clauses };
+  }
+
+  /**
+   * The admin library's four shelves, plus the one for everything that is not a
+   * class lesson.
+   *
+   * Read from the same facts `scopeOf` uses, so the two cannot disagree about
+   * what a lesson is.
+   */
+  private categoryOf(session: {
+    type: string;
+    timetableSlotId: string | null;
+    cohort: { level: { schoolType: string } | null } | null;
+    learner: { level: { schoolType: string } | null } | null;
+  }): 'primary' | 'secondary' | 'sixth_form' | 'private' | 'other' {
+    const scope = this.scopeOf(session as Parameters<typeof this.scopeOf>[0]);
+
+    /* Not class lessons, and the brief is explicit that they get their own section. */
+    if (scope === 'group' || scope === 'invite') return 'other';
+    if (scope === 'one-to-one') return 'private';
+
+    const band = session.cohort?.level?.schoolType;
+    return band === 'primary' || band === 'secondary' || band === 'sixth_form' ? band : 'other';
   }
 
   private scopeOf(session: {

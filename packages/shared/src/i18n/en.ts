@@ -2210,6 +2210,13 @@ timetable: {
 
   /** The admin's archive of every recorded lesson. */
   adminRecordings: {
+    /* The drill-down: category, then class, then subject. */
+    breadcrumb: 'Where you are',
+    lessonCount: '{count} lessons',
+    otherSection: 'Groups and invited calls',
+    otherHint: '{count} recordings that do not belong to a class',
+    emptyCategory: 'No lessons have been recorded in this category yet.',
+    emptyClass: 'No lessons have been recorded for this class yet.',
     description:
       'Every recorded lesson on the platform, by band, subject and teacher. Deleting one is permanent and removes the file itself.',
     none: 'No recordings match this filter.',

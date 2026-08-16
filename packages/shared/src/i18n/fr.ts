@@ -671,6 +671,7 @@ export const fr: Messages = {
     live: 'Cours en direct',
     /* Le nom donné à la fonctionnalité, pas une description de celle-ci. */
     recordings: 'Cours passés — général',
+    academicResults: 'Résultats scolaires',
     schedule: 'Emplois du temps',
     support: 'Affecter le service client',
     messages: 'Messages',
@@ -2121,6 +2122,24 @@ timetable: {
   },
 
   /** L’archive de tous les cours enregistrés, côté administration. */
+  /** Notes par catégorie, classe et matière, et le bouton de compilation. */
+  academicResults: {
+    description:
+      'Notes par catégorie, classe et matière. Compilez une classe pour la classer ; publiez pour envoyer sa fiche à chaque élève.',
+    term: 'Trimestre',
+    year: 'Année scolaire',
+    learnerCount: '{count} élèves',
+    offeredBy: '{count} inscrits',
+    noSubjects: 'Aucun élève de cette classe ne suit encore de matière.',
+    noStudents: 'Aucun élève de cette classe ne suit cette matière.',
+    noMark: 'Non saisie',
+    compileHint: 'Compilez {class} pour classer chaque élève sur les matières qu’il suit.',
+    compile: 'Compiler (interne)',
+    publish: 'Compiler et publier',
+    compiled: '{count} fiches compilées pour {class}. Rien n’a encore été envoyé aux élèves.',
+    published: '{count} fiches publiées pour {class}. Chaque élève voit désormais la sienne.',
+  },
+
   adminRecordings: {
     /* Le parcours : catégorie, puis classe, puis matière. */
     breadcrumb: 'Où vous êtes',

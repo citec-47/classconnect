@@ -174,6 +174,20 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         permission: 'recording:delete',
       },
       {
+        /*
+         * Marks by category, class and subject, and the button that compiles
+         * them into ranked sheets.
+         *
+         * `reports:read` rather than `recording:delete`: this is the same
+         * academic record the reports dashboard already shows, read through a
+         * different arrangement, and gating it harder than the dashboard it
+         * draws from would be a lock on a door standing open beside it.
+         */
+        id: 'academicResults',
+        href: '/academic-results',
+        permission: 'reports:read',
+      },
+      {
         id: 'support',
         href: '/support',
         // An agent holds `support:read:own` and sees the screen filtered to their

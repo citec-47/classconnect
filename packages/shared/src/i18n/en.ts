@@ -737,6 +737,7 @@ export const en = {
      * synonym.
      */
     recordings: 'General Past Classes',
+    academicResults: 'Academic Results',
     schedule: 'Schedules',
     support: 'Assign customer service',
     messages: 'Messages',
@@ -2225,6 +2226,24 @@ timetable: {
   },
 
   /** The admin's archive of every recorded lesson. */
+  /** Marks by category, class and subject, and the compile button. */
+  academicResults: {
+    description:
+      'Marks by category, class and subject. Compile a class to rank it; publish to send each sheet to that student.',
+    term: 'Term',
+    year: 'Academic year',
+    learnerCount: '{count} learners',
+    offeredBy: '{count} offering',
+    noSubjects: 'No learner in this class offers a subject yet.',
+    noStudents: 'No learner in this class offers this subject.',
+    noMark: 'Not entered',
+    compileHint: 'Compile {class} to rank every learner across the subjects they offer.',
+    compile: 'Compile (staff only)',
+    publish: 'Compile and publish',
+    compiled: 'Compiled {count} sheets for {class}. Nothing has been sent to students yet.',
+    published: 'Published {count} sheets for {class}. Each student can now see their own.',
+  },
+
   adminRecordings: {
     /* The drill-down: category, then class, then subject. */
     breadcrumb: 'Where you are',

@@ -51,6 +51,8 @@ const TAB_PATHS: Record<TabKey, string> = {
   messages: '/messages',
   practice: '/practice',
   progress: '/progress',
+  /* The screen already exists at /lessons; this gives it a way in. */
+  videos: '/lessons',
 };
 
 const TAB_ICONS: Record<TabKey, (props: { className?: string }) => ReactNode> = {
@@ -62,6 +64,7 @@ const TAB_ICONS: Record<TabKey, (props: { className?: string }) => ReactNode> = 
   messages: MessageIcon,
   practice: FileTextIcon,
   progress: ChartIcon,
+  videos: VideoIcon,
 };
 
 export function TabBar({ language, config }: { language: string; config: LevelConfig }) {

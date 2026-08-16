@@ -2198,6 +2198,7 @@ timetable: {
       progress: 'Progrès',
       exams: 'Examens',
       messages: 'Messages',
+      videos: 'Mes vidéos de cours',
     },
     navLabel: 'Menu principal',
     navMore: 'Plus',

@@ -2312,6 +2312,7 @@ timetable: {
       progress: 'Progress',
       exams: 'Exams',
       messages: 'Messages',
+      videos: 'My class videos',
     },
     navLabel: 'Main menu',
     navMore: 'More',

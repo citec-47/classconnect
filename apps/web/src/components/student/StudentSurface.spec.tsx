@@ -50,9 +50,19 @@ const tabNames = () =>
     .map((link) => link.textContent?.trim());
 
 describe('§10 criterion 1 — the destination count', () => {
-  it('gives Primary four destinations and no Practice', () => {
+  /*
+   * The bar shows `MAX_BOTTOM_BAR_TABS`; the rest are behind More.
+   *
+   * This asserted Home, Classes, Work, Progress,
+   * which was the destination set before Subjects and My class videos existed.
+   * Both are real destinations — Subjects is where a learner sees the subjects
+   * they offer — so the list was right and the expectation was the stale half.
+   * What has not changed, and is what this test is actually for: Primary does
+   * not get Practice or Exams.
+   */
+  it('fills the Primary bar and offers neither Practice nor Exams', () => {
     renderTabs({ key: 'primary' });
-    expect(tabNames()).toEqual(['Home', 'Classes', 'Work', 'Progress']);
+    expect(tabNames()).toEqual(['Home', 'Subjects', 'Classes', 'Work']);
     expect(screen.queryByRole('link', { name: 'Practice' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Exams' })).toBeNull();
   });
@@ -63,7 +73,7 @@ describe('§10 criterion 1 — the destination count', () => {
       const overflow = screen.getByRole('button', { name: /more/i });
       expect(overflow).toBeInTheDocument();
       fireEvent.click(overflow);
-      expect(screen.getByRole('link', { name: 'Exams' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Exams' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Messages' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Practice' })).toBeInTheDocument();
       unmount();
@@ -89,7 +99,7 @@ describe('§10 criterion 2 — a level change re-renders the surface', () => {
     const overflow = screen.getByRole('button', { name: /more/i });
     expect(overflow).toBeInTheDocument();
     fireEvent.click(overflow);
-    expect(screen.getByRole('link', { name: 'Exams' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Exams' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Practice' })).toBeInTheDocument();
   });
@@ -128,7 +138,7 @@ describe('§10 criterion 12 — French', () => {
     const overflow = screen.getByRole('button', { name: /plus/i });
     expect(overflow).toBeInTheDocument();
     fireEvent.click(overflow);
-    expect(screen.getByRole('link', { name: 'Examens' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Examens' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Messages' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Entraînement' })).toBeInTheDocument();
     expect(screen.getByRole('navigation').textContent).not.toMatch(/student\./);

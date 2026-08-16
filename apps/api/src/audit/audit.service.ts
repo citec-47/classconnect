@@ -90,6 +90,8 @@ export type AuditAction =
    */
   | 'group.created'
   | 'group.members_set'
+  /* Marking a submission: who gave the score, and what it was. */
+  | 'work.graded'
   | 'exercise.created'
   | 'exercise.unlocked'
   | 'exercise.group_scored'

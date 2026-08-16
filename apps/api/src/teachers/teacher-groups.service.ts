@@ -392,6 +392,79 @@ export class TeacherGroupsService {
   }
 
   /** What the group handed in, for the marking screen. */
+  /**
+   * Marking one submission.
+   *
+   * The other half of the missing chain. `Grade` was never written by anything,
+   * so a teacher could open a submission and had no way to record a mark — and
+   * the learner's "marked" state, the progress screen and the admin's ungraded
+   * count were all reading a table that stayed empty.
+   *
+   * ## Only the teacher who set the work
+   *
+   * Ownership is re-derived from the assignment rather than taken from the
+   * request: the submission is found through `assignment.teacherId`, so a
+   * teacher cannot mark a colleague's class by changing an id. There is no
+   * teacher id in the payload to change.
+   *
+   * ## Upsert, because a mark can be corrected
+   *
+   * `Grade.submissionId` is unique, so re-marking replaces rather than adding a
+   * second grade to the same script. FR-ASM-010 wants an override to carry a
+   * reason and an identity; this records who marked it every time, which is the
+   * part that must never be missing.
+   */
+  async gradeSubmission(
+    user: AuthenticatedUser,
+    submissionId: string,
+    input: { score: number; feedbackText?: string },
+  ) {
+    const submission = await this.prisma.submission.findFirst({
+      where: { id: submissionId, assignment: { teacherId: user.id } },
+      select: {
+        id: true,
+        learnerId: true,
+        assignment: { select: { id: true, maxScore: true, title: true } },
+      },
+    });
+    if (!submission) throw AppError.notFound();
+
+    /*
+     * A score above the paper's own maximum is a typing slip, and it would
+     * travel into an average and a class position before anybody noticed.
+     */
+    if (input.score > submission.assignment.maxScore) {
+      throw AppError.badRequest('errors.work.score_above_max');
+    }
+
+    const grade = await this.prisma.grade.upsert({
+      where: { submissionId },
+      create: {
+        submissionId,
+        score: input.score,
+        feedbackText: input.feedbackText,
+        gradedBy: user.id,
+      },
+      update: {
+        score: input.score,
+        feedbackText: input.feedbackText,
+        gradedBy: user.id,
+        gradedAt: new Date(),
+      },
+      select: { id: true, score: true, gradedAt: true },
+    });
+
+    await this.audit.record({
+      action: 'work.graded',
+      entity: 'submission',
+      entityId: submissionId,
+      actorId: user.id,
+      after: { score: input.score, maxScore: submission.assignment.maxScore },
+    });
+
+    return { gradeId: grade.id, score: grade.score, gradedAt: grade.gradedAt.toISOString() };
+  }
+
   async exerciseSubmissions(teacherId: string, exerciseId: string) {
     const exercise = await this.prisma.workAssignment.findFirst({
       where: { id: exerciseId, teacherId },

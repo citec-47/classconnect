@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { AppError } from '../common/http-exception.filter';
 import type { GradeDto, HomeworkDto, Language, MaterialDto } from '@classconnect/shared';
 
 /**
@@ -20,6 +21,83 @@ export class LearnerWorkService {
       select: { cohortId: true },
     });
     return rows.map((row) => row.cohortId);
+  }
+
+  /**
+   * Handing work in.
+   *
+   * This did not exist. `Submission` was read by the learner's work list, the
+   * progress screen, the teacher's marking screen and the admin dashboard — and
+   * nothing anywhere created one, so every learner's work was permanently "to
+   * do" and every teacher's marking queue was permanently empty. The read paths
+   * were all correct and all fed by nothing.
+   *
+   * ## Entitlement is the same rule the list uses
+   *
+   * An assignment reaches a learner by naming them or by naming a cohort they
+   * belong to. That is exactly the filter `all()` applies, so it is applied here
+   * too rather than trusting that the id came from a list this learner saw — a
+   * work id in a URL is not permission, and a classmate's assignment id is easy
+   * to guess from one's own.
+   *
+   * ## Lateness and locking are decided here, not sent
+   *
+   * `isLate` is computed from the server clock against `dueAt`, because a
+   * client-reported timestamp is a number the person being marked late chooses.
+   * `locksAt` refuses the hand-in outright: FR-HWK-004 accepts late work and
+   * marks it late, and the brief's "the group automatically locks" is what stops
+   * it entirely.
+   *
+   * ## Versions rather than overwrites
+   *
+   * FR-HWK-005 retains every version, so a resubmission is a new row with the
+   * next version number. The learner's current state is the latest one, which is
+   * what every read above already assumes.
+   */
+  async submit(
+    learnerId: string,
+    assignmentId: string,
+    bodyText: string,
+  ): Promise<{ submissionId: string; version: number; isLate: boolean }> {
+    const cohorts = await this.cohortIds(learnerId);
+
+    const assignment = await this.prisma.workAssignment.findFirst({
+      where: {
+        id: assignmentId,
+        OR: [{ targetLearnerId: learnerId }, { targetCohortId: { in: cohorts } }],
+      },
+      select: { id: true, dueAt: true, locksAt: true },
+    });
+    /*
+     * Not found rather than forbidden: a 403 would confirm the assignment exists
+     * to a learner with no business knowing it does.
+     */
+    if (!assignment) throw AppError.notFound();
+
+    const now = new Date();
+    if (assignment.locksAt && assignment.locksAt.getTime() <= now.getTime()) {
+      throw AppError.badRequest('errors.work.locked');
+    }
+
+    const latest = await this.prisma.submission.findFirst({
+      where: { assignmentId, learnerId },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+
+    const created = await this.prisma.submission.create({
+      data: {
+        assignmentId,
+        learnerId,
+        bodyText,
+        submittedAt: now,
+        isLate: now.getTime() > assignment.dueAt.getTime(),
+        version: (latest?.version ?? 0) + 1,
+      },
+      select: { id: true, version: true, isLate: true },
+    });
+
+    return { submissionId: created.id, version: created.version, isLate: created.isLate };
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   createExerciseSchema,
   awardGroupScoreSchema,
   unlockExerciseSchema,
+  gradeSubmissionSchema,
   createExamSchema,
   markAttemptSchema,
   submitTermMarksSchema,
@@ -21,6 +22,7 @@ import {
   type CreateExerciseInput,
   type AwardGroupScoreInput,
   type UnlockExerciseInput,
+  type GradeSubmissionInput,
   type CreateExamInput,
   type MarkAttemptInput,
   type SubmitTermMarksInput,
@@ -158,6 +160,19 @@ export class TeacherSurfaceController {
     @Body(zodBody(unlockExerciseSchema)) body: UnlockExerciseInput,
   ) {
     return this.groups.unlockExercise(user, exerciseId, body.reason, isStaff(user.roles));
+  }
+
+  /**
+   * Recording a mark. Only the teacher who set the work; re-marking replaces.
+   */
+  @Post('submissions/:submissionId/grade')
+  @RequirePermissions('group:manage:own')
+  async gradeSubmission(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('submissionId', uuidParam()) submissionId: string,
+    @Body(zodBody(gradeSubmissionSchema)) body: GradeSubmissionInput,
+  ) {
+    return this.groups.gradeSubmission(user, submissionId, body);
   }
 
   @Post('exercises/:exerciseId/group-score')

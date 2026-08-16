@@ -83,6 +83,30 @@ export const awardGroupScoreSchema = z.object({
 });
 export type AwardGroupScoreInput = z.infer<typeof awardGroupScoreSchema>;
 
+/**
+ * Marking one submission.
+ *
+ * The score is bounded again server-side against the paper's own maximum — this
+ * only catches a negative or absurd figure before it reaches the service.
+ */
+export const gradeSubmissionSchema = z.object({
+  score: z.number().int().min(0).max(1000),
+  feedbackText: z.string().max(5000).optional(),
+});
+export type GradeSubmissionInput = z.infer<typeof gradeSubmissionSchema>;
+
+/**
+ * Handing work in.
+ *
+ * Text only for now: attachments travel through the existing file endpoints and
+ * are attached to the submission separately, rather than opening a second upload
+ * path through this one.
+ */
+export const submitWorkSchema = z.object({
+  bodyText: z.string().min(1).max(50_000),
+});
+export type SubmitWorkInput = z.infer<typeof submitWorkSchema>;
+
 /** Reopening a locked exercise. A reason is required — it is audited. */
 export const unlockExerciseSchema = z.object({
   reason: z.string().min(4).max(500),

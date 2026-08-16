@@ -20,12 +20,14 @@ import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
-import { uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
+import { uuidParam, ZodValidationPipe, zodBody } from '../common/zod-validation.pipe';
 import { RecordingsService } from '../teachers/recordings.service';
 import {
   PLATFORM_TIMEZONE,
   resolveLevelConfig,
   recordingUrlQuerySchema,
+  submitWorkSchema,
+  type SubmitWorkInput,
   type RecordingUrlQuery,
   type LearnerHomeDto,
 } from '@classconnect/shared';
@@ -351,6 +353,23 @@ export class LearnerController {
   ) {
     /* `?screen=1` asks for the screen rather than the microphone. */
     return this.live.requestFloor(user, sessionId, screen === '1');
+  }
+
+  /**
+   * Handing work in.
+   *
+   * The learner id comes from the session, never the payload: there is no id
+   * here to change in order to submit as somebody else.
+   */
+  @Post('work/:assignmentId/submit')
+  @RequirePermissions('profile:read:own')
+  async submitWork(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('assignmentId', uuidParam()) assignmentId: string,
+    @Body(zodBody(submitWorkSchema)) body: SubmitWorkInput,
+  ) {
+    const context = await this.learner.context(user);
+    return this.work.submit(context.id, assignmentId, body.bodyText);
   }
 
   // -------------------------------------------------------------------------

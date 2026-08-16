@@ -77,6 +77,34 @@ function StudentClassVideos() {
   // settled before the response left the API.
   const shown = subjectId ? all.filter((item) => item.subject?.id === subjectId) : all;
 
+  /*
+   * Split by what each recording *is*, using the scope the server derived.
+   *
+   * A private lesson sits with the class lessons rather than in a section of
+   * its own: from the learner's side it is a lesson in one of their subjects,
+   * which is exactly how they will look for it.
+   */
+  const lessons = shown.filter((item) => item.scope === 'class' || item.scope === 'one-to-one');
+  const groups = shown.filter((item) => item.scope === 'group');
+  const invited = shown.filter((item) => item.scope === 'invite');
+
+  /** Class lessons under their subject, each subject keeping the newest-first order. */
+  const bySubject = useMemo(() => {
+    const map = new Map<string, { name: string; items: RecordingLibraryDto[] }>();
+    for (const item of lessons) {
+      const id = item.subject?.id ?? 'none';
+      const name = item.subject
+        ? language === 'fr'
+          ? item.subject.nameFr
+          : item.subject.nameEn
+        : t('common.none');
+      const seen = map.get(id);
+      if (seen) seen.items.push(item);
+      else map.set(id, { name, items: [item] });
+    }
+    return [...map.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+  }, [lessons, language, t]);
+
   if (!config) return null;
   const large = config.typeScale === 'large';
 
@@ -116,17 +144,92 @@ function StudentClassVideos() {
         onRetry={() => void refresh()}
       >
         {/*
-         * One column on a phone, two from `sm`. A three-across grid of video
-         * thumbnails is the shape this content takes on a laptop and the shape it
-         * must not take at 360px, where each card would be 110px wide.
+         * Three sections, because the three things are not alike.
+         *
+         * A class lesson belongs to a subject the learner offers; a group is a
+         * set of people their teacher assembled; an invited call was a
+         * conversation they were asked into. Listing them together sorted only
+         * by date makes a learner hunt for Tuesday's maths among calls that have
+         * nothing to do with it — and the brief asks for the first two by name.
+         *
+         * A section with nothing in it is not rendered at all rather than
+         * rendered empty: an empty "My groups" heading reads as something
+         * missing, when the truth is that this learner is in no groups.
          */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map((recording) => (
-            <VideoCard key={recording.id} recording={recording} />
-          ))}
+        <div className="space-y-5">
+          <Section title={t('student.lessons.sectionLessons')} large={large}>
+            {/*
+             * Grouped by subject, and by subject only here — the date is on
+             * every card. A learner revising chemistry wants the chemistry
+             * lessons together, not chemistry interleaved with English because
+             * of when they happened to be taught.
+             */}
+            {bySubject.map(([id, group]) => (
+              <div key={id} className="space-y-2">
+                <h3 className="text-sm font-semibold text-ink-700">{group.name}</h3>
+                <VideoGrid recordings={group.items} />
+              </div>
+            ))}
+          </Section>
+
+          <Section title={t('student.lessons.sectionGroups')} large={large}>
+            <VideoGrid recordings={groups} />
+          </Section>
+
+          <Section title={t('student.lessons.sectionInvited')} large={large}>
+            <VideoGrid recordings={invited} />
+          </Section>
         </div>
       </ScreenState>
     </>
+  );
+}
+
+/**
+ * A titled section, or nothing at all.
+ *
+ * Returning null on empty is the point: a heading with no cards under it reads
+ * as a failure to load, and a learner in no groups has not failed at anything.
+ */
+function Section({
+  title,
+  large,
+  children,
+}: {
+  title: string;
+  large: boolean;
+  children: React.ReactNode;
+}) {
+  const empty =
+    !children ||
+    (Array.isArray(children) && children.every((child) => !child || (Array.isArray(child) && child.length === 0)));
+  if (empty) return null;
+
+  return (
+    <section className="space-y-2">
+      <h2 className={large ? 'text-lg font-semibold text-ink-900' : 'text-base font-semibold text-ink-900'}>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * One column on a phone, two from `sm`.
+ *
+ * A three-across grid of video thumbnails is the shape this content takes on a
+ * laptop and the shape it must not take at 360px, where each card would be
+ * about 110px wide and the subject name would truncate to two words.
+ */
+function VideoGrid({ recordings }: { recordings: RecordingLibraryDto[] }) {
+  if (recordings.length === 0) return null;
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {recordings.map((recording) => (
+        <VideoCard key={recording.id} recording={recording} />
+      ))}
+    </div>
   );
 }
 

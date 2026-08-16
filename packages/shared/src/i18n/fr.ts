@@ -2328,6 +2328,10 @@ timetable: {
     },
 
     lessons: {
+      /* Les trois sortes d’enregistrement, séparées car elles diffèrent. */
+      sectionLessons: 'Mes cours',
+      sectionGroups: 'Mes groupes',
+      sectionInvited: 'Appels auxquels vous étiez invité',
       title: 'Mes vidéos de classe',
       subtitle:
         'Les cours de ta classe dans les matières que tu suis, tes groupes et les appels auxquels tu as été invité — y compris ceux que tu as manqués.',

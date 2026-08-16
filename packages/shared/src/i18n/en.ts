@@ -2460,6 +2460,10 @@ timetable: {
     },
 
     lessons: {
+      /* The three kinds of recording, kept apart because they are not alike. */
+      sectionLessons: 'My lessons',
+      sectionGroups: 'My groups',
+      sectionInvited: 'Calls you were invited to',
       title: 'My class videos',
       subtitle:
         'Your class lessons in the subjects you take, your groups, and any call you were invited to — including the ones you missed.',

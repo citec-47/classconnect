@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RecordingsModule } from '../teachers/recordings.module';
+import { AcademicResultsController } from './academic-results.controller';
+import { AcademicResultsService } from './academic-results.service';
 import { AdminAccountsService } from './admin-accounts.service';
 import { AdminAccountsController } from './admin-accounts.controller';
 import { AdminDashboardController } from './admin-dashboard.controller';
@@ -43,6 +45,7 @@ import { EarningsModule } from '../earnings/earnings.module';
     EarningsModule,
   ],
   controllers: [
+    AcademicResultsController,
     AdminAccountsController,
     AdminDashboardController,
     GovernanceController,
@@ -50,6 +53,7 @@ import { EarningsModule } from '../earnings/earnings.module';
     AdminMessagingController,
   ],
   providers: [
+    AcademicResultsService,
     AdminAccountsService,
     DashboardService,
     ApprovalsService,

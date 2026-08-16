@@ -70,6 +70,8 @@ import { LearnerModule } from '../learner/learner.module';
   ],
   exports: [
     TeachersService,
+    /* Academic Results compiles through this; one ranking, not two. */
+    TeacherReportsService,
     FieldEncryptionService,
     TeacherClassesService,
     TeacherEarningsService,

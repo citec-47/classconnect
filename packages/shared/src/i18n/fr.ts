@@ -661,7 +661,8 @@ export const fr: Messages = {
     teacherRoster: 'Tous les enseignants',
     studentRoster: 'Tous les élèves',
     live: 'Cours en direct',
-    recordings: 'Cours enregistrés',
+    /* Le nom donné à la fonctionnalité, pas une description de celle-ci. */
+    recordings: 'Cours passés — général',
     schedule: 'Emplois du temps',
     support: 'Affecter le service client',
     messages: 'Messages',
@@ -2121,7 +2122,7 @@ timetable: {
     emptyCategory: 'Aucune leçon n’a encore été enregistrée dans cette catégorie.',
     emptyClass: 'Aucune leçon n’a encore été enregistrée pour cette classe.',
     description:
-      'Tous les cours enregistrés de la plateforme, par cycle, matière et enseignant. La suppression est définitive et détruit le fichier lui-même.',
+      'Tous les cours enregistrés de la plateforme. Choisissez une catégorie, puis une classe, puis une matière. La suppression est définitive et détruit le fichier lui-même.',
     none: 'Aucun enregistrement ne correspond à ce filtre.',
     search: 'Rechercher une matière, un enseignant ou une classe',
     showing: '{shown} sur {total} affichés',

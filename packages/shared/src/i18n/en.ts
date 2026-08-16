@@ -720,7 +720,15 @@ export const en = {
     teacherRoster: 'All teachers',
     studentRoster: 'All students',
     live: 'Live classes',
-    recordings: 'Recorded lessons',
+    /*
+     * The brief's own name for this, not a description of it.
+     *
+     * It read "Recorded lessons", which is accurate and is not what anybody was
+     * looking for: the feature was asked for as General Past Classes, and a
+     * person scanning a sidebar for the words they were given does not find a
+     * synonym.
+     */
+    recordings: 'General Past Classes',
     schedule: 'Schedules',
     support: 'Assign customer service',
     messages: 'Messages',
@@ -2218,7 +2226,7 @@ timetable: {
     emptyCategory: 'No lessons have been recorded in this category yet.',
     emptyClass: 'No lessons have been recorded for this class yet.',
     description:
-      'Every recorded lesson on the platform, by band, subject and teacher. Deleting one is permanent and removes the file itself.',
+      'Every recorded lesson on the platform. Choose a category, then a class, then a subject. Deleting one is permanent and removes the file itself.',
     none: 'No recordings match this filter.',
     search: 'Search subject, teacher or class',
     showing: 'Showing {shown} of {total}',

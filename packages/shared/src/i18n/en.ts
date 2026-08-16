@@ -620,6 +620,14 @@ export const en = {
       /* Names the remedy, because "permission denied" alone tells nobody what to do. */
       permissionDenied:
         'Your browser blocked the camera and microphone. Allow them in the address bar, then reload — you can stay in the lesson meanwhile.',
+      shareScreen: 'Share screen',
+      stopSharing: 'Stop sharing',
+      youAreSharing: 'You are sharing your screen',
+      sharingNow: '{name} is sharing their screen',
+      shareTakenOver: '{name} started sharing, so your screen stopped.',
+      /* Named plainly: most mobile browsers have no screen capture at all. */
+      noScreenShare:
+        'This device cannot share a screen. Most phone browsers do not support it — use a computer to share.',
       noCamera:
         'No camera was found on this device. You have joined with audio only, which is enough to take part.',
       /* Says the network, not the camera: naming the wrong culprit wastes the lesson. */

@@ -347,8 +347,10 @@ export class LearnerController {
   async requestFloor(
     @CurrentUser() user: AuthenticatedUser,
     @Param('sessionId', uuidParam()) sessionId: string,
+    @Query('screen') screen?: string,
   ) {
-    return this.live.requestFloor(user, sessionId);
+    /* `?screen=1` asks for the screen rather than the microphone. */
+    return this.live.requestFloor(user, sessionId, screen === '1');
   }
 
   // -------------------------------------------------------------------------

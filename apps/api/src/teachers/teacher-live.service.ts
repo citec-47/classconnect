@@ -1096,7 +1096,7 @@ export class TeacherLiveService {
    * Repeating the request returns the existing one rather than filling the
    * host's list with duplicates from a learner tapping twice on a slow link.
    */
-  async requestFloor(user: AuthenticatedUser, sessionId: string) {
+  async requestFloor(user: AuthenticatedUser, sessionId: string, screenShare = false) {
     const session = await this.prisma.session.findFirst({
       where: {
         id: sessionId,
@@ -1113,16 +1113,33 @@ export class TeacherLiveService {
 
     const existing = await this.prisma.mediaPublishRequest.findFirst({
       where: { sessionId, learnerUserId: user.id, state: { in: ['pending', 'approved'] } },
-      select: { id: true, state: true },
+      select: { id: true, state: true, screenShare: true },
     });
-    if (existing) return { requestId: existing.id, state: existing.state };
+    if (existing) {
+      return { requestId: existing.id, state: existing.state, screenShare: existing.screenShare };
+    }
 
     const request = await this.prisma.mediaPublishRequest.create({
-      data: { sessionId, learnerUserId: user.id, state: 'pending', requestedAt: new Date() },
-      select: { id: true, state: true },
+      /*
+       * What the learner is asking for, recorded on the request itself.
+       *
+       * The teacher's panel shows one queue for both — a raised hand and a
+       * request to share a screen arrive in the same place — so the panel needs
+       * to be able to tell them apart. The decision may still differ from the
+       * ask: approving a hand does not grant a screen unless the teacher says
+       * so, which is why `decideFloor` overwrites this rather than reading it.
+       */
+      data: {
+        sessionId,
+        learnerUserId: user.id,
+        state: 'pending',
+        requestedAt: new Date(),
+        screenShare,
+      },
+      select: { id: true, state: true, screenShare: true },
     });
 
-    return { requestId: request.id, state: request.state };
+    return { requestId: request.id, state: request.state, screenShare: request.screenShare };
   }
 
   /**

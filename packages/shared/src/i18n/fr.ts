@@ -576,6 +576,14 @@ export const fr: Messages = {
       /* Indique le remède : « permission refusée » seul n’aide personne. */
       permissionDenied:
         'Votre navigateur a bloqué la caméra et le micro. Autorisez-les dans la barre d’adresse, puis rechargez — vous pouvez rester dans le cours entre-temps.',
+      shareScreen: 'Partager l’écran',
+      stopSharing: 'Arrêter le partage',
+      youAreSharing: 'Vous partagez votre écran',
+      sharingNow: '{name} partage son écran',
+      shareTakenOver: '{name} a commencé à partager, votre écran s’est donc arrêté.',
+      /* Dit clairement : la plupart des navigateurs mobiles ne le permettent pas. */
+      noScreenShare:
+        'Cet appareil ne peut pas partager d’écran. La plupart des navigateurs mobiles ne le permettent pas — utilisez un ordinateur.',
       noCamera:
         'Aucune caméra détectée sur cet appareil. Vous avez rejoint en audio seulement, ce qui suffit pour participer.',
       /* Désigne le réseau, pas la caméra : accuser le mauvais responsable fait perdre le cours. */

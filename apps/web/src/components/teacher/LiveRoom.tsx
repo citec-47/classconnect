@@ -28,11 +28,15 @@ interface Tile {
   isLocal: boolean;
   speaking: boolean;
   hasVideo: boolean;
+  /** Whether this participant is currently putting a screen in front of the class. */
+  sharingScreen: boolean;
 }
 
 type Failure =
   | 'permission'
   | 'no-devices'
+  /** The browser has no getDisplayMedia at all - most mobile browsers. */
+  | 'no-screen-share'
   /**
    * The camera works and the room connected, but the video could not travel.
    *
@@ -171,7 +175,20 @@ export function LiveRoom({
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
+  const [screenOn, setScreenOn] = useState(false);
+  /** Who replaced this participant's share, so they are told rather than left guessing. */
+  const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+
+  /*
+   * Whose screen the room is showing, if anyone's.
+   *
+   * First wins, and LiveKit's own rule keeps that to one: a new share replaces
+   * the previous one, so two are never published at once. Picking the first
+   * rather than the local participant's means the host watching a learner's
+   * screen sees the learner's screen, which is the whole point of granting it.
+   */
+  const sharedScreen = tiles.find((tile) => tile.sharingScreen) ?? null;
 
   /** Attached imperatively: LiveKit hands us MediaStreamTracks, not React nodes. */
   const mediaRefs = useRef(new Map<string, HTMLVideoElement | HTMLAudioElement>());
@@ -184,8 +201,25 @@ export function LiveRoom({
       speaking: participant.isSpeaking,
       hasVideo: participant.getTrackPublications().some(
         (publication) =>
-          publication.kind === Track.Kind.Video && publication.isSubscribed !== false && !publication.isMuted,
+          publication.kind === Track.Kind.Video &&
+          publication.source !== Track.Source.ScreenShare &&
+          publication.isSubscribed !== false &&
+          !publication.isMuted,
       ),
+      /*
+       * A shared screen is a video track like any other, and must not be counted
+       * as one here. Left in `hasVideo`, a participant sharing with their camera
+       * off would show their screen squeezed into a camera tile *and* in the main
+       * view — the same picture twice, neither of them the right size.
+       */
+      sharingScreen: participant
+        .getTrackPublications()
+        .some(
+          (publication) =>
+            publication.source === Track.Source.ScreenShare &&
+            publication.isSubscribed !== false &&
+            !publication.isMuted,
+        ),
     });
 
     setTiles([
@@ -262,9 +296,25 @@ export function LiveRoom({
         .on(RoomEvent.ParticipantConnected, () => refreshTiles(room))
         .on(RoomEvent.ParticipantDisconnected, () => refreshTiles(room))
         .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
-          const element = mediaRefs.current.get(
-            track.kind === Track.Kind.Video ? participant.identity : `audio:${participant.identity}`,
-          );
+          /*
+           * A screen share goes to the main view, not to the sender's tile.
+           *
+           * Keyed separately because a participant can send both at once — face
+           * in the strip, screen in the frame — and a single key per identity
+           * would put whichever arrived last into both places and lose the other.
+           *
+           * The element may not exist yet: the main view renders only once
+           * `sharingScreen` is true, which happens on the `refreshTiles` below.
+           * The effect that follows attaches it on the next render.
+           */
+          const key =
+            track.kind !== Track.Kind.Video
+              ? `audio:${participant.identity}`
+              : _pub.source === Track.Source.ScreenShare
+                ? `screen:${participant.identity}`
+                : participant.identity;
+
+          const element = mediaRefs.current.get(key);
           if (element) track.attach(element as HTMLMediaElement);
           refreshTiles(room);
         })
@@ -300,6 +350,38 @@ export function LiveRoom({
         .on(RoomEvent.AudioPlaybackStatusChanged, () => {
           setAudioBlocked(!room.canPlaybackAudio);
         })
+        /*
+         * The browser's own "Stop sharing" bar.
+         *
+         * Chrome, Edge and Firefox all put a floating control on screen while a
+         * tab or window is being shared, and pressing it ends the track without
+         * this application being asked. LiveKit unpublishes it and reports that
+         * here — so without this the button would still read "Stop sharing", the
+         * main view would wait for a screen that had gone, and the only way back
+         * would be a reload.
+         */
+        .on(RoomEvent.LocalTrackUnpublished, (publication) => {
+          if (publication.source === Track.Source.ScreenShare) {
+            setScreenOn(false);
+            refreshTiles(room);
+          }
+        })
+        /*
+         * Someone else started sharing, which by LiveKit's rule replaces the
+         * previous share. The sharer whose screen just stopped is told why
+         * rather than left wondering — see `screenTakenOver` below.
+         */
+        .on(RoomEvent.TrackPublished, (publication, participant) => {
+          if (publication.source !== Track.Source.ScreenShare) return;
+          if (roomRef.current?.localParticipant.identity !== participant.identity) {
+            setScreenOn((wasSharing) => {
+              if (wasSharing) setTakenOverBy(participant.name || participant.identity);
+              return wasSharing ? false : wasSharing;
+            });
+          }
+          refreshTiles(room);
+        })
+        .on(RoomEvent.TrackUnpublished, () => refreshTiles(room))
         .on(RoomEvent.ConnectionStateChanged, (next) => setState(next))
         .on(RoomEvent.Disconnected, () => {
           stopLocalTracks(room);
@@ -497,6 +579,30 @@ export function LiveRoom({
     if (camera?.track) camera.track.attach(element as HTMLVideoElement);
   }, [tiles, cameraOn, state]);
 
+  /**
+   * Attach whichever screen is being shared, local or remote.
+   *
+   * Needed for the same reason as the camera effect above and one more: the main
+   * view does not exist until a share is detected, so the element the subscribe
+   * handler wanted was not on the page when the track arrived. This runs after
+   * the render that created it.
+   */
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room || !sharedScreen) return;
+
+    const element = mediaRefs.current.get(`screen:${sharedScreen.identity}`);
+    if (!element) return;
+
+    const publication = sharedScreen.isLocal
+      ? room.localParticipant.getTrackPublication(Track.Source.ScreenShare)
+      : [...room.remoteParticipants.values()]
+          .find((participant) => participant.identity === sharedScreen.identity)
+          ?.getTrackPublication(Track.Source.ScreenShare);
+
+    if (publication?.track) publication.track.attach(element as HTMLVideoElement);
+  }, [tiles, sharedScreen, screenOn, state]);
+
   const toggleMic = async () => {
     const room = roomRef.current;
     if (!room) return;
@@ -512,6 +618,56 @@ export function LiveRoom({
     await room.localParticipant.setCameraEnabled(next).catch(() => undefined);
     setCameraOn(next);
     refreshTiles(room);
+  };
+
+  /**
+   * Starting or stopping a screen share.
+   *
+   * The permission is not checked here, because a check here would be theatre:
+   * the media server refuses a track from anyone whose token does not carry
+   * `screen_share`, so a participant who edits this page gets a rejection from
+   * LiveKit rather than a share. What this does is fail *legibly* — the browser's
+   * own picker being dismissed is not an error worth a red banner, but a device
+   * that cannot share at all is worth saying out loud.
+   */
+  const toggleScreenShare = async () => {
+    const room = roomRef.current;
+    if (!room) return;
+
+    if (screenOn) {
+      await room.localParticipant.setScreenShareEnabled(false).catch(() => undefined);
+      setScreenOn(false);
+      refreshTiles(room);
+      return;
+    }
+
+    /*
+     * Most mobile browsers have no `getDisplayMedia` at all — Android Chrome
+     * included, which is most of this platform's users. Told plainly here,
+     * because the alternative is a button that does nothing and a teacher who
+     * concludes the lesson is broken.
+     */
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+      setFailure('no-screen-share');
+      return;
+    }
+
+    try {
+      await room.localParticipant.setScreenShareEnabled(true);
+      setScreenOn(true);
+      refreshTiles(room);
+    } catch (error) {
+      /*
+       * Dismissing the picker throws `NotAllowedError`, and that is a decision
+       * rather than a fault — saying "screen sharing failed" to someone who just
+       * pressed Cancel is noise. Anything else is reported.
+       */
+      if ((error as Error).name !== 'NotAllowedError') {
+        setFailure('no-screen-share');
+        setDetail((error as Error).message || (error as Error).name);
+      }
+      setScreenOn(false);
+    }
   };
 
   /**
@@ -605,6 +761,30 @@ export function LiveRoom({
           {t('live.room.noCamera')}
         </p>
       )}
+      {failure === 'no-screen-share' && (
+        <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
+          {t('live.room.noScreenShare')}
+        </p>
+      )}
+      {/*
+        * Why a share stopped, when it was not this participant who stopped it.
+        *
+        * Only one screen can be shown at a time, so a second sharer replaces the
+        * first — and being replaced silently looks like a fault in your own
+        * machine. Dismissible, because it is news rather than a state.
+        */}
+      {takenOverBy && (
+        <p className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-ink-100 p-2 text-sm text-ink-700">
+          <span>{t('live.room.shareTakenOver', { name: takenOverBy })}</span>
+          <button
+            type="button"
+            onClick={() => setTakenOverBy(null)}
+            className="min-h-touch rounded px-2 text-xs underline"
+          >
+            {t('common.dismiss')}
+          </button>
+        </p>
+      )}
       {failure === 'media-path' && (
         <p className="mb-2 rounded-lg bg-warning-50 p-2 text-sm text-warning-600">
           {t('live.room.videoBlocked')}
@@ -622,11 +802,56 @@ export function LiveRoom({
       )}
 
       {/*
+       * The shared screen, when there is one, takes the room.
+       *
+       * When somebody is sharing, that is what the lesson is about — the faces
+       * are context. So the screen gets the full width and the camera tiles drop
+       * to a strip beneath it, which is also the arrangement the recording uses
+       * (`layout: 'speaker'`), so watching it back matches being there.
+       */}
+      {sharedScreen && (
+        <figure className="mb-2">
+          <div className="relative aspect-video overflow-hidden rounded-lg bg-ink-900">
+            <video
+              ref={(element) => {
+                if (element) mediaRefs.current.set(`screen:${sharedScreen.identity}`, element);
+                else mediaRefs.current.delete(`screen:${sharedScreen.identity}`);
+              }}
+              autoPlay
+              playsInline
+              /*
+               * Muted, and only because this is the *screen*. Its audio, where
+               * there is any, arrives on the sharer's own audio element — playing
+               * it here as well would double every sound in the room.
+               */
+              muted
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <figcaption className="mt-1 text-xs text-ink-600">
+            {sharedScreen.isLocal
+              ? t('live.room.youAreSharing')
+              : t('live.room.sharingNow', { name: sharedScreen.name })}
+          </figcaption>
+        </figure>
+      )}
+
+      {/*
        * One column on a phone, more as the screen allows. Most learners are on
        * a handset, so the single-column case is the design rather than a
        * fallback squeezed out of a desktop grid.
+       *
+       * Tighter while a screen is being shared: the faces are no longer the
+       * subject, and taking a third of a 360px phone for them would push the
+       * thing everyone is looking at off the top of the screen.
        */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div
+        className={
+          sharedScreen
+            ? 'grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6'
+            : 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
+        }
+      >
         {tiles.map((tile) => (
           <div
             key={tile.identity}
@@ -703,6 +928,27 @@ export function LiveRoom({
           className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium"
         >
           {cameraOn ? t('live.room.cameraOff') : t('live.room.cameraOn')}
+        </button>
+        {/*
+         * Offered to everyone, refused by the media server for anyone whose
+         * token does not carry the source.
+         *
+         * Hiding it from guests would make the button the access control, which
+         * is the thing this codebase keeps refusing to do — and it would also
+         * hide it from a learner who *has* been granted the screen, since this
+         * component is not told about the grant. Pressing it without permission
+         * gets a rejection from LiveKit, which is where the rule lives.
+         */}
+        <button
+          type="button"
+          onClick={() => void toggleScreenShare()}
+          aria-pressed={screenOn}
+          className={[
+            'min-h-touch rounded-lg border px-4 text-sm',
+            screenOn ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-ink-300 text-ink-700',
+          ].join(' ')}
+        >
+          {screenOn ? t('live.room.stopSharing') : t('live.room.shareScreen')}
         </button>
         <button
           type="button"

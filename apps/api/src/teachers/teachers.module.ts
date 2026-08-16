@@ -1,5 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { RecordingsModule } from './recordings.module';
+import { LiveKitWebhookController } from './livekit-webhook.controller';
+import { LiveKitWebhookService } from './livekit-webhook.service';
 import { TeachersService } from './teachers.service';
 import { TeachersController, VerificationController } from './teachers.controller';
 import { TeacherDashboardController } from './teacher-dashboard.controller';
@@ -32,6 +34,15 @@ import { LearnerModule } from '../learner/learner.module';
   // See LearnerModule: the cycle is declared on both sides or not at all.
   imports: [forwardRef(() => LearnerModule), RecordingsModule],
   controllers: [
+    /*
+     * Before the proxy, deliberately.
+     *
+     * LiveKitProxyController answers @All('*path') under the same /livekit
+     * prefix, and Nest matches in registration order — so with the proxy first,
+     * a webhook was relayed upstream to LiveKit and answered 200 by it. Every
+     * forged request appeared to succeed and no attendance was ever written.
+     */
+    LiveKitWebhookController,
     LiveKitProxyController,
     TeachersController,
     VerificationController,
@@ -52,6 +63,7 @@ import { LearnerModule } from '../learner/learner.module';
     TeacherReportsService,
     TeacherLiveService,
     LiveKitService,
+    LiveKitWebhookService,
     LiveSweeperService,
     TeacherMessagingService,
     TeacherProgressService,

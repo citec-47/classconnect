@@ -35,6 +35,17 @@ export async function createApp(
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: new JsonLogger(),
     bodyParser: true,
+    /*
+     * The unparsed body, kept alongside the parsed one.
+     *
+     * LiveKit signs the exact bytes it sent. Re-serialising the parsed object to
+     * check that signature would compare a signature over LiveKit's JSON against
+     * our own reformatting of it — key order, spacing and number formatting all
+     * differ — so it would fail for every genuine webhook and pass for none.
+     * Attendance, and therefore every teacher's pay, arrives through that
+     * endpoint.
+     */
+    rawBody: true,
   });
 
   // Hosting puts a CDN in front of the API. Without this, every request appears

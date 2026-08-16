@@ -514,6 +514,99 @@ export class TimetableService {
    * Without that, moving a period from 09:00 to 09:45 would clash with the very
    * slot being moved and refuse every edit.
    */
+  /**
+   * Every slot with a time change waiting on an admin.
+   *
+   * Separate from , which is slots awaiting first confirmation.
+   * confirmation. A slot awaiting confirmation and a confirmed slot waiting to be moved
+   * are different decisions with different consequences: the first has told
+   * nobody anything, the second has a class already turning up at an hour.
+   */
+  async pendingEdits() {
+    const slots = await this.prisma.timetableSlot.findMany({
+      where: { proposedStartMinute: { not: null } },
+      orderBy: { proposedAt: 'asc' },
+      select: {
+        ...SLOT_SELECT,
+        proposedStartMinute: true,
+        proposedEndMinute: true,
+        proposedAt: true,
+      },
+    });
+    return { edits: slots };
+  }
+
+  /**
+   * Approving or refusing a time change.
+   *
+   * Approval copies the proposal onto the live times and clears it; refusal
+   * clears it alone, leaving the class meeting where it always did. Either way
+   * the slot ends with nothing pending, so a decision cannot be applied twice.
+   *
+   * The clash rule is checked again here, not only when the change was asked
+   * for. Time passes between the two, and another teacher may have taken the
+   * hour in between — approving blindly is how two classes end up in one slot,
+   * which is the thing this platform enforces in the database rather than the
+   * interface.
+   */
+  async decideEdit(staff: AuthenticatedUser, slotId: string, approve: boolean) {
+    const slot = await this.prisma.timetableSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true, teacherId: true, levelId: true, subjectId: true, dayOfWeek: true,
+        proposedStartMinute: true, proposedEndMinute: true,
+      },
+    });
+    if (!slot) throw AppError.notFound();
+    if (slot.proposedStartMinute === null || slot.proposedEndMinute === null) {
+      throw AppError.badRequest('errors.timetable.no_pending_edit');
+    }
+
+    if (approve) {
+      const taken = await this.prisma.timetableSlot.findFirst({
+        where: {
+          levelId: slot.levelId,
+          dayOfWeek: slot.dayOfWeek,
+          state: { in: ['proposed', 'confirmed'] },
+          id: { not: slotId },
+          startMinute: { lt: slot.proposedEndMinute },
+          endMinute: { gt: slot.proposedStartMinute },
+        },
+        select: { id: true, teacher: { select: { user: { select: { fullName: true } } } } },
+      });
+      if (taken) {
+        throw AppError.conflict('errors.timetable.slot_taken_by', {
+          teacher: taken.teacher.user.fullName,
+          subject: '',
+        });
+      }
+    }
+
+    const updated = await this.prisma.timetableSlot.update({
+      where: { id: slotId },
+      data: approve
+        ? {
+            startMinute: slot.proposedStartMinute,
+            endMinute: slot.proposedEndMinute,
+            proposedStartMinute: null, proposedEndMinute: null,
+            proposedAt: null, proposedBy: null,
+          }
+        : { proposedStartMinute: null, proposedEndMinute: null, proposedAt: null, proposedBy: null },
+      select: SLOT_SELECT,
+    });
+
+    await this.audit.record({
+      action: 'timetable.edited',
+      entity: 'timetable_slot',
+      entityId: slotId,
+      actorId: staff.id,
+      before: { startMinute: slot.proposedStartMinute, pending: true },
+      after: { approved: approve },
+    });
+
+    return updated;
+  }
+
   async editSlot(user: AuthenticatedUser, slotId: string, input: EditTimetableSlotInput) {
     const slot = await this.prisma.timetableSlot.findUnique({
       where: { id: slotId },
@@ -607,14 +700,41 @@ export class TimetableService {
       });
     }
 
+    /*
+     * Proposed, not applied.
+     *
+     * A confirmed period is an hour a class has been told to attend, so a
+     * teacher moving it cannot move it for them: the change waits for an admin.
+     * The live `startMinute` and `endMinute` are untouched, which means every
+     * reader of a timetable — the learner's week, the join window, the earnings
+     * pass — keeps seeing the hour the students were given, and none of them
+     * needs to know an edit is pending.
+     *
+     * The clash and allowance checks above still ran, and ran against the
+     * *proposed* time. Catching a clash now is the point: an admin should be
+     * approving a move that works, not discovering on approval that it collides.
+     *
+     * A slot the teacher has only proposed — never confirmed, so no class has
+     * been told anything — is moved outright. Waiting for approval to change an
+     * hour nobody has been promised would be ceremony rather than protection.
+     */
+    const needsApproval = slot.state === 'confirmed';
+
     const updated = await this.prisma.timetableSlot.update({
       where: { id: slotId },
-      data: {
-        dayOfWeek: input.dayOfWeek,
-        startMinute: input.startMinute,
-        endMinute: input.endMinute,
-        session,
-      },
+      data: needsApproval
+        ? {
+            proposedStartMinute: input.startMinute,
+            proposedEndMinute: input.endMinute,
+            proposedAt: new Date(),
+            proposedBy: user.id,
+          }
+        : {
+            dayOfWeek: input.dayOfWeek,
+            startMinute: input.startMinute,
+            endMinute: input.endMinute,
+            session,
+          },
       select: SLOT_SELECT,
     });
 

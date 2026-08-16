@@ -3,9 +3,11 @@ import { z } from 'zod';
 import {
   proposeTimetableSlotSchema,
   decideTimetableSlotSchema,
+  decideTimetableEditSchema,
   editTimetableSlotSchema,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
+  type DecideTimetableEditInput,
   type EditTimetableSlotInput,
 } from '@classconnect/shared';
 import { TimetableService } from './timetable.service';
@@ -138,6 +140,24 @@ export class AdminTimetableController {
     return this.timetable.levelSlots(levelId);
   }
 
+
+  /** Time changes waiting on an admin, oldest first. */
+  @Get('pending-edits')
+  @RequirePermissions('teacher:verification:decide')
+  async pendingEdits() {
+    return this.timetable.pendingEdits();
+  }
+
+  /** Approving or refusing one. The clash rule is checked again on approval. */
+  @Post(':slotId/edit-decision')
+  @RequirePermissions('teacher:verification:decide')
+  async decideEdit(
+    @CurrentUser() staff: AuthenticatedUser,
+    @Param('slotId', uuidParam()) slotId: string,
+    @Body(zodBody(decideTimetableEditSchema)) body: DecideTimetableEditInput,
+  ) {
+    return this.timetable.decideEdit(staff, slotId, body.approve);
+  }
 
   @Post(':slotId/decision')
   @RequirePermissions('teacher:verification:decide')

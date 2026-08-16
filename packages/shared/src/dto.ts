@@ -617,6 +617,12 @@ export type ProposeTimetableSlotInput = z.infer<typeof proposeTimetableSlotSchem
  * A teacher who chose the wrong subject withdraws the slot and claims again,
  * which costs one tap and keeps the rules countable.
  */
+/** An admin approving or refusing a proposed time change. */
+export const decideTimetableEditSchema = z.object({
+  approve: z.boolean(),
+});
+export type DecideTimetableEditInput = z.infer<typeof decideTimetableEditSchema>;
+
 export const editTimetableSlotSchema = z.object({
   dayOfWeek: z.number().int().min(1).max(7),
   startMinute: z.number().int().min(0).max(1440),

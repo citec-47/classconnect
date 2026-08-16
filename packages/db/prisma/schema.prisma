@@ -805,6 +805,26 @@ model TimetableSlot {
   startMinute Int @map("start_minute") @db.SmallInt
   endMinute   Int @map("end_minute") @db.SmallInt
 
+  /// A time change the teacher has asked for, not yet approved.
+  ///
+  /// Held beside the live times rather than replacing them, because a class must
+  /// keep meeting at the hour its students were told until an admin agrees to
+  /// move it. Everything that reads a timetable — the learner's week, the join
+  /// window, the earnings pass — keeps reading `startMinute` and `endMinute` and
+  /// needs no knowledge of this at all.
+  ///
+  /// Null on both means nothing is pending. Approval copies them across and
+  /// clears them; rejection clears them alone. They are deliberately not a
+  /// second `TimetableSlot` row: a proposal that exists as a slot is a slot that
+  /// something will eventually treat as real.
+  proposedStartMinute Int? @map("proposed_start_minute") @db.SmallInt
+  proposedEndMinute   Int? @map("proposed_end_minute") @db.SmallInt
+  /// When the change was asked for, so an admin can see what has been waiting.
+  proposedAt          DateTime? @map("proposed_at") @db.Timestamptz(6)
+  /// The teacher who asked. Recorded because an admin approving a move should
+  /// know whose class it is without joining back through the slot.
+  proposedBy          String?   @map("proposed_by") @db.Uuid
+
   state       TimetableSlotState @default(proposed)
   /// FR-TVR-004-style attribution: who agreed this, and when.
   confirmedBy String?   @map("confirmed_by") @db.Uuid

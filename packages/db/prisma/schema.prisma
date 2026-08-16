@@ -102,6 +102,20 @@ enum SchoolType {
   sixth_form
 }
 
+/// How a learner is enrolled — the one part of the category the level cannot say.
+///
+/// `school` is a learner in an ordinary class; `private` is one who registered
+/// for private study at the same level. The two never mix: a Class One private
+/// learner is not part of Primary Class One, and neither list contains the other.
+///
+/// Primary, Secondary and Sixth Form are *derived* from `Level.schoolType` rather
+/// than stored beside this, because a fact kept in two places is a fact that can
+/// disagree with itself.
+enum EnrolmentType {
+  school
+  private
+}
+
 /// FR-TVR-003: teacher application lifecycle.
 /// Only `approved` teachers may be listed, assigned, or paid.
 enum VerificationStatus {
@@ -553,6 +567,23 @@ model Learner {
   /// FR-FAM-006: minor status is derived from date of birth, never stored as a flag.
   dob      DateTime @map("dob") @db.Date
   levelId  String?  @map("level_id") @db.Uuid
+
+  /// Whether this learner attends an ordinary school class or studies privately.
+  ///
+  /// The only part of the four-category split that is not already implied by the
+  /// level. Primary, Secondary and Sixth Form all follow from `Level.schoolType`,
+  /// so storing them here as well would be the same fact twice — free to
+  /// disagree, and nothing able to say which copy was right. A learner marked
+  /// "primary" while sitting in Form Three is the failure this avoids.
+  ///
+  /// Defaults to `school`, which is what every existing learner is: each sits at
+  /// an ordinary level with cohort membership, and none carries any evidence of
+  /// private enrolment. The private ones are corrected by hand afterwards, which
+  /// is a short visible list rather than a guess applied to everybody.
+  ///
+  /// Set by an Admin, never by the learner: it decides which class's results and
+  /// recordings they can see, so it is not a self-service field.
+  enrolmentType EnrolmentType @default(school) @map("enrolment_type")
 
   /// FR-PRO-003: instruction preferences.
   preferredLanguage    Language  @default(en) @map("preferred_language")

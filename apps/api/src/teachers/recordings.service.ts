@@ -3,7 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AppError } from '../common/http-exception.filter';
 import { RecordingStorageService } from '../files/recording-storage.service';
-import { hasPermission } from '@classconnect/shared';
+import {
+  hasPermission,
+  academicCategoryOf,
+  type AcademicCategory,
+  type EnrolmentTypeValue,
+} from '@classconnect/shared';
 import type { AuthenticatedUser } from '../rbac/decorators';
 
 /** Which guest list a recording inherits, derived from the lesson it came from. */
@@ -92,6 +97,8 @@ export class RecordingsService {
               select: {
                 id: true,
                 fullName: true,
+                /* School or private — the half of the category the level cannot give. */
+                enrolmentType: true,
                 /*
                  * A private lesson has no cohort, so its class comes from the
                  * learner. Without this the admin library would file every
@@ -456,13 +463,30 @@ export class RecordingsService {
     type: string;
     timetableSlotId: string | null;
     cohort: { level: { schoolType: string } | null } | null;
-    learner: { level: { schoolType: string } | null } | null;
-  }): 'primary' | 'secondary' | 'sixth_form' | 'private' | 'other' {
+    learner: { enrolmentType: string; level: { schoolType: string } | null } | null;
+  }): AcademicCategory | 'other' {
     const scope = this.scopeOf(session as Parameters<typeof this.scopeOf>[0]);
 
     /* Not class lessons, and the brief is explicit that they get their own section. */
     if (scope === 'group' || scope === 'invite') return 'other';
-    if (scope === 'one-to-one') return 'private';
+
+    /*
+     * The learner's enrolment decides this, not the shape of the session.
+     *
+     * This used to read `one_to_one` as "private", which conflated a *format*
+     * with an *enrolment*: a school learner given a one-to-one catch-up lesson
+     * was filed under Private classes, and a private learner taught in a group
+     * was not. Now that `enrolmentType` exists there is one answer to the
+     * question, and it is the learner's.
+     */
+    if (session.learner) {
+      return (
+        academicCategoryOf({
+          enrolmentType: session.learner.enrolmentType as EnrolmentTypeValue,
+          schoolType: session.learner.level?.schoolType,
+        }) ?? 'other'
+      );
+    }
 
     const band = session.cohort?.level?.schoolType;
     return band === 'primary' || band === 'secondary' || band === 'sixth_form' ? band : 'other';

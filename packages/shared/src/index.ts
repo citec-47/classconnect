@@ -1,6 +1,7 @@
 export * from './roles';
 export * from './phone';
 export * from './money';
+export * from './academic-category';
 export * from './config-keys';
 export * from './dto';
 export * from './i18n';

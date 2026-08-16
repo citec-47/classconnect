@@ -37,7 +37,7 @@ interface Profile {
  */
 function TeacherProfilePage() {
   const { t, language } = useI18n();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const { data, loading } = useCachedApi<Profile>('/teachers/me/application', { language });
 
@@ -140,6 +140,26 @@ function TeacherProfilePage() {
           {t('teacherNav.verification')}
         </Link>
       </p>
+
+      {/*
+        * Signing out, on the profile screen because that is where people look
+        * for it.
+        *
+        * It was reachable only by clearing cookies: the teacher shell has no
+        * account menu, so a teacher on a shared machine - a staffroom computer,
+        * a borrowed phone - had no way to leave their session. Separated from
+        * the rest of the page and given the danger tone, since it ends the
+        * session for real rather than navigating anywhere.
+        */}
+      <div className="mt-6 border-t border-ink-200 pt-4">
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="min-h-touch rounded-lg border border-danger-600 px-4 text-sm font-medium text-danger-600"
+        >
+          {t('nav.signOut')}
+        </button>
+      </div>
     </>
   );
 }

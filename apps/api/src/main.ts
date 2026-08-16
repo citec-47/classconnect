@@ -5,14 +5,24 @@ import { createApp } from './create-app';
 /**
  * The long-running server.
  *
- * This is how the API runs locally (`npm run dev:api`) and on any host that
- * keeps a process alive — Render, Railway, Fly, a VPS. It is the only mode that
- * can hold a WebSocket open or run an interval timer, so the badge push
- * (COM-002) and the in-process billing scheduler (§5.3) are both live here.
+ * This is how the API runs — locally (`npm run dev:api`) and in production, on a
+ * host that keeps a process alive: Railway, Render, Fly, a VPS.
  *
- * On Vercel the entry point is `api/index.ts` instead: same application, no
- * listener, and those two responsibilities move to the poll and to Vercel Cron.
- * Everything else is identical, because both call `createApp`.
+ * ## Why not a serverless platform
+ *
+ * This entry point is the only one, deliberately. A comment here used to promise
+ * an `api/index.ts` for Vercel; no such file was ever written, and it should not
+ * be. Four things in this application need a process that outlives a request:
+ *
+ * - the billing scheduler (§5.3) and the live sweeper, which closes abandoned
+ *   lessons and stops their recordings;
+ * - the badge push (COM-002), which holds a WebSocket open;
+ * - the LiveKit signalling relay attached below, which holds another;
+ * - the LiveKit webhook receiver, which must be reachable at a stable URL.
+ *
+ * On a function-per-request platform the schedulers simply never run, and
+ * nothing reports that they have not. The web app belongs on Vercel; this does
+ * not.
  */
 async function bootstrap(): Promise<void> {
   const app = await createApp({ websockets: true });

@@ -20,6 +20,19 @@ interface PendingSlot {
 }
 
 /**
+ * A confirmed slot whose teacher has asked to move it.
+ *
+ * Carries both times, because the decision is a comparison: what the class is
+ * turning up to now, against what it would become. An approval screen showing
+ * only the proposal asks the admin to agree to a change they cannot see.
+ */
+interface PendingEdit extends PendingSlot {
+  proposedStartMinute: number;
+  proposedEndMinute: number;
+  proposedAt: string | null;
+}
+
+/**
  * BUILD-PLAN Phase 1 — the staff half of the timetable.
  *
  * Confirmation is what makes a slot count: a live session starts from a
@@ -35,6 +48,15 @@ export default function AdminTimetablePage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  /*
+   * Time changes are a second, separate queue.
+   *
+   * A slot awaiting first confirmation has told nobody anything; a confirmed
+   * slot awaiting a move has a class already turning up at an hour. Mixing them
+   * into one list would make those look like the same decision, and they carry
+   * very different consequences.
+   */
+  const [edits, setEdits] = useState<PendingEdit[] | null>(null);
 
   const name = (item: { nameEn: string; nameFr: string }) =>
     language === 'fr' ? item.nameFr : item.nameEn;
@@ -42,8 +64,12 @@ export default function AdminTimetablePage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const data = await api<{ slots: PendingSlot[] }>('/admin/timetable/pending', { language });
+      const [data, editData] = await Promise.all([
+        api<{ slots: PendingSlot[] }>('/admin/timetable/pending', { language }),
+        api<{ edits: PendingEdit[] }>('/admin/timetable/pending-edits', { language }),
+      ]);
       setPending(data.slots);
+      setEdits(editData.edits);
     } catch (caught) {
       setError(caught as ApiError);
       setPending([]);
@@ -53,6 +79,25 @@ export default function AdminTimetablePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** Approving or refusing a move. The clash rule is re-checked on approval. */
+  const decideEdit = async (slotId: string, approve: boolean) => {
+    setBusyId(slotId);
+    setError(null);
+    try {
+      await api(`/admin/timetable/${slotId}/edit-decision`, {
+        method: 'POST',
+        body: { approve },
+        language,
+        timeoutMs: 120_000,
+      });
+      await load();
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const decide = async (slotId: string, decision: 'confirmed' | 'rejected') => {
     setBusyId(slotId);
@@ -84,6 +129,67 @@ export default function AdminTimetablePage() {
       />
 
       <ErrorAlert error={error} />
+
+      {/*
+        * Time changes first, and only when there are any.
+        *
+        * Above the confirmation queue because it is the more urgent of the two:
+        * a class is already meeting at the old hour, and every day this waits is
+        * a day the teacher and their students may disagree about when to turn
+        * up. An empty section is not rendered — a heading with nothing under it
+        * reads as something failing to load.
+        */}
+      {edits && edits.length > 0 && (
+        <section className="mb-4">
+          <h2 className="mb-2 text-base font-semibold text-ink-900">
+            {t('timetable.pendingEditsTitle')}
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {edits.map((slot) => (
+              <li key={slot.id} className="rounded-xl border border-warning-600 bg-warning-50 p-3">
+                <p className="text-sm font-semibold text-ink-900">
+                  {name(slot.subject)} · {name(slot.level)}
+                </p>
+                <p className="text-xs text-ink-600">{slot.teacher.user.fullName}</p>
+
+                {/* The comparison the decision actually is. */}
+                <p className="mt-2 text-sm tabular-nums text-ink-900">
+                  <span className="text-ink-600 line-through">
+                    {minutesToClock(slot.startMinute)}–{minutesToClock(slot.endMinute)}
+                  </span>
+                  {' → '}
+                  <span className="font-semibold">
+                    {minutesToClock(slot.proposedStartMinute)}–
+                    {minutesToClock(slot.proposedEndMinute)}
+                  </span>
+                </p>
+                <p className="text-xs text-ink-600">
+                  {t(`timetable.day.${TIMETABLE_DAY_KEYS[slot.dayOfWeek as 1]}`)}
+                </p>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busyId === slot.id}
+                    onClick={() => void decideEdit(slot.id, true)}
+                    className="min-h-touch rounded-lg bg-brand-600 px-3 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {t('timetable.approveEdit')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === slot.id}
+                    onClick={() => void decideEdit(slot.id, false)}
+                    className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm disabled:opacity-50"
+                  >
+                    {t('timetable.refuseEdit')}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {pending.length === 0 ? (
         <EmptyState title={t('timetable.adminTitle')} body={t('timetable.nonePending')} />

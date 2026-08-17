@@ -27,6 +27,9 @@ interface Slot {
   level: { id: string; nameEn: string; nameFr: string };
   subject: { id: string; nameEn: string; nameFr: string };
   cohort: { id: string; name: string } | null;
+  /** A time change waiting on an admin. Null on both when nothing is pending. */
+  proposedStartMinute: number | null;
+  proposedEndMinute: number | null;
 }
 
 interface TeachingPair {
@@ -128,6 +131,60 @@ function TeacherTimetablePage() {
     setBusy(true);
     try {
       await api(`/teacher/timetable/${slotId}`, { method: 'DELETE', language, timeoutMs: 120_000 });
+      await load();
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Asking to move a slot.
+   *
+   * A prompt rather than a dialog, deliberately: this is two numbers on a screen
+   * that is already dense, and a modal here would be more machinery than the
+   * change deserves. The day is not offered — moving a lesson to another day is
+   * a different act, and the class would need telling either way.
+   *
+   * What happens next is the server's decision, not this function's. A confirmed
+   * slot becomes a proposal awaiting an admin; an unconfirmed one moves at once.
+   * The message afterwards reads the reloaded slot rather than predicting, so it
+   * cannot claim an approval that did not happen.
+   */
+  const editTime = async (slot: Slot) => {
+    const current = `${minutesToClock(slot.startMinute)}-${minutesToClock(slot.endMinute)}`;
+    const answer = window.prompt(t('timetable.changeTimePrompt', { current }), current);
+    if (!answer) return;
+
+    /*
+     * `clockToMinutes` from shared, not a parser written here.
+     *
+     * The form above already uses it, and two ways of reading "08:30" in one
+     * file is one of them eventually disagreeing about what the teacher typed.
+     */
+    const parsed = answer.split('-').map((part) => part.trim());
+    const start = parsed[0] ? clockToMinutes(parsed[0]) : null;
+    const end = parsed[1] ? clockToMinutes(parsed[1]) : null;
+    /*
+     * Refused here rather than sent. A malformed time would reach the API as
+     * NaN, be rejected as a validation error, and tell the teacher nothing about
+     * what they typed wrongly.
+     */
+    if (start === null || end === null || end <= start) {
+      setError({ messageKey: 'timetable.badTime' } as ApiError);
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/teacher/timetable/${slot.id}`, {
+        method: 'PATCH',
+        language,
+        timeoutMs: 120_000,
+        body: { dayOfWeek: slot.dayOfWeek, startMinute: start, endMinute: end },
+      });
       await load();
     } catch (caught) {
       setError(caught as ApiError);
@@ -261,6 +318,7 @@ function TeacherTimetablePage() {
             day={day}
             slots={(slots ?? []).filter((slot) => slot.dayOfWeek === day)}
             onWithdraw={(id) => void withdraw(id)}
+            onEdit={(slot) => void editTime(slot)}
             busy={busy}
           />
         ))}
@@ -273,11 +331,13 @@ function DayColumn({
   day,
   slots,
   onWithdraw,
+  onEdit,
   busy,
 }: {
   day: TimetableDay;
   slots: Slot[];
   onWithdraw: (slotId: string) => void;
+  onEdit: (slot: Slot) => void;
   busy: boolean;
 }) {
   const { t, language } = useI18n();
@@ -314,6 +374,38 @@ function DayColumn({
               >
                 {t(`timetable.state.${slot.state}`)}
               </p>
+
+              {/*
+                * A change the admin has not decided yet.
+                *
+                * Shown against the hour that is still live, because the teacher
+                * needs both facts at once: what they asked for, and what their
+                * class is still turning up to. Either alone is how somebody
+                * arrives an hour late to their own lesson.
+                */}
+              {slot.proposedStartMinute !== null && slot.proposedEndMinute !== null && (
+                <p className="mt-1 rounded bg-warning-100 px-1 py-0.5 text-[11px] text-warning-700">
+                  {t('timetable.pendingEdit', {
+                    time: `${minutesToClock(slot.proposedStartMinute)}–${minutesToClock(slot.proposedEndMinute)}`,
+                  })}
+                </p>
+              )}
+
+              {/*
+                * Offered on every slot, and the server decides what it means: a
+                * confirmed slot becomes a proposal an admin must approve, an
+                * unconfirmed one moves outright. This button does not know which,
+                * and must not — two copies of that rule would drift apart.
+                */}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onEdit(slot)}
+                className="mt-1 mr-2 min-h-touch text-xs font-medium text-brand-700 underline"
+              >
+                {t('timetable.changeTime')}
+              </button>
+
               {slot.state === 'proposed' && (
                 <button
                   type="button"

@@ -27,6 +27,16 @@ const SLOT_SELECT = {
   state: true,
   decisionNote: true,
   confirmedAt: true,
+  /*
+   * The pending time change travels with every slot.
+   *
+   * The teacher's own week needs it to mark a slot as waiting, and leaving it
+   * out would mean a teacher edits an hour, sees nothing change, and edits
+   * again - which is exactly how a screen teaches somebody that it is broken.
+   */
+  proposedStartMinute: true,
+  proposedEndMinute: true,
+  proposedAt: true,
   level: { select: { id: true, code: true, nameEn: true, nameFr: true } },
   subject: { select: { id: true, code: true, nameEn: true, nameFr: true } },
   cohort: { select: { id: true, name: true } },

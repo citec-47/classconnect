@@ -2362,6 +2362,13 @@ timetable: {
       encourage: 'Tu as manqué un cours ? Tu peux encore regarder l’enregistrement.',
     },
 
+    /** L'écran de compte de l'élève. */
+    profile: {
+      name: 'Nom',
+      className: 'Classe',
+      examDate: 'Date d’examen',
+      changeHint: 'Demandez à votre parent, tuteur ou au secrétariat de modifier ces informations.',
+    },
     lessons: {
       /* Les trois sortes d’enregistrement, séparées car elles diffèrent. */
       sectionLessons: 'Mes cours',

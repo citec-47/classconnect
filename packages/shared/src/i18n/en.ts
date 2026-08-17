@@ -2494,6 +2494,13 @@ timetable: {
       encourage: 'Missed a lesson? You can still watch the recording.',
     },
 
+    /** The learner's own account screen. */
+    profile: {
+      name: 'Name',
+      className: 'Class',
+      examDate: 'Exam date',
+      changeHint: 'Ask your parent, guardian or the school office to change any of these.',
+    },
     lessons: {
       /* The three kinds of recording, kept apart because they are not alike. */
       sectionLessons: 'My lessons',

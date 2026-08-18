@@ -1,0 +1,74 @@
+Admin Dashboard
+Pease make sure every feature on the sidebard should have a logo or an Icon,(Make the sidebar supper attractive)
+
+Timetable approvals(works well and is 100% topnotch, now i want you to make sure that the categories primary, secondary, lowersixth and uppersixth with private classes should be there like below on the Timetable approvals page, so when you click either of them for instance primary you will see class one, class two, class three, class four, class five and class sixth,
+if you click any of the clases, either class one, class two, class three to class six, you will be able to see the time table from mondays to fridays and the time the will be taught, the admin can modidify this time table from here as well and it will be updated in both the students and teachers dashboard in their respective places and can also be exported as pdf, admin modifying simply means admin can either change the teacher for that subject, replace the course with a new course or change time for the course,)
+
+
+
+
+
+
+
+
+
+Student Dashboard
+Home(should display all the sidebar icons but on the Home since it is the dashboard)
+Subjects(here the students sees all the subjects they are offering, for example if the students click on any of the subjects either English, Chemistry Biology, physics etc it should automatically open a message chat with the teacher teaching that particular subject in the class the student is studying in, the can either message the teacher, send voice, send pictures, send videos and also if the click on the teachers name in the chart box the teachers profile will be display)
+
+
+Work(Here everything should appear as if its appearing in cards. When a teacher set a group task for students it should appear here, only those students the teacher have assign will be able to see the group in their dashboard, the after clicking it to start, it will open like a group in whatsapp just and example, each member will see the task, the can send voice, images, videos, when they can eaither click subject group work or the group will automatically close at the exact time which was set by the teacher,
+Here students can make groups or study groups where the student who created the group will be like the admin in the group, he can give everyone privalege to send voice, pdfs, images, videos and can take all the privelidges or some and can also lock the group so that the members can only open the group read and close it unless the admin gives everyone the privilages, when the student want to create the group the only people he sees to add in his group are his class mates only and their teachers but teachers icons will always differ from students so that he actually knows he created the group only for him and his classmates, 
+If someone create a group and add you and you are not comfortable in the group you can exit and delete the group, When creating group if you are in class one, you will see only class one students and teachers only, same goes to the rest of the classes
+
+when student click the work (that is group work to them by their teacher, the group should open and the students in that particular group, in that specific group can see every documents, images, videos, voice in the group) the students too, can go live in that group and also send and invitation link to the teacher who created the group to join them
+)
+
+Messages(whe you click here "Who do you want to message?" and type the person name or you will see the list of all your classmates including teachers you can select any of them and message, make sure vidoes can also be sent as well)
+
+
+Exams(Whenever there is an exam, the student can see from the Exams icons in the sidebar with a notification sign that exams, this exams can appear one, two, three and above depending on the number of teachers that have assign the exams, ones you have open the Exams page you will see the different exams in their different cards, the way the Exams is or are structured and determind by the specific teacher, teaching that subject in that particular class, remember when a teacher sets and Exams only the students in that particular class and offering that particular subject will recieved notifications and will be able to write the exams, Exams can be in multiple choice format and can also be in structural format, during the exam written the teacher can set it that the student dont preview after the choose Next, untill when the are done and submitted, then it will be showing submitted and waiting for review and Exams can not be submitted twice , whenever a the exam is done, the next new exams that comes in will easily be seen and notice by the student, incase it is a multiple choice, most people will get their results few minutes because the sytem is the one marking, then the student will be able to see their score, the exam forms will become inactive and can only be active if that teacher goes to the Exams page in his or her timetable, select the class, search the students name and click on rewrite the exams, only then that particular student in that particular class can now write and click on the submit button to submit their exams)
+
+
+
+Practice(On this page students can actually create study partners, the can be at most 10 in a practice session page, the can create small practice groups inside this Practice page, the can add memmbers, only memebers in their class will show up and the will be added base on the creators choice, when added and you donnt feel welcome you can actually exit and delete the practice page, in this pracetice page, when you are typing your partner can literally be seeing the words as you are typing, before you even clicking the send send button to send so that ypur practice partner or partners can respond, you can send images , videos, pdf files and sending voice messages, this part is lieterally for studies, students can invite their teachers to come and practice with them, remember only students in thesame class can easily relate, make sure you implement as instructed)
+
+Progress(it shows the percentages of Classes attended for every student, and also after submitting everywork giving by the teacher, the percentage should show here "Work handed in"
+
+My class videos(Its perfect , please you know as when you are in youtube and just looking at the screen you can see its like the video has been playing even though its not, please add this kind of feature in "My class videos" page)
+
+Profile, should be able to update the profile pictures,all the staffs should be able to do it, On the profile you can put your country, city, address, date of birth, and calender showing you the number of days and the number of months you have been on the platform)
+
+Fees(Each student should see their fee plan here, The should also see a count down left to pay first installment, second installment and last installment,
+the countdown automatically stop ones everything(all the fees) has been completed)
+
+Remove this (What you get told about)
+
+Help(when student click on Help, it should take them straight to message the costumer service)
+
+Show me around(when you click show me around lets just say take me back to Home)
+
+Create a report class feature, showing the tearm, weather it is first term, second, and thrid term base on Cameroon standard, the report card automatically appears only when the admin compile and publish from the admin dashboard from the Academic Results page)
+
+Create a feature on the sidebar call (Timetable) which will display all the subjects with their days and time with the teachers name for that particular student. Remember to implement clickable buttons that only appears on the timebale for a particular subject when its time for the period, that means if a period starts at 8:00am the clickable button showing join the class appears 15 minutes to the class so that the student can join, if a class if one period which is 45 minutes, and a students attend for less than 30 minutes he will not have the option to send a feedback to rate the teachers performance to the admin which the will see in the rating feature page on the admin dashboard, students who attend the class for 30 minutes plus will now be able to rate the teacher, the student attendance is only calculated when the attend a class that is from the student dashboard, this is because all the classes join base on the teachers period shows the student performance
+
+A student that has been selected by the admin during the live classes, can also be able to share their screens and can give remote access both the student and the teachers
+
+
+Create a feature on the student dashboard call(My lessons)here is where all the subject that the student is offering will be display, for example biologym chemistry, english and lots more, when the student click on any of the subjects all the lessons that has been submitted to the students by their respective teachers base on their classes will be display here, its going to be in cards format, the student can click to read the lessons and understand better, the can be able to download the lessons as well, lessons can be in images, videos, pdfs and docs foemat.
+
+
+
+
+Teachers Dashboard
+Groups(teachers should be able to delete groups, teachers should be able remove memembers or add members in a group the created, when setting up an exercise by the teacher, the can either decide to write, or upload, images, videos and pdf and doc documents ,)
+
+
+
+
+
+
+
+Costumer service dashboard
+
+

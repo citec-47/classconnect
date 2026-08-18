@@ -1,15 +1,9 @@
-{
+﻿{
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
   "framework": "nextjs",
-
   "github": {
     "silent": true
   },
-
-  "//installCommand": "The web app imports `@classconnect/shared`, which is a workspace package. Installing from the repo root rather than from `apps/web` is what makes that resolvable; `outputFileTracingRoot` in next.config.mjs then carries it into the deployed function.",
   "installCommand": "npm install --workspaces --include-workspace-root",
-
-  "//buildCommand": "The shared package is TypeScript and must be compiled before Next can consume its type declarations.",
   "buildCommand": "npm run build --workspace @classconnect/shared && npm run build"
 }

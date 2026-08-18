@@ -1,9 +1,0 @@
-﻿{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "github": {
-    "silent": true
-  },
-  "installCommand": "npm install --workspaces --include-workspace-root",
-  "buildCommand": "npm run build --workspace @classconnect/shared && npm run build"
-}

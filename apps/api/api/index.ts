@@ -41,13 +41,16 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
  *   No listener       — Vercel owns the socket; we supply only the handler.
  *   No WebSocket      — a function cannot hold a connection open between
  *                       invocations, so badge counts use COM-003's 60-second
- *                       poll. `pushEnabled` tells the client not to try.
+ *                       poll. `pushEnabled` tells the client not to try. The
+ *                       adapter is still registered — Nest exits the process
+ *                       outright if a gateway is declared without one — it
+ *                       simply never sees an upgrade here.
  *   No interval timer — the billing pass runs from Vercel Cron against
  *                       `jobs.controller.ts` (§5.3).
  */
 
 interface CompiledApp {
-  createApp(options: { websockets: boolean }): Promise<NestExpressApplication>;
+  createApp(): Promise<NestExpressApplication>;
 }
 
 let cached: Promise<Express> | undefined;
@@ -58,7 +61,7 @@ async function build(): Promise<Express> {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { createApp } = require('../dist/create-app.js') as CompiledApp;
 
-  const app = await createApp({ websockets: false });
+  const app = await createApp();
 
   // `init()` runs the module lifecycle — PrismaService.onModuleInit, the
   // configuration cache load — without binding a port.

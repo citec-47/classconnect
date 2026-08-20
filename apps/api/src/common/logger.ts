@@ -45,6 +45,12 @@ export function redact(value: unknown, depth = 0): unknown {
     return value.replace(PHONE_PATTERN, (match) => maskPhone(match));
   }
   if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redact(value.message, depth + 1),
+    };
+  }
   if (typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1));
 

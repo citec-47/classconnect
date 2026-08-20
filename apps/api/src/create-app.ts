@@ -27,9 +27,7 @@ import { isDeployed } from './common/deployment';
  * NFR-SEC-006: strict CSP, X-Content-Type-Options, Referrer-Policy,
  *              X-Frame-Options/frame-ancestors, SameSite cookies.
  */
-export async function createApp(
-  options: { websockets?: boolean } = {},
-): Promise<NestExpressApplication> {
+export async function createApp(): Promise<NestExpressApplication> {
   assertProductionSafety();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -84,18 +82,26 @@ export async function createApp(
   /**
    * COM-002/COM-003: live admin badge counts push over a WebSocket.
    *
-   * Only a long-running process can hold one open. A serverless function is
-   * invoked per request and has no socket to keep, so the adapter is not
-   * registered there — see `pushEnabled` in DashboardService, which tells the
-   * client whether to attempt a connection at all.
+   * The adapter is registered on every host, unconditionally. Nest resolves a
+   * WebSocket driver as soon as one gateway is declared anywhere in the module
+   * graph, and `loadAdapter` answers a missing one with `process.exit(1)` —
+   * not an error a caller could catch. Skipping registration on the hosts that
+   * cannot serve an upgrade therefore never disabled the gateways: it killed
+   * the process during `init()`. Inside the Next bridge that took the dev
+   * server down with it, and the browser saw only ECONNREFUSED on every call.
    *
-   * COM-003's "reconcile with a poll every 60 s in case the socket dropped" is
+   * Registering it costs nothing where it cannot be used. `WsAdapter` builds
+   * each server with `noServer: true` and waits for an upgrade event that a
+   * request-per-invocation host never emits. What keeps the client from
+   * attempting a doomed connection is `pushEnabled` in DashboardService —
+   * the right place for it, since that is the server reporting its own
+   * capability rather than a constructor argument asserting it.
+   *
+   * COM-003’s "reconcile with a poll every 60 s in case the socket dropped" is
    * what makes that degradation safe rather than a lost feature: the poll is the
    * authoritative path in both deployments.
    */
-  if (options.websockets ?? true) {
-    app.useWebSocketAdapter(new WsAdapter(app));
-  }
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   app.enableShutdownHooks();
 

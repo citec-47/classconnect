@@ -23,12 +23,15 @@ type ExpressHandler = (request: NextApiRequest, response: NextApiResponse) => vo
 let appPromise: Promise<ExpressHandler> | undefined;
 
 async function app(): Promise<ExpressHandler> {
-  const nest = await createApp({ websockets: false });
+  const nest = await createApp();
   await nest.init();
   return nest.getHttpAdapter().getInstance() as ExpressHandler;
 }
 
-export default function handler(request: NextApiRequest, response: NextApiResponse): void {
+export default async function handler(
+  request: NextApiRequest,
+  response: NextApiResponse,
+): Promise<void> {
   appPromise ??= app().catch((error: unknown) => {
     // A configuration problem must be retryable after an environment-variable
     // correction, rather than poisoning every warm invocation forever.
@@ -36,13 +39,15 @@ export default function handler(request: NextApiRequest, response: NextApiRespon
     throw error;
   });
 
-  void appPromise.then(
-    (express) => express(request, response),
-    (error: unknown) => {
-      // Keep deployment configuration details in the function logs, never in a
-      // browser response where secrets and database topology can be exposed.
-      console.error('ClassConnect API bootstrap failed', error);
+  try {
+    const express = await appPromise;
+    express(request, response);
+  } catch (error: unknown) {
+    // Keep deployment configuration details in the function logs, never in a
+    // browser response where secrets and database topology can be exposed.
+    console.error('ClassConnect API bootstrap failed', error);
+    if (!response.writableEnded) {
       response.status(503).json({ messageKey: 'errors.service_unavailable' });
-    },
-  );
+    }
+  }
 }

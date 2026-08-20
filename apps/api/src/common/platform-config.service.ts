@@ -17,7 +17,17 @@ export class PlatformConfigService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
-    await this.refresh();
+    try {
+      await this.refresh();
+    } catch (error) {
+      // Prisma connects in the background. A temporarily unavailable database
+      // must not prevent the HTTP process (and /health) from starting.
+      this.logger.warn(
+        `Platform configuration unavailable during startup: ${
+          error instanceof Error ? error.message : String(error)
+        }. Using defaults until the database is available.`,
+      );
+    }
   }
 
   async refresh(): Promise<void> {

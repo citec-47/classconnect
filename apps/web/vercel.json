@@ -1,7 +1,7 @@
 {
   "installCommand": "npm install --include=dev",
   "functions": {
-    "pages/api/v1/[...path].ts": {
+    "src/pages/api/v1/[...path].ts": {
       "maxDuration": 30
     }
   },

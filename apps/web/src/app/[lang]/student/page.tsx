@@ -1,11 +1,21 @@
 'use client';
 
-import { visibleHomeCards, type HomeCardKey, type LearnerHomeDto } from '@classconnect/shared';
+import { visibleHomeCards, type HomeCardKey, type LearnerHomeDto, type TabKey } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
 import Link from 'next/link';
 import { HomeworkRow, SessionCard } from '@/components/student/cards';
+import {
+  BookIcon,
+  ChartIcon,
+  ExamIcon,
+  FileTextIcon,
+  HomeIcon,
+  MessageIcon,
+  PencilIcon,
+  VideoIcon,
+} from '@/components/student/icons';
 import {
   Card,
   EmptyState,
@@ -42,6 +52,8 @@ export default function StudentHome() {
         {t('student.home.greeting', { name: learner.displayName })}
       </PageTitle>
 
+      <QuickAccess language={language} tabs={config.tabs} />
+
       {loading && <SkeletonList rows={2} />}
       {error && !data && <ErrorState onRetry={() => void refresh()} />}
 
@@ -75,6 +87,40 @@ export default function StudentHome() {
         </>
       )}
     </>
+  );
+}
+
+const TAB_PATHS: Record<TabKey, string> = {
+  home: '', subjects: '/subjects', classes: '/classes', exams: '/exams', work: '/work',
+  messages: '/messages', practice: '/practice', progress: '/progress', videos: '/lessons',
+};
+
+const TAB_ICONS = {
+  home: HomeIcon, subjects: BookIcon, classes: VideoIcon, exams: ExamIcon, work: PencilIcon,
+  messages: MessageIcon, practice: FileTextIcon, progress: ChartIcon, videos: VideoIcon,
+};
+
+/** Visual, one-tap counterparts to every destination in the learner navigation. */
+function QuickAccess({ language, tabs }: { language: string; tabs: readonly TabKey[] }) {
+  const { t } = useI18n();
+  return (
+    <section aria-label={t('student.navLabel')} className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {tabs.filter((tab) => tab !== 'home').map((tab) => {
+        const Icon = TAB_ICONS[tab];
+        return (
+          <Link
+            key={tab}
+            href={`/${language}/student${TAB_PATHS[tab]}`}
+            className="group flex min-h-28 flex-col justify-between rounded-xl border border-ink-300 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700 transition group-hover:bg-brand-100">
+              <Icon className="h-6 w-6" />
+            </span>
+            <span className="mt-3 text-sm font-semibold text-ink-900">{t(`student.tab.${tab}`)}</span>
+          </Link>
+        );
+      })}
+    </section>
   );
 }
 

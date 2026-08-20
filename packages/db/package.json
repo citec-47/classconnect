@@ -16,11 +16,11 @@
     "local:stop": "node scripts/local-postgres.mjs stop"
   },
   "dependencies": {
-    "@prisma/client": "^6.2.1"
+    "@prisma/client": "^6.2.1",
+    "prisma": "^6.2.1"
   },
   "devDependencies": {
     "embedded-postgres": "18.4.0-beta.17",
-    "prisma": "^6.2.1",
     "tsx": "^4.19.2"
   },
   "//optionalDependencies": "PostgreSQL binaries for `npm run db:local`. Optional because they are platform-specific: npm fails a normal dependency outright when the platform does not match, which is what used to break the Linux install on Vercel. As optional dependencies the wrong-platform ones are skipped silently, and the deployed build — which never starts a database as a child process — is unaffected.",

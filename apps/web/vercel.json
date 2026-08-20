@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --include=dev",
+  "installCommand": "npm install --include=dev --workspaces --include-workspace-root",
   "functions": {
     "src/pages/api/v1/[...path].ts": {
       "maxDuration": 30

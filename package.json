@@ -13,6 +13,7 @@
     "dev:api": "npm run dev --workspace @classconnect/api",
     "dev:web": "npm run dev --workspace @classconnect/web",
     "build": "npm run build --workspace @classconnect/shared && npm run build --workspace @classconnect/db && npm run build --workspace @classconnect/api && npm run build --workspace @classconnect/web",
+    "postinstall": "npm run generate --workspace @classconnect/db",
     "db:local": "npm run local:start --workspace @classconnect/db",
     "db:local:stop": "npm run local:stop --workspace @classconnect/db",
     "db:generate": "npm run generate --workspace @classconnect/db",

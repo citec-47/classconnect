@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "npm exec --workspace @classconnect/db -- prisma generate && tsc -b ../../packages/shared ../../packages/db",
+    "//prebuild": "Compiles the workspace packages this API imports. `prisma generate` is deliberately NOT here. The root postinstall runs it against the same node_modules, and @classconnect/db's own build runs it again immediately before this one, so a third pass rewrites a client that is already correct. On a two-core Vercel builder that third pass is where the build stopped — after 'Prisma schema loaded' and before it ever reached nest build.",
+    "prebuild": "tsc -b ../../packages/shared ../../packages/db",
     "build": "nest build",
     "//vercel-build": "What Vercel runs. `prisma migrate deploy` is deliberately NOT here: a build runs on every preview deployment and on every instance of a rolled-back one, and migrations must be applied once, deliberately, against a known target. Run `npm run db:migrate` from a machine holding DIRECT_DATABASE_URL.",
     "vercel-build": "npm run build",

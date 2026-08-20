@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "predev": "npm run build --workspace @classconnect/api",
+    "//predev": "Local development only — Vercel runs `build`, never this. It generates the Prisma client because the API's prebuild no longer does, and nothing else in the `npm run dev --workspace @classconnect/web` chain would: without it a schema change stays invisible until the next npm install.",
+    "predev": "npm run generate --workspace @classconnect/db && npm run build --workspace @classconnect/api",
     "dev": "next dev --turbopack -p 3000",
     "prebuild": "npm run build --workspace @classconnect/api",
     "build": "next build",

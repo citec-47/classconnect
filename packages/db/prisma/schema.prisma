@@ -476,6 +476,8 @@ model User {
   groupScoresAwarded GroupScore[]     @relation("GroupScoreAwarder")
   reportCardsGenerated ReportCard[]   @relation("ReportCardGenerator")
   sessionInvites   SessionInvite[]  @relation("SessionInviteUser")
+  studyGroupMemberships StudyGroupMember[]
+  ownedStudyGroups StudyGroup[] @relation("StudyGroupOwner")
 
   @@index([status])
   @@index([createdAt])
@@ -921,6 +923,7 @@ model Level {
   assessments   Assessment[]
   reportCards   ReportCard[]
   termMarks     SubjectTermMark[]
+  studyGroups   StudyGroup[]
 
   @@map("levels")
 }
@@ -1110,6 +1113,49 @@ model CohortMember {
 
   @@id([cohortId, learnerId])
   @@map("cohort_members")
+}
+
+/// A moderated, class-scoped study space. Its chat is retained through soft deletion.
+model StudyGroup {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(120)
+  levelId     String    @map("level_id") @db.Uuid
+  ownerUserId String    @map("owner_user_id") @db.Uuid
+  threadId    String    @unique @map("thread_id") @db.Uuid
+  maxMembers  Int       @default(10) @map("max_members")
+  locked      Boolean   @default(false)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  level       Level            @relation(fields: [levelId], references: [id])
+  owner       User             @relation("StudyGroupOwner", fields: [ownerUserId], references: [id])
+  thread      MessageThread    @relation(fields: [threadId], references: [id])
+  members     StudyGroupMember[]
+
+  @@index([levelId, deletedAt])
+  @@index([ownerUserId])
+  @@map("study_groups")
+}
+
+model StudyGroupMember {
+  groupId  String   @map("group_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  isAdmin  Boolean  @default(false) @map("is_admin")
+  allowImages Boolean @default(true) @map("allow_images")
+  allowVideos Boolean @default(true) @map("allow_videos")
+  allowVoice  Boolean @default(true) @map("allow_voice")
+  allowDocuments Boolean @default(true) @map("allow_documents")
+  leftAt   DateTime? @map("left_at") @db.Timestamptz(6)
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  group StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId, leftAt])
+  @@map("study_group_members")
 }
 
 /// `sessions` — a scheduled teaching event. State model per Appendix A.
@@ -2406,6 +2452,7 @@ enum ProctorFlagKind {
 enum MessageThreadKind {
   learner_teacher
   learner_support
+  study_group
   guardian_teacher
   /// A teacher and ClassConnect. Deliberately not `learner_support`: that queue
   /// is about a child, carries a `learner_id` and is worked under safeguarding
@@ -2557,6 +2604,7 @@ model MessageThread {
   learner      Learner?            @relation(fields: [learnerId], references: [id])
   messages     Message[]
   participants ThreadParticipant[]
+  studyGroup   StudyGroup?
 
   @@index([learnerId, lastMessageAt])
   @@index([teacherUserId, lastMessageAt])

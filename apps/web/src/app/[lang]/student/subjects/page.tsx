@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { LearnerSubjectsDto, TimetableSlotDto } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
+import { api } from '@/lib/api';
 import { timeOfDay } from '@/lib/student-format';
 import { RatingControl } from '@/components/student/RatingControl';
 import { subjectAccent } from '@/lib/subject-accent';
@@ -35,7 +37,10 @@ import {
 export default function StudentSubjects() {
   const { t, language } = useI18n();
   const { learner, config } = useStudent();
+  const router = useRouter();
   const [view, setView] = useState<'subjects' | 'timetable'>('subjects');
+  const [openingTeacher, setOpeningTeacher] = useState<string | null>(null);
+  const [teacherChatFailed, setTeacherChatFailed] = useState<string | null>(null);
 
   const { data, loading, error, refresh } = useCachedApi<LearnerSubjectsDto>(
     '/learner/subjects',
@@ -50,6 +55,24 @@ export default function StudentSubjects() {
   // on a learner's phone (NFR-BAN-006).
   const subjects = data?.subjects ?? [];
   const timetable = data?.timetable ?? [];
+
+  const openTeacherChat = async (teacherUserId: string, subjectId: string) => {
+    if (openingTeacher) return;
+    setOpeningTeacher(teacherUserId);
+    setTeacherChatFailed(null);
+    try {
+      const result = await api<{ threadId: string }>('/learner/messages/start', {
+        method: 'POST',
+        body: { teacherUserId, subjectId },
+        language,
+      });
+      router.push(`/${language}/student/messages?thread=${result.threadId}`);
+    } catch {
+      setTeacherChatFailed(teacherUserId);
+    } finally {
+      setOpeningTeacher(null);
+    }
+  };
 
   return (
     <>
@@ -125,6 +148,26 @@ export default function StudentSubjects() {
                       </Pill>
                     )}
                   </div>
+
+                  {item.teacher && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={openingTeacher === item.teacher.id}
+                        onClick={() => void openTeacherChat(item.teacher!.id, item.subject.id)}
+                        className="mt-3 min-h-touch w-full rounded-lg border border-brand-600 px-3 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-60"
+                      >
+                        {openingTeacher === item.teacher.id
+                          ? t('common.loading')
+                          : t('student.messages.startWith', { name: item.teacher.displayName })}
+                      </button>
+                      {teacherChatFailed === item.teacher.id && (
+                        <p className="mt-1 text-xs text-danger-600" role="alert">
+                          {t('student.error.loadBody')}
+                        </p>
+                      )}
+                    </>
+                  )}
 
                   {/*
                    * The three numbers a learner actually acts on, each a link

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import type {
   HomeworkDto,
   MaterialDto,
@@ -18,6 +19,7 @@ import {
 } from '@/lib/student-format';
 import { useFrozen } from './FrozenNotice';
 import { Pill } from './ui';
+import { RecordingPlayer } from '@/components/RecordingPlayer';
 
 /**
  * The repeated rows of the learner surface.
@@ -110,8 +112,8 @@ export function SessionCard({
             </p>
           ) : joinable ? (
             <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={`#join-${session.id}`}
+              <Link
+                href={`/${language}/student/live/${session.id}`}
                 className={[
                   'inline-flex min-h-touch flex-1 items-center justify-center rounded-lg',
                   'bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700',
@@ -120,14 +122,14 @@ export function SessionCard({
                 ].join(' ')}
               >
                 {t('student.nextSession.join')}
-              </a>
-              {/* FR-LIV-016 */}
-              <a
-                href={`#device-check-${session.id}`}
+              </Link>
+              {/* The room performs its own device check before it connects. */}
+              <Link
+                href={`/${language}/student/live/${session.id}`}
                 className="inline-flex min-h-touch items-center rounded-lg border border-ink-300 px-3 text-sm font-medium text-ink-900 hover:bg-ink-100"
               >
                 {t('student.nextSession.deviceCheck')}
-              </a>
+              </Link>
             </div>
           ) : ended ? (
             <p className="text-sm text-ink-600">{t('student.nextSession.ended')}</p>
@@ -145,28 +147,61 @@ export function SessionCard({
 
       {/* FR-LIV-013: the recording, and the date it goes. */}
       {session.recording && (
-        <p className="mt-3 text-sm">
+        <div className="mt-3">
           {session.recording.ready ? (
-            <a href={`#recording-${session.recording.id}`} className="font-medium text-brand-700 underline">
-              {t('student.classes.recording')}
-            </a>
+            <RecordingPlayer
+              endpoint="learner"
+              recordingId={session.recording.id}
+              state="ready"
+            />
           ) : (
-            <span className="text-ink-600">{t('student.classes.recordingPending')}</span>
+            <p className="mt-1 text-sm text-ink-600">{t('student.classes.recordingPending')}</p>
           )}
-          <span className="ml-2 text-xs text-ink-600">
+          <p className="mt-1 text-xs text-ink-600">
             {t('student.classes.recordingUntil', {
               date: new Date(session.recording.availableUntil).toLocaleDateString(language),
             })}
-          </span>
-        </p>
+          </p>
+        </div>
       )}
     </article>
   );
 }
 
-export function HomeworkRow({ item }: { item: HomeworkDto }) {
+export function HomeworkRow({
+  item,
+  onSubmitted,
+}: {
+  item: HomeworkDto;
+  onSubmitted?: () => void | Promise<void>;
+}) {
   const { t, language } = useI18n();
+  const frozen = useFrozen();
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [bodyText, setBodyText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
   const dueAt = new Date(item.dueAt);
+
+  const submit = async () => {
+    if (!bodyText.trim() || submitting) return;
+    setSubmitting(true);
+    setSubmitFailed(false);
+    try {
+      await api(`/learner/work/${item.id}/submit`, {
+        method: 'POST',
+        body: { bodyText: bodyText.trim() },
+        language,
+      });
+      setShowSubmit(false);
+      setBodyText('');
+      await onSubmitted?.();
+    } catch {
+      setSubmitFailed(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <article className="rounded-xl border border-ink-300 bg-white p-3.5">
@@ -203,6 +238,48 @@ export function HomeworkRow({ item }: { item: HomeworkDto }) {
           {item.grade.feedbackText}
         </p>
       )}
+
+      {item.state === 'to_do' &&
+        (frozen ? (
+          <p className="mt-3 rounded-lg bg-ink-100 px-3 py-2 text-sm text-ink-600">
+            {t('student.frozen.blockedAction')}
+          </p>
+        ) : showSubmit ? (
+          <div className="mt-3 space-y-2 border-t border-ink-200 pt-3">
+            <label className="block text-sm font-medium text-ink-900" htmlFor={`work-${item.id}`}>
+              {t('student.work.answer')}
+            </label>
+            <p className="text-xs text-ink-600">{t('student.work.handInHint')}</p>
+            <textarea
+              id={`work-${item.id}`}
+              value={bodyText}
+              onChange={(event) => setBodyText(event.target.value)}
+              className="min-h-28 w-full rounded-lg border border-ink-300 p-3 text-sm"
+              maxLength={50_000}
+            />
+            <button
+              type="button"
+              disabled={!bodyText.trim() || submitting}
+              onClick={() => void submit()}
+              className="min-h-touch w-full rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {submitting ? t('student.work.handingIn') : t('student.work.handInNow')}
+            </button>
+            {submitFailed && (
+              <p className="text-xs text-danger-600" role="alert">
+                {t('student.work.handInFailed')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowSubmit(true)}
+            className="mt-3 min-h-touch w-full rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            {t('student.work.handIn')}
+          </button>
+        ))}
     </article>
   );
 }

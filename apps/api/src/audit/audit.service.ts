@@ -68,8 +68,10 @@ export type AuditAction =
    * from a claim that appears to have always been on Thursday.
    */
   | 'timetable.edited'
+  | 'timetable.admin_edited'
   | 'timetable.withdrawn'
   | 'timetable.decided'
+  | 'group.archived'
   /*
    * BUILD-PLAN Phase 2 — lessons.
    *

@@ -8,7 +8,7 @@ import type {
   PendingAttachmentDto,
 } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
-import { api } from '@/lib/api';
+import { api, apiBase, tokenStore } from '@/lib/api';
 import { useCachedApi } from '@/lib/use-cached-api';
 import { fullDate, timeOfDay } from '@/lib/student-format';
 import { ReportConcern } from './ui';
@@ -60,12 +60,15 @@ export function MessageThreadView({
   const [pending, setPending] = useState<MessageDto[]>([]);
   const [attachments, setAttachments] = useState<PendingAttachmentDto[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [someoneTyping, setSomeoneTyping] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   /** False once the reader scrolls up, so a new message does not yank them back. */
   const stickToBottom = useRef(true);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageSocket = useRef<WebSocket | null>(null);
 
   /*
    * New messages arrive on their own.
@@ -87,6 +90,38 @@ export function MessageThreadView({
       document.removeEventListener('visibilitychange', tick);
     };
   }, [refresh]);
+
+  /* Push makes an open conversation feel immediate; the poll above is retained
+     as the recovery path for a dropped mobile connection or serverless host. */
+  useEffect(() => {
+    const token = tokenStore.access;
+    if (!token) return;
+    const base = apiBase().replace(/^http/, 'ws');
+    const socket = new WebSocket(`${base}/learner/messages/stream?access_token=${encodeURIComponent(token)}&thread=${encodeURIComponent(threadId)}`);
+    messageSocket.current = socket;
+    socket.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse(String(event.data)) as { type?: string; active?: boolean };
+        if (payload.type === 'typing') setSomeoneTyping(Boolean(payload.active));
+        if (payload.type === 'message' || payload.type === 'thread_updated') void refresh();
+      } catch { /* The next poll still reconciles an invalid frame. */ }
+    });
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      messageSocket.current = null;
+      socket.close(1000, 'thread_closed');
+    };
+  }, [threadId, refresh]);
+
+  const announceTyping = useCallback(() => {
+    const socket = messageSocket.current;
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'typing', active: true }));
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'typing', active: false }));
+    }, 1_500);
+  }, []);
 
   const messages = dedupe([...(data?.messages ?? []), ...pending]);
 
@@ -158,6 +193,7 @@ export function MessageThreadView({
               : (data?.counterpartName ?? '')}
           </p>
           {data?.subject && <p className="truncate text-xs text-ink-600">{data.subject.name}</p>}
+          {someoneTyping && <p className="text-xs text-ink-600">{t('student.messages.typing')}</p>}
         </div>
       </div>
 
@@ -250,6 +286,7 @@ export function MessageThreadView({
               placeholder={t('student.messages.placeholder')}
               onChange={(event) => {
                 setDraft(event.target.value);
+                announceTyping();
                 // Grows with the text, capped so the conversation stays visible.
                 const element = event.target;
                 element.style.height = 'auto';

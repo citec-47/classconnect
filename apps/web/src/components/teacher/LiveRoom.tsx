@@ -179,6 +179,9 @@ export function LiveRoom({
   /** Who replaced this participant's share, so they are told rather than left guessing. */
   const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  /** A learner's request is only a hand raised; the teacher grants publishing. */
+  const [floorRequest, setFloorRequest] = useState<'idle' | 'pending' | 'approved'>('idle');
+  const [requestingFloor, setRequestingFloor] = useState(false);
 
   /*
    * Whose screen the room is showing, if anyone's.
@@ -700,6 +703,23 @@ export function LiveRoom({
     onEnded();
   };
 
+  const requestToSpeak = async () => {
+    if (role !== 'guest' || requestingFloor || floorRequest === 'pending') return;
+    setRequestingFloor(true);
+    try {
+      const request = await api<{ state: 'pending' | 'approved' }>(
+        `/learner/live/${sessionId}/request-floor`,
+        { method: 'POST', language },
+      );
+      setFloorRequest(request.state);
+    } catch {
+      // The API's entitlement check is authoritative. Keep the button usable
+      // after an intermittent failure so the learner can try again.
+    } finally {
+      setRequestingFloor(false);
+    }
+  };
+
   const connecting =
     state === ConnectionState.Connecting || state === ConnectionState.Reconnecting;
 
@@ -913,6 +933,20 @@ export function LiveRoom({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {role === 'guest' && (
+          <button
+            type="button"
+            onClick={() => void requestToSpeak()}
+            disabled={requestingFloor || floorRequest === 'pending'}
+            className="min-h-touch rounded-lg border border-brand-600 px-3 text-sm font-medium text-brand-700 disabled:opacity-60"
+          >
+            {floorRequest === 'pending'
+              ? t('student.classes.speak.asked')
+              : floorRequest === 'approved'
+                ? t('student.classes.speak.approved')
+                : t('student.classes.speak.ask')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void toggleMic()}

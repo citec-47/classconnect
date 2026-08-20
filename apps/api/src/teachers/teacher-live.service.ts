@@ -178,7 +178,7 @@ export class TeacherLiveService {
          * A fifteen-minute run-up, so a teacher can open the room before the
          * children arrive rather than exactly as they do.
          */
-        startableNow: nowMinute >= slot.startMinute - 15 && nowMinute < slot.endMinute,
+        startableNow: nowMinute >= slot.startMinute - 5 && nowMinute < slot.endMinute,
         minutesUntilStart: Math.max(0, slot.startMinute - nowMinute),
       })),
       groups: cohorts.map((cohort) => ({

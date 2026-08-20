@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type {
   MessageComposeLimitsDto,
   MessageThreadSummaryDto,
@@ -8,6 +9,7 @@ import type {
 import { useI18n } from '@/lib/i18n';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
+import { api } from '@/lib/api';
 import { whenLabel } from '@/lib/student-format';
 import { MessageThreadView } from '@/components/student/MessageThreadView';
 import { ContactPicker } from '@/components/student/ContactPicker';
@@ -32,14 +34,41 @@ interface ThreadsResponse {
  * box. FR-SAF-008 holds because there is nothing to type a name into.
  */
 export default function StudentMessages() {
+  return (
+    <Suspense fallback={null}>
+      <StudentMessagesContent />
+    </Suspense>
+  );
+}
+
+function StudentMessagesContent() {
   const { t, language } = useI18n();
   const { config } = useStudent();
-  const [openThreadId, setOpenThreadId] = useState<string | null>(null);
+  const params = useSearchParams();
+  const [openThreadId, setOpenThreadId] = useState<string | null>(() => params.get('thread'));
   const [picking, setPicking] = useState(false);
+  const [supportError, setSupportError] = useState(false);
+  const openedSupport = useRef(false);
 
   const { data, loading, error, refresh } = useCachedApi<ThreadsResponse>('/learner/messages', {
     language,
   });
+
+  /* Help is a real support thread, not a dead menu item or a generic mail link. */
+  useEffect(() => {
+    if (params.get('support') !== '1' || openedSupport.current) return;
+    openedSupport.current = true;
+    void api<{ threadId: string }>('/learner/messages/start', {
+      method: 'POST',
+      body: { support: true },
+      language,
+    })
+      .then((result) => {
+        setOpenThreadId(result.threadId);
+        void refresh();
+      })
+      .catch(() => setSupportError(true));
+  }, [language, params, refresh]);
 
   if (!config) return null;
   const large = config.typeScale === 'large';
@@ -84,6 +113,12 @@ export default function StudentMessages() {
         </button>
       </div>
       <p className="text-sm text-ink-600">{t('student.messages.subtitle')}</p>
+
+      {supportError && (
+        <p className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600" role="alert">
+          {t('student.error.loadBody')}
+        </p>
+      )}
 
       {/*
        * The permanence rule, stated on the list rather than only in the

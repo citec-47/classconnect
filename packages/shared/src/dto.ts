@@ -632,6 +632,49 @@ export const editTimetableSlotSchema = z.object({
 export type EditTimetableSlotInput = z.infer<typeof editTimetableSlotSchema>;
 
 /**
+ * A staff correction to a confirmed timetable slot.
+ *
+ * Unlike a teacher's edit this may also replace the teacher or subject.  It is
+ * deliberately a separate DTO: a teacher must never be able to turn a claim
+ * for one approved subject into a claim for another by changing the request
+ * body sent to their own endpoint.
+ */
+export const adminEditTimetableSlotSchema = z.object({
+  teacherId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+  dayOfWeek: z.number().int().min(1).max(7),
+  startMinute: z.number().int().min(0).max(1440),
+  endMinute: z.number().int().min(0).max(1440),
+});
+export type AdminEditTimetableSlotInput = z.infer<typeof adminEditTimetableSlotSchema>;
+
+/** A learner-owned practice group. The creator counts towards the ten seats. */
+export const createStudyGroupSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  memberUserIds: z.array(z.string().uuid()).max(9).default([]),
+});
+export type CreateStudyGroupInput = z.infer<typeof createStudyGroupSchema>;
+
+export const updateStudyGroupMembersSchema = z.object({
+  memberUserIds: z.array(z.string().uuid()).min(1).max(9),
+});
+export type UpdateStudyGroupMembersInput = z.infer<typeof updateStudyGroupMembersSchema>;
+
+export const setStudyGroupLockSchema = z.object({ locked: z.boolean() });
+export type SetStudyGroupLockInput = z.infer<typeof setStudyGroupLockSchema>;
+
+export const setStudyGroupMemberPermissionSchema = z.object({
+  mayPost: z.boolean().optional(),
+  allowImages: z.boolean().optional(),
+  allowVideos: z.boolean().optional(),
+  allowVoice: z.boolean().optional(),
+  allowDocuments: z.boolean().optional(),
+}).refine((value) => Object.values(value).some((item) => item !== undefined), {
+  message: 'errors.validation',
+});
+export type SetStudyGroupMemberPermissionInput = z.infer<typeof setStudyGroupMemberPermissionSchema>;
+
+/**
  * Staff confirming or refusing a proposal.
  *
  * Confirmation is what makes a slot count — earnings are counted inside one and

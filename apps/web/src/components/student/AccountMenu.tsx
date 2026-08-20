@@ -134,7 +134,7 @@ export function AccountMenu({ language }: { language: Language }) {
             </li>
             <li>
               {/* Customer service conversations are handled by the support contact in Messages. */}
-              <Link href={`${base}/messages`} className={itemClass}>
+              <Link href={`${base}/messages?support=1`} className={itemClass}>
                 {t('student.account.help')}
               </Link>
             </li>

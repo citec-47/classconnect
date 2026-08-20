@@ -1856,6 +1856,10 @@ timetable: {
 
   /** La semaine de chaque classe, sur un seul écran d’administration. */
   timetableOverview: {
+    exportPdf: 'Exporter en PDF',
+    editSlot: 'Modifier la période',
+    course: 'Matière',
+    teacher: 'Enseignant',
     description:
       'Chaque classe, du lundi au samedi, avec la matière et l’enseignant de chaque période.',
     empty: 'Aucune classe n’a encore été configurée.',
@@ -2737,6 +2741,7 @@ timetable: {
       empty: 'Écris d’abord quelque chose',
       openThread: 'Ouvrir la conversation avec {name}',
       placeholder: 'Écris ton message',
+      typing: 'Écrit…',
       compose: 'Écrire un message',
       attachmentTooBig: 'Les fichiers doivent faire moins de {size}',
       newMessage: 'Nouveau message',
@@ -2783,6 +2788,12 @@ timetable: {
       openMaterial: 'Garder pour lire hors connexion',
       openingMaterial: 'Récupération…',
       materialFailed: 'Impossible d’ouvrir ce fichier. Réessayez dans un instant.',
+      handIn: 'Rendre le devoir',
+      handInHint: 'Écrivez votre réponse ci-dessous, puis envoyez-la à votre enseignant.',
+      answer: 'Votre réponse',
+      handInNow: 'Rendre',
+      handingIn: 'Envoi en cours…',
+      handInFailed: 'Impossible d’envoyer ce devoir. Vérifiez votre connexion et réessayez.',
     },
 
     practice: {
@@ -2796,7 +2807,31 @@ timetable: {
       needsConnection: 'Vous devez être connecté pour commencer',
       needsConnectionBody:
         'Une épreuve chronométrée ne peut pas démarrer hors connexion. Réessayez dès que vous avez du réseau.',
+      studyGroups: 'Groupes d’étude',
+      studyGroupsBody: 'Travaillez avec jusqu’à neuf camarades dans une conversation commune.',
+      newStudyGroup: 'Nouveau groupe d’étude',
+      groupName: 'Nom du groupe',
+      createGroup: 'Créer le groupe',
+      creatingGroup: 'Création…',
+      groupMembers: '{count} membres',
+      openGroup: 'Ouvrir le groupe',
+      leaveGroup: 'Quitter le groupe',
+      deleteGroup: 'Supprimer le groupe',
+      lockGroup: 'Verrouiller le groupe',
+      unlockGroup: 'Déverrouiller le groupe',
+      addMembers: 'Ajouter les camarades sélectionnés',
+      removeMember: 'Retirer',
+      allowPosting: 'Autoriser les messages',
+      stopPosting: 'Bloquer les messages',
+      images: 'Images',
+      videos: 'Vidéos',
+      voice: 'Messages vocaux',
+      documents: 'Documents',
+      lockedGroup: 'Verrouillé',
+      noStudyGroups: 'Aucun groupe d’étude pour le moment',
+      chooseClassmates: 'Choisissez des camarades',
     },
+    reportCards: { title: 'Bulletins', none: 'Aucun bulletin publié pour le moment', noneBody: 'Votre bulletin apparaîtra ici lorsque votre école le publiera.', term_1: 'Premier trimestre', term_2: 'Deuxième trimestre', term_3: 'Troisième trimestre', average: 'Moyenne : {value}/20', position: 'Rang {position} sur {size}' },
 
     progress: {
       title: 'Progrès',

@@ -5,10 +5,12 @@ import {
   decideTimetableSlotSchema,
   decideTimetableEditSchema,
   editTimetableSlotSchema,
+  adminEditTimetableSlotSchema,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
   type DecideTimetableEditInput,
   type EditTimetableSlotInput,
+  type AdminEditTimetableSlotInput,
 } from '@classconnect/shared';
 import { TimetableService } from './timetable.service';
 import { zodBody, uuidParam, ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -138,6 +140,28 @@ export class AdminTimetableController {
   @RequirePermissions('teacher:verification:read')
   async forLevel(@Param('levelId', uuidParam()) levelId: string) {
     return this.timetable.levelSlots(levelId);
+  }
+
+  /** Valid teacher/course combinations for a staff timetable correction. */
+  @Get(':slotId/edit-options')
+  @RequirePermissions('teacher:verification:decide')
+  async editOptions(@Param('slotId', uuidParam()) slotId: string) {
+    return this.timetable.adminEditOptions(slotId);
+  }
+
+  /**
+   * Staff may correct a published timetable without making a teacher withdraw
+   * and recreate the period.  The service verifies the replacement teacher is
+   * approved for the selected class and subject and re-runs both clash rules.
+   */
+  @Patch(':slotId')
+  @RequirePermissions('teacher:verification:decide')
+  async editSlot(
+    @CurrentUser() staff: AuthenticatedUser,
+    @Param('slotId', uuidParam()) slotId: string,
+    @Body(zodBody(adminEditTimetableSlotSchema)) body: AdminEditTimetableSlotInput,
+  ) {
+    return this.timetable.adminEdit(staff, slotId, body);
   }
 
 

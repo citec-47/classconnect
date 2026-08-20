@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, NotFoundException } from '@nestjs/common';
 import { LearnerService } from './learner.service';
 /*
  * The live service is shared rather than duplicated.
@@ -19,6 +19,8 @@ import { LearnerFeesService } from './learner-fees.service';
 import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
+import { LearnerStudyGroupsService } from './learner-study-groups.service';
+import { LearnerReportsService } from './learner-reports.service';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
 import { uuidParam, ZodValidationPipe, zodBody } from '../common/zod-validation.pipe';
 import { RecordingsService } from '../teachers/recordings.service';
@@ -30,6 +32,14 @@ import {
   type SubmitWorkInput,
   type RecordingUrlQuery,
   type LearnerHomeDto,
+  createStudyGroupSchema,
+  type CreateStudyGroupInput,
+  updateStudyGroupMembersSchema,
+  type UpdateStudyGroupMembersInput,
+  setStudyGroupLockSchema,
+  type SetStudyGroupLockInput,
+  setStudyGroupMemberPermissionSchema,
+  type SetStudyGroupMemberPermissionInput,
 } from '@classconnect/shared';
 
 /**
@@ -63,6 +73,8 @@ export class LearnerController {
     private readonly contacts: LearnerContactsService,
     private readonly attendance: LearnerAttendanceService,
     private readonly live: TeacherLiveService,
+    private readonly studyGroups: LearnerStudyGroupsService,
+    private readonly reports: LearnerReportsService,
   ) {}
 
   @Get('me')
@@ -171,12 +183,80 @@ export class LearnerController {
     };
   }
 
+  /** Student-created, class-scoped study groups for the Practice surface. */
+  @Get('practice/study-groups')
+  @RequirePermissions('profile:read:own')
+  async studyGroupsFor(@CurrentUser() user: AuthenticatedUser) {
+    return this.studyGroups.list(user.id);
+  }
+
+  @Get('practice/study-groups/candidates')
+  @RequirePermissions('profile:read:own')
+  async studyGroupCandidates(@CurrentUser() user: AuthenticatedUser) {
+    const context = await this.learner.context(user);
+    return this.studyGroups.candidates(context.levelId ?? '', user.id);
+  }
+
+  @Post('practice/study-groups')
+  @RequirePermissions('profile:read:own')
+  async createStudyGroup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(zodBody(createStudyGroupSchema)) body: CreateStudyGroupInput,
+  ) {
+    const context = await this.learner.context(user);
+    return this.studyGroups.create(context.levelId, user.id, body);
+  }
+
+  @Post('practice/study-groups/:groupId/leave')
+  @RequirePermissions('profile:read:own')
+  async leaveStudyGroup(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string) {
+    return this.studyGroups.leave(groupId, user.id);
+  }
+
+  @Post('practice/study-groups/:groupId/members')
+  @RequirePermissions('profile:read:own')
+  async addStudyGroupMembers(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string, @Body(zodBody(updateStudyGroupMembersSchema)) body: UpdateStudyGroupMembersInput) {
+    return this.studyGroups.addMembers(groupId, user.id, body.memberUserIds);
+  }
+
+  @Delete('practice/study-groups/:groupId/members/:memberUserId')
+  @RequirePermissions('profile:read:own')
+  async removeStudyGroupMember(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string, @Param('memberUserId', uuidParam()) memberUserId: string) {
+    return this.studyGroups.removeMember(groupId, user.id, memberUserId);
+  }
+
+  @Post('practice/study-groups/:groupId/lock')
+  @RequirePermissions('profile:read:own')
+  async lockStudyGroup(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string, @Body(zodBody(setStudyGroupLockSchema)) body: SetStudyGroupLockInput) {
+    return this.studyGroups.setLocked(groupId, user.id, body.locked);
+  }
+
+  @Post('practice/study-groups/:groupId/members/:memberUserId/permission')
+  @RequirePermissions('profile:read:own')
+  async setStudyGroupMemberPermission(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string, @Param('memberUserId', uuidParam()) memberUserId: string, @Body(zodBody(setStudyGroupMemberPermissionSchema)) body: SetStudyGroupMemberPermissionInput) {
+    return this.studyGroups.setMemberPermission(groupId, user.id, memberUserId, body);
+  }
+
+  @Delete('practice/study-groups/:groupId')
+  @RequirePermissions('profile:read:own')
+  async deleteStudyGroup(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string) {
+    return this.studyGroups.delete(groupId, user.id);
+  }
+
   /** §5.5 */
   @Get('progress')
   @RequirePermissions('profile:read:own')
   async progressFor(@CurrentUser() user: AuthenticatedUser) {
     const context = await this.learner.context(user);
     return this.progress.summary(context.id, context.level, context.language);
+  }
+
+  /** Published term report cards only; drafts are never exposed to learners. */
+  @Get('report-cards')
+  @RequirePermissions('profile:read:own')
+  async reportCardsFor(@CurrentUser() user: AuthenticatedUser) {
+    const context = await this.learner.context(user);
+    return this.reports.list(context.id, context.language);
   }
 
   /* ---------------------------------------------------------------- *

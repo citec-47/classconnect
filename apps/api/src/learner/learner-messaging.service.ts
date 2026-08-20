@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { LearnerMessagesGateway } from './learner-messages.gateway';
 import { redactContactDetails } from '@classconnect/shared';
 import { MESSAGE_ATTACHMENT_KINDS } from '../files/file-policy';
 import type {
@@ -62,7 +63,10 @@ export const COMPOSE_LIMITS: MessageComposeLimitsDto = {
 
 @Injectable()
 export class LearnerMessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly messagesGateway: LearnerMessagesGateway,
+  ) {}
 
   /**
    * Subject names for a set of ids, localised.
@@ -187,6 +191,7 @@ export class LearnerMessagingService {
         id: true,
         kind: true,
         subjectId: true,
+        studyGroup: { select: { locked: true, deletedAt: true } },
         participants: {
           select: {
             userId: true,
@@ -243,7 +248,8 @@ export class LearnerMessagingService {
     const other = thread.participants.find((p) => p.userId !== userId);
 
     const suspended = other?.user.status === 'suspended';
-    const mayPost = Boolean(me?.mayPost) && !suspended;
+    const groupClosed = Boolean(thread.studyGroup?.locked || thread.studyGroup?.deletedAt);
+    const mayPost = Boolean(me?.mayPost) && !suspended && !groupClosed;
 
     const messages: MessageDto[] = thread.messages.map((message) => ({
       id: message.id,
@@ -283,6 +289,8 @@ export class LearnerMessagingService {
       mayPost,
       cannotPostReasonKey: mayPost
         ? null
+        : groupClosed
+          ? 'student.messages.closed'
         : suspended
           ? 'student.messages.teacherUnavailable'
           : 'student.messages.closed',
@@ -308,13 +316,29 @@ export class LearnerMessagingService {
       where: { threadId_userId: { threadId, userId } },
       select: {
         mayPost: true,
-        thread: { select: { kind: true, teacherUserId: true, learnerId: true } },
+        thread: { select: { kind: true, teacherUserId: true, learnerId: true, studyGroup: { select: { locked: true, deletedAt: true } } } },
       },
     });
 
     if (!participant) throw new NotFoundException({ messageKey: 'errors.thread.not_found' });
     if (!participant.mayPost) {
       throw new ForbiddenException({ messageKey: 'errors.thread.read_only' });
+    }
+    if (participant.thread.studyGroup?.deletedAt || participant.thread.studyGroup?.locked) {
+      throw new ForbiddenException({ messageKey: 'errors.thread.read_only' });
+    }
+
+    if (participant.thread.studyGroup && attachmentIds.length > 0) {
+      const member = await this.prisma.studyGroupMember.findFirst({
+        where: { group: { threadId }, userId, leftAt: null },
+        select: { allowImages: true, allowVideos: true, allowVoice: true, allowDocuments: true },
+      });
+      const attachments = await this.prisma.messageAttachment.findMany({
+        where: { id: { in: attachmentIds }, messageId: null, scanStatus: 'clean' }, select: { mimeType: true },
+      });
+      if (!member || attachments.length !== attachmentIds.length || attachments.some((attachment) => !allowedGroupAttachment(attachment.mimeType, member))) {
+        throw new ForbiddenException({ messageKey: 'errors.thread.read_only' });
+      }
     }
 
     const trimmed = body.trim();
@@ -390,7 +414,7 @@ export class LearnerMessagingService {
       return created;
     });
 
-    return {
+    const result = {
       id: message.id,
       mine: true,
       senderName: message.sender.fullName,
@@ -399,6 +423,8 @@ export class LearnerMessagingService {
       sentAt: message.createdAt.toISOString(),
       attachments: [],
     };
+    this.messagesGateway.publish(threadId, userId);
+    return result;
   }
 }
 
@@ -415,4 +441,11 @@ function toDbRedactionKind(kind: 'phone' | 'email' | 'handle' | undefined) {
 
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
+function allowedGroupAttachment(mimeType: string, permissions: { allowImages: boolean; allowVideos: boolean; allowVoice: boolean; allowDocuments: boolean }): boolean {
+  if (mimeType.startsWith('image/')) return permissions.allowImages;
+  if (mimeType.startsWith('video/')) return permissions.allowVideos;
+  if (mimeType.startsWith('audio/')) return permissions.allowVoice;
+  return permissions.allowDocuments;
 }

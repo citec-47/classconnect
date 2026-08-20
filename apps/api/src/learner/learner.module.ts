@@ -13,6 +13,9 @@ import { LearnerFeesService } from './learner-fees.service';
 import { LearnerRatingsService } from './learner-ratings.service';
 import { LearnerContactsService } from './learner-contacts.service';
 import { LearnerAttendanceService } from './learner-attendance.service';
+import { LearnerStudyGroupsService } from './learner-study-groups.service';
+import { LearnerReportsService } from './learner-reports.service';
+import { LearnerMessagesGateway } from './learner-messages.gateway';
 /*
  * The live rules are shared with the teacher surface rather than reimplemented.
  * Who may join a lesson and who may speak is one safeguarding decision, and a
@@ -60,6 +63,9 @@ import { TeachersModule } from '../teachers/teachers.module';
     LearnerRatingsService,
     LearnerContactsService,
     LearnerAttendanceService,
+    LearnerStudyGroupsService,
+    LearnerReportsService,
+    LearnerMessagesGateway,
   ],
   /*
    * `LearnerMessagingService` is exported for the teacher surface.

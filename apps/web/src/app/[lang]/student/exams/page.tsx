@@ -7,8 +7,9 @@ import { useCachedApi } from '@/lib/use-cached-api';
 import type { PracticeItemDto } from '@classconnect/shared';
 
 interface ExamsResponse {
-  upcoming: PracticeItemDto[];
-  past: PracticeItemDto[];
+  quizzes: PracticeItemDto[];
+  mocks: PracticeItemDto[];
+  pastPapers: PracticeItemDto[];
 }
 
 export default function StudentExams() {
@@ -20,8 +21,11 @@ export default function StudentExams() {
 
   if (!config) return null;
 
-  const upcoming = (data?.upcoming ?? []).filter((item) => item.kind !== 'past_paper');
-  const past = (data?.past ?? []).filter((item) => item.kind !== 'past_paper');
+  /* `/learner/practice` returns the three named collections below; it does not
+     have `upcoming` or `past` keys. Keeping this mapping at the API boundary
+     prevents a valid response from being rendered as an empty exams screen. */
+  const upcoming = [...(data?.quizzes ?? []), ...(data?.mocks ?? [])];
+  const past: PracticeItemDto[] = [];
 
   return (
     <>

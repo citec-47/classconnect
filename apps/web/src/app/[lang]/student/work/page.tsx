@@ -106,7 +106,9 @@ export default function StudentWork() {
               body={t(`student.work.none${cap(tab)}Body`)}
             />
           ) : (
-            data[tab].map((item) => <HomeworkRow key={item.id} item={item} />)
+            data[tab].map((item) => (
+              <HomeworkRow key={item.id} item={item} onSubmitted={() => refresh()} />
+            ))
           )
         )}
       </div>

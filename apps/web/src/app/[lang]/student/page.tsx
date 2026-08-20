@@ -60,7 +60,7 @@ export default function StudentHome() {
       {data && (
         <>
           {cards.map((card) => (
-            <HomeCard key={card} card={card} home={data} />
+            <HomeCard key={card} card={card} home={data} onSubmitted={refresh} />
           ))}
           {/*
            * Past lessons, one tap from Home.
@@ -140,7 +140,15 @@ function isEverythingEmpty(home: LearnerHomeDto, cards: HomeCardKey[]): boolean 
   });
 }
 
-function HomeCard({ card, home }: { card: HomeCardKey; home: LearnerHomeDto }) {
+function HomeCard({
+  card,
+  home,
+  onSubmitted,
+}: {
+  card: HomeCardKey;
+  home: LearnerHomeDto;
+  onSubmitted: () => Promise<void>;
+}) {
   const { t } = useI18n();
 
   switch (card) {
@@ -159,7 +167,7 @@ function HomeCard({ card, home }: { card: HomeCardKey; home: LearnerHomeDto }) {
             {t('student.card.homeworkDue')}
           </SectionHeading>
           {home.homeworkDue.map((item) => (
-            <HomeworkRow key={item.id} item={item} />
+            <HomeworkRow key={item.id} item={item} onSubmitted={onSubmitted} />
           ))}
         </section>
       ) : null;

@@ -10,6 +10,7 @@ import {
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
   type EditTimetableSlotInput,
+  type AdminEditTimetableSlotInput,
 } from '@classconnect/shared';
 import { PlatformConfigService } from '../common/platform-config.service';
 import { PrismaService } from '../common/prisma.service';
@@ -163,6 +164,7 @@ export class TimetableService {
             .filter((slot) => slot.dayOfWeek === day)
             .map((slot) => ({
               id: slot.id,
+              dayOfWeek: slot.dayOfWeek,
               startMinute: slot.startMinute,
               endMinute: slot.endMinute,
               clock: `${minutesToClock(slot.startMinute)}–${minutesToClock(slot.endMinute)}`,
@@ -793,6 +795,164 @@ export class TimetableService {
       actorId: user.id,
     });
     return { withdrawn: true };
+  }
+
+  /**
+   * The approved pairings for the class that owns a slot.
+   *
+   * Returning pairs, rather than every teacher and every course separately,
+   * keeps the admin form from offering an invalid combination and lets the
+   * server keep the same verification rule as a teacher's own timetable.
+   */
+  async adminEditOptions(slotId: string) {
+    const slot = await this.prisma.timetableSlot.findUnique({
+      where: { id: slotId },
+      select: { levelId: true },
+    });
+    if (!slot) throw AppError.notFound();
+
+    const assignments = await this.prisma.teacherSubject.findMany({
+      where: { levelId: slot.levelId },
+      orderBy: [{ subject: { nameEn: 'asc' } }, { teacher: { user: { fullName: 'asc' } } }],
+      select: {
+        teacherId: true,
+        subjectId: true,
+        teacher: { select: { user: { select: { fullName: true } } } },
+        subject: { select: { nameEn: true, nameFr: true } },
+      },
+    });
+    return {
+      assignments: assignments.map((assignment) => ({
+        teacherId: assignment.teacherId,
+        teacherName: assignment.teacher.user.fullName,
+        subjectId: assignment.subjectId,
+        subject: assignment.subject,
+      })),
+    };
+  }
+
+  /**
+   * Staff correction of a published period.
+   *
+   * This is intentionally not implemented by calling the teacher edit method:
+   * staff may replace the subject and teacher, while the teacher endpoint must
+   * remain restricted to moving their own hour.  Both the replacement
+   * teacher's calendar and the class calendar are checked before the one
+   * update, which keeps every timetable reader in sync with the same slot id.
+   */
+  async adminEdit(staff: AuthenticatedUser, slotId: string, input: AdminEditTimetableSlotInput) {
+    const slot = await this.prisma.timetableSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        teacherId: true,
+        subjectId: true,
+        levelId: true,
+        dayOfWeek: true,
+        startMinute: true,
+        endMinute: true,
+        session: true,
+        state: true,
+      },
+    });
+    if (!slot) throw AppError.notFound();
+    if (slot.state === 'rejected') throw AppError.conflict('errors.timetable.already_decided');
+
+    // Private arrangements are deliberately exempt from the school-day grid.
+    if (slot.session !== 'private') {
+      const problem = validateTimetableSlot(input, slot.session);
+      if (problem) throw AppError.badRequest(problem);
+      const weekDays = this.config.getNumber(CONFIG_KEYS.SCHOOL_WEEK_DAYS);
+      if (input.dayOfWeek > weekDays) {
+        throw AppError.badRequest('errors.timetable.outside_school_week', { days: weekDays });
+      }
+    }
+
+    const assignment = await this.prisma.teacherSubject.findFirst({
+      where: { teacherId: input.teacherId, subjectId: input.subjectId, levelId: slot.levelId },
+      select: { periodAllowance: true },
+    });
+    if (!assignment) throw AppError.badRequest('errors.timetable.not_your_subject');
+
+    const teacherSlots = await this.prisma.timetableSlot.findMany({
+      where: {
+        teacherId: input.teacherId,
+        dayOfWeek: input.dayOfWeek,
+        state: { not: 'rejected' },
+        id: { not: slotId },
+      },
+      select: { id: true, dayOfWeek: true, startMinute: true, endMinute: true },
+    });
+    const teacherClashes = findClashes(input, teacherSlots);
+    if (teacherClashes.length > 0) {
+      throw AppError.conflict('errors.timetable.clash', { count: teacherClashes.length });
+    }
+
+    const levelSlots = await this.prisma.timetableSlot.findMany({
+      where: {
+        levelId: slot.levelId,
+        dayOfWeek: input.dayOfWeek,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+        id: { not: slotId },
+      },
+      select: { id: true, dayOfWeek: true, startMinute: true, endMinute: true },
+    });
+    const levelClashes = findClashes(input, levelSlots);
+    if (levelClashes.length > 0) {
+      throw AppError.conflict('errors.timetable.clash', { count: levelClashes.length });
+    }
+
+    const sameSubject = await this.prisma.timetableSlot.findMany({
+      where: {
+        teacherId: input.teacherId,
+        levelId: slot.levelId,
+        subjectId: input.subjectId,
+        state: { in: ['proposed', 'confirmed', 'on_hold'] },
+        id: { not: slotId },
+      },
+      select: { dayOfWeek: true },
+    });
+    const allowance = assignment.periodAllowance ?? PERIODS_PER_SUBJECT_PER_WEEK;
+    if (sameSubject.length >= allowance) {
+      throw AppError.conflict('errors.timetable.subject_full', { max: allowance });
+    }
+    const daysUsed = new Set(sameSubject.map((row) => row.dayOfWeek));
+    if (
+      assignment.periodAllowance === null &&
+      !daysUsed.has(input.dayOfWeek) &&
+      daysUsed.size >= DAYS_PER_SUBJECT_PER_TEACHER
+    ) {
+      throw AppError.conflict('errors.timetable.subject_days_full', {
+        max: DAYS_PER_SUBJECT_PER_TEACHER,
+      });
+    }
+
+    const updated = await this.prisma.timetableSlot.update({
+      where: { id: slotId },
+      data: {
+        teacherId: input.teacherId,
+        subjectId: input.subjectId,
+        dayOfWeek: input.dayOfWeek,
+        startMinute: input.startMinute,
+        endMinute: input.endMinute,
+        // A staff edit is authoritative; it supersedes a pending teacher move.
+        proposedStartMinute: null,
+        proposedEndMinute: null,
+        proposedAt: null,
+        proposedBy: null,
+      },
+      select: SLOT_SELECT,
+    });
+
+    await this.audit.record({
+      action: 'timetable.admin_edited',
+      entity: 'timetable_slot',
+      entityId: slotId,
+      actorId: staff.id,
+      before: slot,
+      after: input,
+    });
+    return updated;
   }
 
   /**

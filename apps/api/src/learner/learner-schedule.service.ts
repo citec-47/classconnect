@@ -173,8 +173,8 @@ export function toSessionDto(
      * clock is not something to hang the start of a lesson on, so the client is
      * told the window rather than asked to work it out.
      */
-    joinOpensAt: new Date(startsAt.getTime() - windows.joinEarlyMinutes * 60_000).toISOString(),
-    joinClosesAt: endsAt.toISOString(),
+    joinOpensAt: new Date(startsAt.getTime() - 15 * 60_000).toISOString(),
+    joinClosesAt: new Date(startsAt.getTime() + 15 * 60_000).toISOString(),
     recordingEnabled: session.recordingEnabled,
     // FR-SCH-007 / UI-007: the consequence, in a form the client can state
     // plainly before it asks for confirmation.

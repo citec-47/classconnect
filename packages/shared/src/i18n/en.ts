@@ -1953,6 +1953,10 @@ timetable: {
     classesTimetabled: '{done} of {total} classes timetabled',
     noTimetable: 'No timetable yet',
     freePeriod: 'Free period',
+    exportPdf: 'Export PDF',
+    editSlot: 'Edit timetable period',
+    course: 'Course',
+    teacher: 'Teacher',
   },
 
   /** BUILD-PLAN Phase 2 — lessons a teacher publishes to a class. */
@@ -2880,6 +2884,7 @@ timetable: {
       empty: 'Write something first',
       openThread: 'Open conversation with {name}',
       placeholder: 'Write your message',
+      typing: 'Typing…',
       compose: 'Write a message',
       attachmentTooBig: 'Files must be smaller than {size}',
       /* Starting a conversation. Teachers and support only — see the service. */
@@ -2930,6 +2935,12 @@ timetable: {
       openMaterial: 'Keep to read offline',
       openingMaterial: 'Getting it…',
       materialFailed: 'We could not open that. Try again in a moment.',
+      handIn: 'Hand in work',
+      handInHint: 'Write your answer below, then hand it in for your teacher.',
+      answer: 'Your answer',
+      handInNow: 'Hand in',
+      handingIn: 'Handing in…',
+      handInFailed: 'We could not hand this in. Check your connection and try again.',
     },
 
     practice: {
@@ -2942,7 +2953,31 @@ timetable: {
       /** §9: timed work is never available offline, and says so plainly. */
       needsConnection: 'You need to be online to start this',
       needsConnectionBody: 'A timed test cannot be started while you are offline. Try again when you have a connection.',
+      studyGroups: 'Study groups',
+      studyGroupsBody: 'Practise with up to nine classmates in a shared conversation.',
+      newStudyGroup: 'New study group',
+      groupName: 'Group name',
+      createGroup: 'Create group',
+      creatingGroup: 'Creating…',
+      groupMembers: '{count} members',
+      openGroup: 'Open group',
+      leaveGroup: 'Leave group',
+      deleteGroup: 'Delete group',
+      lockGroup: 'Lock group',
+      unlockGroup: 'Unlock group',
+      addMembers: 'Add selected classmates',
+      removeMember: 'Remove',
+      allowPosting: 'Allow messages',
+      stopPosting: 'Stop messages',
+      images: 'Images',
+      videos: 'Videos',
+      voice: 'Voice notes',
+      documents: 'Documents',
+      lockedGroup: 'Locked',
+      noStudyGroups: 'No study groups yet',
+      chooseClassmates: 'Choose classmates',
     },
+    reportCards: { title: 'Report cards', none: 'No published report cards yet', noneBody: 'Your report card will appear here when your school publishes it.', term_1: 'First term', term_2: 'Second term', term_3: 'Third term', average: 'Average: {value}/20', position: 'Position {position} of {size}' },
 
     progress: {
       title: 'Progress',

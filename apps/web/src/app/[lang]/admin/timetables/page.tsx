@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { schoolTypeLabelKey, TIMETABLE_DAY_KEYS, type TimetableDay } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
 import { useCachedApi } from '@/lib/use-cached-api';
+import { api, ApiError } from '@/lib/api';
 import { ErrorAlert, EmptyState } from '@/components/Alert';
 import { PageHeader, StateChip } from '@/components/admin/ui';
 
 interface OverviewSlot {
   id: string;
+  dayOfWeek: number;
   startMinute: number;
   endMinute: number;
   clock: string;
@@ -32,6 +34,22 @@ interface Overview {
   categories: Record<string, OverviewLevel[]>;
 }
 
+interface EditAssignment {
+  teacherId: string;
+  teacherName: string;
+  subjectId: string;
+  subject: { nameEn: string; nameFr: string };
+}
+
+const clockValue = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+const clockMinutes = (value: string) => {
+  const [hour, minute] = value.split(':').map(Number);
+  return Number.isInteger(hour) && Number.isInteger(minute) && hour !== undefined && minute !== undefined
+    ? hour * 60 + minute
+    : NaN;
+};
+
 /**
  * Every class's week, in one place.
  *
@@ -46,7 +64,7 @@ interface Overview {
  */
 export default function TimetableOverview() {
   const { t, language } = useI18n();
-  const { data, error } = useCachedApi<Overview>('/admin/timetable/overview', { language });
+  const { data, error, refresh } = useCachedApi<Overview>('/admin/timetable/overview', { language });
 
   /*
    * Collapsed by default, opened one category at a time.
@@ -56,9 +74,61 @@ export default function TimetableOverview() {
    * because it matters most.
    */
   const [open, setOpen] = useState<string | null>(null);
+  const [editing, setEditing] = useState<OverviewSlot | null>(null);
+  const [assignments, setAssignments] = useState<EditAssignment[]>([]);
+  const [teacherId, setTeacherId] = useState('');
+  const [subjectId, setSubjectId] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<ApiError | null>(null);
 
   const name = (item: { nameEn: string; nameFr: string }) =>
     language === 'fr' ? item.nameFr : item.nameEn;
+
+  const openEditor = async (slot: OverviewSlot) => {
+    setEditing(slot);
+    setAssignments([]);
+    setEditError(null);
+    setTeacherId(slot.teacher.id);
+    setSubjectId(slot.subject.id);
+    setStart(clockValue(slot.startMinute));
+    setEnd(clockValue(slot.endMinute));
+    try {
+      const result = await api<{ assignments: EditAssignment[] }>(
+        `/admin/timetable/${slot.id}/edit-options`,
+        { language },
+      );
+      setAssignments(result.assignments);
+    } catch (caught) {
+      setEditError(caught as ApiError);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSaving(true);
+    setEditError(null);
+    try {
+      await api(`/admin/timetable/${editing.id}`, {
+        method: 'PATCH',
+        body: {
+          teacherId,
+          subjectId,
+          dayOfWeek: editing.dayOfWeek,
+          startMinute: clockMinutes(start),
+          endMinute: clockMinutes(end),
+        },
+        language,
+      });
+      setEditing(null);
+      await refresh();
+    } catch (caught) {
+      setEditError(caught as ApiError);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (error) {
     return (
@@ -85,6 +155,11 @@ export default function TimetableOverview() {
       <PageHeader
         title={t('adminNav.timetableOverview')}
         description={t('timetableOverview.description')}
+        actions={
+          <button type="button" className="cc-btn-secondary" onClick={() => window.print()}>
+            {t('timetableOverview.exportPdf')}
+          </button>
+        }
       />
 
       {categories.length === 0 ? (
@@ -182,6 +257,13 @@ export default function TimetableOverview() {
                                           <span className="block text-[11px] text-ink-600">
                                             {slot.teacher.fullName}
                                           </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => void openEditor(slot)}
+                                            className="mt-1 text-[11px] font-medium text-brand-700 underline"
+                                          >
+                                            {t('common.edit')}
+                                          </button>
                                         </li>
                                       ))}
                                     </ul>
@@ -199,6 +281,56 @@ export default function TimetableOverview() {
             </section>
           );
         })
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-900/40 p-4" role="dialog" aria-modal="true">
+          <form
+            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveEdit();
+            }}
+          >
+            <h2 className="text-lg font-semibold text-ink-900">{t('timetableOverview.editSlot')}</h2>
+            <ErrorAlert error={editError} />
+            {assignments.length === 0 && !editError ? (
+              <p className="mt-3 text-sm text-ink-600">{t('common.loading')}</p>
+            ) : (
+              <>
+                <label className="cc-label mt-4">{t('timetableOverview.course')}</label>
+                <select
+                  className="cc-field w-full"
+                  value={subjectId}
+                  onChange={(event) => {
+                    const nextSubject = event.target.value;
+                    setSubjectId(nextSubject);
+                    const pairing = assignments.find((item) => item.subjectId === nextSubject);
+                    if (pairing) setTeacherId(pairing.teacherId);
+                  }}
+                >
+                  {[...new Map(assignments.map((item) => [item.subjectId, item.subject])).entries()].map(([id, subject]) => (
+                    <option key={id} value={id}>{name(subject)}</option>
+                  ))}
+                </select>
+                <label className="cc-label mt-3">{t('timetableOverview.teacher')}</label>
+                <select className="cc-field w-full" value={teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+                  {assignments.filter((item) => item.subjectId === subjectId).map((item) => (
+                    <option key={item.teacherId} value={item.teacherId}>{item.teacherName}</option>
+                  ))}
+                </select>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <label className="cc-label">{t('timetable.from')}<input className="cc-field mt-1 w-full" type="time" value={start} onChange={(event) => setStart(event.target.value)} required /></label>
+                  <label className="cc-label">{t('timetable.to')}<input className="cc-field mt-1 w-full" type="time" value={end} onChange={(event) => setEnd(event.target.value)} required /></label>
+                </div>
+                <div className="mt-5 flex justify-end gap-2">
+                  <button type="button" className="cc-btn-secondary" onClick={() => setEditing(null)}>{t('common.cancel')}</button>
+                  <button type="submit" className="cc-btn-primary" disabled={saving || !teacherId || !subjectId}>{saving ? t('common.saving') : t('common.save')}</button>
+                </div>
+              </>
+            )}
+          </form>
+        </div>
       )}
     </>
   );

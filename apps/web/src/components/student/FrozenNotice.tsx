@@ -1,6 +1,7 @@
 'use client';
 
 import { formatXaf } from '@classconnect/shared';
+import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import { useStudent, type LearnerFreeze } from '@/lib/student-context';
 import { PauseCircleIcon } from './icons';
@@ -74,8 +75,8 @@ export function FrozenNotice() {
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {!minor && (
-              <a
-                href="#pay"
+              <Link
+                href={`/${language}/student/fees`}
                 className={[
                   'inline-flex min-h-touch items-center rounded-lg bg-brand-600 px-4',
                   'text-sm font-semibold text-white hover:bg-brand-700',
@@ -84,11 +85,11 @@ export function FrozenNotice() {
                 ].join(' ')}
               >
                 {t('student.frozen.adultPay')}
-              </a>
+              </Link>
             )}
             {/* FR-SUP-001: always a way to reach a person. */}
-            <a
-              href="#support"
+            <Link
+              href={`/${language}/student/messages?support=1`}
               className={[
                 'inline-flex min-h-touch items-center rounded-lg border border-ink-300 bg-white px-4',
                 'text-sm font-semibold text-ink-900 hover:bg-ink-100',
@@ -97,7 +98,7 @@ export function FrozenNotice() {
               ].join(' ')}
             >
               {t('student.frozen.contactSupport')}
-            </a>
+            </Link>
           </div>
         </div>
       </div>

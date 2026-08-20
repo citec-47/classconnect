@@ -27,36 +27,35 @@ import { SidebarSection } from '@/components/admin/SidebarSection';
 
 const COLLAPSE_KEY = 'cc.admin.sidebarCollapsed';
 
-/**
- * One glyph per item, for the icon-only state.
- *
- * Text characters rather than an icon font: §6.1's payload budget is a learner
- * constraint, but a sidebar that needs a network request before it is legible
- * is a bad trade on any connection. Each is `aria-hidden`; the accessible name
- * always comes from the label (UI-003).
- */
-const GLYPHS: Record<string, string> = {
-  overview: '◧',
-  students: '◔',
-  primaryStudents: '◕',
-  teachers: '◑',
-  schedule: '▦',
-  live: '◉',
-  teacherRoster: '◑',
-  studentRoster: '◔',
-  support: '◇',
-  safeguarding: '⬦',
-  payments: '▤',
-  studentsPaid: '·',
-  studentsOwing: '·',
-  teachersPaid: '·',
-  teachersPending: '·',
-  hoursEarnings: '·',
-  reconciliation: '·',
-  accounts: '◫',
-  reports: '▦',
-  audit: '▥',
+type NavIconName = 'home' | 'people' | 'calendar' | 'video' | 'message' | 'shield' | 'money' | 'settings' | 'chart' | 'document';
+
+/** Every navigation item resolves to one icon from the same 24px outline set. */
+const NAV_ICONS: Record<string, NavIconName> = {
+  overview: 'home', students: 'people', primaryStudents: 'people', teachers: 'people',
+  teacherRoster: 'people', studentRoster: 'people', timetable: 'calendar',
+  timetableOverview: 'calendar', schedule: 'calendar', live: 'video', recordings: 'video',
+  support: 'message', messages: 'message', safeguarding: 'shield', payments: 'money',
+  studentsFees: 'money', studentsPaid: 'money', studentsOwing: 'money', teachersPaid: 'money',
+  teachersPending: 'money', hoursEarnings: 'money', reconciliation: 'money',
+  accounts: 'settings', reports: 'chart', academicResults: 'chart', audit: 'document',
 };
+
+function NavIcon({ id }: { id: string }) {
+  const icon = NAV_ICONS[id] ?? 'document';
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return <svg viewBox="0 0 24 24" className="h-[1.125rem] w-[1.125rem]" aria-hidden="true">
+    {icon === 'home' && <path {...common} d="m3 10 9-7 9 7v10H3V10Zm6 10v-6h6v6" />}
+    {icon === 'people' && <><circle {...common} cx="9" cy="7" r="4" /><path {...common} d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2M17 3a4 4 0 0 1 0 8M22 21v-2a5 5 0 0 0-3-4.6" /></>}
+    {icon === 'calendar' && <><rect {...common} x="3" y="5" width="18" height="16" rx="2" /><path {...common} d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></>}
+    {icon === 'video' && <><rect {...common} x="3" y="6" width="14" height="12" rx="2" /><path {...common} d="m17 10 4-2v8l-4-2" /></>}
+    {icon === 'message' && <path {...common} d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9.5 9.5 0 0 1-4-.9L3 21l1.7-4a8.5 8.5 0 1 1 16.3-5.5Z" />}
+    {icon === 'shield' && <path {...common} d="M12 22s8-3.7 8-10V5l-8-3-8 3v7c0 6.3 8 10 8 10ZM9 12l2 2 4-4" />}
+    {icon === 'money' && <><rect {...common} x="3" y="5" width="18" height="14" rx="2" /><circle {...common} cx="12" cy="12" r="3" /><path {...common} d="M7 8h.01M17 16h.01" /></>}
+    {icon === 'settings' && <><circle {...common} cx="12" cy="12" r="3" /><path {...common} d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-4L10 6a7 7 0 0 0-1.7 1L6 6 4 9.5 6 11a7 7 0 0 0 0 2l-2 1.5L6 18l2.3-1a7 7 0 0 0 1.7 1l.5 3h4l.5-3a7 7 0 0 0 1.7-1l2.3 1 2-3.5-2-1.5c.1-.3.1-.7.1-1Z" /></>}
+    {icon === 'chart' && <><path {...common} d="M4 20V10M10 20V4M16 20v-7M22 20H2" /><path {...common} d="m4 8 5-4 5 5 6-6" /></>}
+    {icon === 'document' && <><path {...common} d="M6 3h8l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path {...common} d="M14 3v5h5M8 13h8M8 17h6" /></>}
+  </svg>;
+}
 
 function Badge({
   badgeKey,
@@ -143,7 +142,7 @@ function NavLink({
         badgeCount={sumChildBadges(item, counts)}
         storageKey={`cc.admin.sidebar.${item.id}.open`}
         containsActiveRoute={childActive}
-        icon={GLYPHS[item.id] ?? '·'}
+        icon={<NavIcon id={item.id} />}
         rail={collapsed}
       >
         {children.map((child) => (
@@ -188,8 +187,8 @@ function NavLink({
             className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-brand-600"
           />
         )}
-        <span aria-hidden="true" className="w-4 shrink-0 text-center text-ink-600">
-          {GLYPHS[item.id] ?? '·'}
+        <span aria-hidden="true" className="w-[1.125rem] shrink-0 text-ink-600">
+          <NavIcon id={item.id} />
         </span>
         {!collapsed && (
           /*

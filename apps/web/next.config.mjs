@@ -30,6 +30,16 @@ const nextConfig = {
    * whole workspace.
    */
   outputFileTracingRoot: path.join(here, '..', '..'),
+  outputFileTracingIncludes: {
+    // `/api/v1/*` dynamically boots the compiled Nest app. The import is
+    // outside the web directory, so make the serverless trace include it and
+    // Prisma's runtime engines explicitly.
+    '/api/v1/[...path]': [
+      '../api/dist/**/*',
+      '../../node_modules/.prisma/client/**/*',
+      '../../node_modules/@prisma/client/**/*',
+    ],
+  },
 
   images: {
     // NFR-PER-007: WebP/AVIF with responsive sizing.
@@ -44,7 +54,9 @@ const nextConfig = {
   },
 
   async headers() {
-    const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+    const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+    const sameOriginApi = configuredApiUrl.startsWith('/');
+    const apiOrigin = sameOriginApi ? "'self'" : configuredApiUrl;
 
     /**
      * COM-002: the admin badge stream is a WebSocket to the same API origin.
@@ -58,7 +70,7 @@ const nextConfig = {
      * (`pushEnabled`), but the directive is harmless there and its absence would
      * be a silent failure the moment the API moved to a host that has one.
      */
-    const socketOrigin = apiOrigin.replace(/^http/, 'ws');
+    const socketOrigin = sameOriginApi ? '' : apiOrigin.replace(/^http/, 'ws');
 
     /**
      * NFR-SEC-006 keeps a strict CSP in production. Development needs one more

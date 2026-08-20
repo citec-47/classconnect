@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "pages/api/v1/[...path].ts": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/v1/jobs/billing-pass",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}

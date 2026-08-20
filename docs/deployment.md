@@ -1,16 +1,9 @@
 # Deploying ClassConnect on Vercel
 
-Two Vercel projects from this one repository, plus a managed PostgreSQL. No
-Docker anywhere — not in development, not in CI, not in production.
-
-| Project | Root directory | What it is |
-| --- | --- | --- |
-| `classconnect-web` | `apps/web` | The Next.js app: learners, parents, teachers, and the admin surface. |
-| `classconnect-api` | `apps/api` | The NestJS API, as a single serverless function. |
-
-They are separate projects because they build differently and scale
-differently — and because a failed API deploy should not take the marketing
-page down with it.
+One Vercel project, plus a managed PostgreSQL. The frontend is served at
+`https://<project>.vercel.app`; the Nest API is served from the very same
+deployment at `https://<project>.vercel.app/api/v1`. No Docker anywhere — not
+in development, not in CI, not in production.
 
 ---
 
@@ -47,13 +40,22 @@ deliberately, against a known target.
 
 ---
 
-## 2. The API project
+## 2. The Vercel project
 
-**Root directory:** `apps/api`. Enable *Include files outside the root
-directory* so the workspace packages resolve.
+Use the existing frontend project; do **not** create a second API project.
+Set its **Root Directory** to `apps/web` and enable **Include files outside the
+root directory**. The web build compiles the Nest app first, then Next bundles
+the same-origin API bridge at `pages/api/v1/[...path].ts`.
 
-`apps/api/vercel.json` already declares the build command, the function, the
-rewrite and the cron. What you set in the dashboard is the environment.
+`apps/web/vercel.json` sets the API function's 30-second duration and the daily
+billing cron. Configure the environment values below in this one project.
+
+| Additional variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | `/api/v1` â€” same-origin API base, baked into the frontend at build time. |
+
+`NEXT_PUBLIC_API_URL` is read at build time, so changing it requires a
+redeploy. Keeping it `/api/v1` avoids a second deployment URL and CORS boundary.
 
 ### Required environment variables
 
@@ -83,24 +85,9 @@ file fails loudly instead of quietly handing out one-time codes.
 
 ---
 
-## 3. The web project
-
-**Root directory:** `apps/web`.
-
-| Variable | Value |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | `https://<your-api-project>.vercel.app/api/v1` |
-
-This is read at **build** time and baked into the bundle, so changing it needs a
-redeploy, not just a restart. It also feeds the `connect-src` Content Security
-Policy directive in `next.config.mjs` — an API origin that does not match is
-blocked by the browser before the request leaves.
-
-Deploy the API first, so you know its URL.
-
 ---
 
-## 4. What changes on serverless
+## 3. What changes on serverless
 
 Two things behave differently on Vercel than on a long-running host. Both are
 handled; neither is a silent degradation.
@@ -148,23 +135,23 @@ retry after a timeout, sends nothing twice and freezes nobody twice.
 Check it is wired up:
 
 ```bash
-curl https://<api>.vercel.app/api/v1/jobs/health
+curl https://<project>.vercel.app/api/v1/jobs/health
 # {"ok":true,"mode":"scheduled","cronSecretConfigured":true}
 ```
 
 Run it by hand, or replay a day the schedule missed:
 
 ```bash
-curl -X POST https://<api>.vercel.app/api/v1/jobs/billing-pass \
+curl -X POST https://<project>.vercel.app/api/v1/jobs/billing-pass \
   -H "Authorization: Bearer $CRON_SECRET"
 
-curl -X POST "https://<api>.vercel.app/api/v1/jobs/billing-pass?asOf=2026-09-04" \
+curl -X POST "https://<project>.vercel.app/api/v1/jobs/billing-pass?asOf=2026-09-04" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
 ---
 
-## 5. Known limitations of this topology
+## 4. Known limitations of this topology
 
 Stated plainly rather than discovered later.
 

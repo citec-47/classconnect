@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "npm run build --workspace @classconnect/api",
     "dev": "next dev --turbopack -p 3000",
     "prebuild": "npm run build --workspace @classconnect/api",
     "build": "next build",

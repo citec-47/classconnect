@@ -17,7 +17,6 @@
     "@classconnect/db": "1.0.0",
     "@classconnect/shared": "1.0.0",
     "@nestjs/common": "^11.0.1",
-    "@nestjs/cli": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.0",
@@ -43,6 +42,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/express": "^5.0.0",

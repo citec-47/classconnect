@@ -55,7 +55,7 @@ function StudentClassVideos() {
   const { t, language } = useI18n();
   const { config } = useStudent();
   const params = useSearchParams();
-  const [subjectId, setSubjectId] = useState<string | null>(params.get('subject'));
+  const [subjectId, setSubjectId] = useState<string | null>(params?.get('subject') ?? null);
 
   const { data, loading, error, refresh } = useCachedApi<{ recordings: RecordingLibraryDto[] }>(
     '/learner/recordings',

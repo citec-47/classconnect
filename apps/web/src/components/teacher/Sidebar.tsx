@@ -28,7 +28,7 @@ import { useTeacherApproval } from '@/lib/use-teacher-approval';
 export function TeacherSidebar({ language }: { language: Language }) {
   const { t } = useI18n();
   const { user } = useAuth();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const { approved, loading } = useTeacherApproval(language);
 
   const roles = user?.roles ?? [];

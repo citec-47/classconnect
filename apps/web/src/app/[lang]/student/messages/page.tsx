@@ -45,7 +45,7 @@ function StudentMessagesContent() {
   const { t, language } = useI18n();
   const { config } = useStudent();
   const params = useSearchParams();
-  const [openThreadId, setOpenThreadId] = useState<string | null>(() => params.get('thread'));
+  const [openThreadId, setOpenThreadId] = useState<string | null>(() => params?.get('thread') ?? null);
   const [picking, setPicking] = useState(false);
   const [supportError, setSupportError] = useState(false);
   const openedSupport = useRef(false);
@@ -56,7 +56,7 @@ function StudentMessagesContent() {
 
   /* Help is a real support thread, not a dead menu item or a generic mail link. */
   useEffect(() => {
-    if (params.get('support') !== '1' || openedSupport.current) return;
+    if (params?.get('support') !== '1' || openedSupport.current) return;
     openedSupport.current = true;
     void api<{ threadId: string }>('/learner/messages/start', {
       method: 'POST',

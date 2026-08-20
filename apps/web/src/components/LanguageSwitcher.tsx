@@ -11,7 +11,7 @@ import { api, tokenStore } from '@/lib/api';
  * NFR-LOC-003: an explicit override is persisted and applied to all channels.
  */
 export function LanguageSwitcher({ current }: { current: Language }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const [switching, setSwitching] = useState<Language | null>(null);
 
   const switchTo = (language: Language) => {

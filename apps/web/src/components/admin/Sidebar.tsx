@@ -115,7 +115,7 @@ function NavLink({
 }) {
   const { t } = useI18n();
   const { counts } = useAdminShell();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
 
   const href = `${basePath}${item.href}`;
   // The overview lives at the bare admin path, so a prefix match would light it

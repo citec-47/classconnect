@@ -69,7 +69,7 @@ const TAB_ICONS: Record<TabKey, (props: { className?: string }) => ReactNode> = 
 
 export function TabBar({ language, config }: { language: string; config: LevelConfig }) {
   const { t } = useI18n();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const root = `/${language}/student`;
   const [isDesktop, setIsDesktop] = useState<boolean | null>(() => {
     if (typeof window === 'undefined') return null;

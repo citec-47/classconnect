@@ -17,10 +17,10 @@ export default function StudentLiveClass() {
   const { t } = useI18n();
   const { config } = useStudent();
   const router = useRouter();
-  const params = useParams<{ sessionId: string }>();
-  const sessionId = params.sessionId;
+  const params = useParams<{ sessionId?: string }>();
+  const sessionId = params?.sessionId;
 
-  if (!config) return null;
+  if (!config || !sessionId) return null;
 
   return (
     <>

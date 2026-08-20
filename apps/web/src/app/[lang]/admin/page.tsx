@@ -90,8 +90,8 @@ const TILES: { key: string; href: string; danger?: boolean }[] = [
 
 export default function AdminOverview() {
   const { language, t } = useI18n();
-  const params = useParams<{ lang: string }>();
-  const base = `/${params.lang}/admin`;
+  const params = useParams<{ lang?: string }>();
+  const base = `/${params?.lang ?? language}/admin`;
 
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<ApiError | null>(null);

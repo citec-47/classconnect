@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "prisma generate --schema=../../packages/db/prisma/schema.prisma && tsc -b ../../packages/shared ../../packages/db",
+    "prebuild": "npm run generate --workspace @classconnect/db && tsc -b ../../packages/shared ../../packages/db",
     "build": "nest build",
     "//vercel-build": "What Vercel runs. `prisma migrate deploy` is deliberately NOT here: a build runs on every preview deployment and on every instance of a rolled-back one, and migrations must be applied once, deliberately, against a known target. Run `npm run db:migrate` from a machine holding DIRECT_DATABASE_URL.",
     "vercel-build": "npm run build",
@@ -35,6 +35,7 @@
     "nanoid": "^3.3.8",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "prisma": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typescript": "^5.7.2",

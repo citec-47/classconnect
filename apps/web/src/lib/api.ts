@@ -13,15 +13,13 @@
  * `NEXT_PUBLIC_API_URL` is the answer whenever it is set, and it must be set
  * for any real deployment — it is read at build time and baked into the bundle.
  *
- * With it unset, the host is derived from the page's own address rather than
- * hard-coded to localhost. Otherwise a build served on a LAN address works on
- * the machine that made it and fails on every other device: the phone dutifully
- * calls its own localhost, finds nothing, and reports the site unreachable.
+ * With it unset, the one-project Vercel deployment uses the same origin. This
+ * keeps the API bridge portable: the project URL is not known at build time and
+ * a browser must never interpret `localhost` as the API on its own device.
  */
 function defaultApiBase(): string {
   if (typeof window === 'undefined') return 'http://localhost:4000/api/v1';
-  const port = process.env.NEXT_PUBLIC_API_PORT ?? '4000';
-  return `${window.location.protocol}//${window.location.hostname}:${port}/api/v1`;
+  return `${window.location.origin}/api/v1`;
 }
 
 export function apiBase(): string {

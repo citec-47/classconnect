@@ -30,6 +30,10 @@ const nextConfig = {
    * whole workspace.
    */
   outputFileTracingRoot: path.join(here, '..', '..'),
+  // The same-origin API bridge imports the compiled Nest app, which in turn
+  // imports these workspace packages. Transpile them so Next can bundle the
+  // serverless route from one Vercel project instead of parsing raw TypeScript.
+  transpilePackages: ['@classconnect/shared', '@classconnect/db'],
   outputFileTracingIncludes: {
     // `/api/v1/*` dynamically boots the compiled Nest app. The import is
     // outside the web directory, so make the serverless trace include it and
@@ -54,7 +58,7 @@ const nextConfig = {
   },
 
   async headers() {
-    const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+    const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
     const sameOriginApi = configuredApiUrl.startsWith('/');
     const apiOrigin = sameOriginApi ? "'self'" : configuredApiUrl;
 

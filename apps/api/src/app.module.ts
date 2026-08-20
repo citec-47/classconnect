@@ -35,7 +35,12 @@ class CoreModule {}
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // Prefer the workspace-local file, then fall back to the conventional
+      // names used by CI and deployed environments.
+      envFilePath: ['.env.local', '.env', '../../.env.local', '../../.env'],
+    }),
 
     /**
      * NFR-AVL-007: rate limiting per IP and per authenticated user on all public

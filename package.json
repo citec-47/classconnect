@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run build --workspace @classconnect/shared && npm-run-all --parallel dev:api dev:web",
+    "dev": "npm run build --workspace @classconnect/shared && npm run build --workspace @classconnect/db && npm run build --workspace @classconnect/api && npm-run-all --parallel dev:api dev:web",
     "dev:shared": "npm run dev --workspace @classconnect/shared",
     "dev:api": "npm run dev --workspace @classconnect/api",
     "dev:web": "npm run dev --workspace @classconnect/web",

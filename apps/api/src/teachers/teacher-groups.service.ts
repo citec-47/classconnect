@@ -47,7 +47,7 @@ export class TeacherGroupsService {
    */
   async ownGroups(teacherId: string) {
     const cohorts = await this.prisma.cohort.findMany({
-      where: { teacherId },
+      where: { teacherId, active: true },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -197,6 +197,25 @@ export class TeacherGroupsService {
     });
 
     return { groupId: cohort.id, name: cohort.name };
+  }
+
+  /**
+   * Removes a group from active teaching without destroying its submissions or
+   * marks. A hard delete would turn an already graded learner submission into
+   * an orphan, so "delete" in the teacher interface is an audited archive.
+   */
+  async archiveGroup(user: AuthenticatedUser, cohortId: string) {
+    const cohort = await this.mine(user.id, cohortId);
+    await this.prisma.cohort.update({ where: { id: cohort.id }, data: { active: false } });
+    await this.audit.record({
+      action: 'group.archived',
+      entity: 'cohort',
+      entityId: cohort.id,
+      actorId: user.id,
+      before: { active: true },
+      after: { active: false },
+    });
+    return { groupId: cohort.id, archived: true };
   }
 
   /**

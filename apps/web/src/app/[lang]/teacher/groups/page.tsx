@@ -179,6 +179,20 @@ function TeacherGroupsPage() {
     }
   };
 
+  const archiveGroup = async (groupId: string) => {
+    if (!window.confirm(t('common.delete'))) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/teacher/groups/${groupId}`, { method: 'DELETE', language, timeoutMs: 120_000 });
+      await load();
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveMembers = async () => {
     if (!openGroup) return;
     setBusy(true);
@@ -391,6 +405,14 @@ function TeacherGroupsPage() {
                     }
                   >
                     {t('teacherGroups.setExercise')}
+                  </button>
+                  <button
+                    type="button"
+                    className="cc-btn-secondary text-danger-600"
+                    disabled={busy}
+                    onClick={() => void archiveGroup(group.id)}
+                  >
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>

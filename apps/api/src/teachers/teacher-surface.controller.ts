@@ -107,6 +107,15 @@ export class TeacherSurfaceController {
     return this.groups.createGroup(user, body);
   }
 
+  @Delete('groups/:groupId')
+  @RequirePermissions('group:manage:own')
+  async archiveGroup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+  ) {
+    return this.groups.archiveGroup(user, groupId);
+  }
+
   /** The learners at this group's level, for the membership picker. */
   @Get('groups/:groupId/candidates')
   @RequirePermissions('group:manage:own')

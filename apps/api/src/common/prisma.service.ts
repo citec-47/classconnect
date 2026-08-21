@@ -67,6 +67,39 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   /** True once a connection has been established at least once. */
   private connected = false;
 
+  /**
+   * Says what DATABASE_URL actually looks like, without printing a password.
+   *
+   * Prisma's "the URL must start with the protocol `postgresql://`" is accurate
+   * and unhelpful: it reports what the value is not, never what it is. An
+   * operator reading it cannot tell a placeholder from a stray quote, a
+   * duplicated `DATABASE_URL=` prefix from a leading space — and those all look
+   * identical in a dashboard field that shows the value only when clicked.
+   *
+   * So describe the value instead of echoing it. The scheme is the part that is
+   * wrong, and it is the part that carries no secret; length and surrounding
+   * whitespace name the remaining causes. Everything after the scheme stays
+   * unprinted, because credentials live there.
+   */
+  private describeDatabaseUrl(): string {
+    const raw = process.env.DATABASE_URL;
+    if (raw === undefined) return 'DATABASE_URL is not set at all.';
+    if (raw === '') return 'DATABASE_URL is set to an empty string.';
+
+    const trimmed = raw.trim();
+    const scheme = trimmed.slice(0, Math.max(trimmed.indexOf('://') + 3, 0));
+    const notes: string[] = [];
+    if (raw !== trimmed) notes.push('it has leading or trailing whitespace');
+    if (trimmed.startsWith('"') || trimmed.startsWith("'")) notes.push('it is wrapped in quotes');
+    if (/^DATABASE_URL=/i.test(trimmed)) notes.push('it still has the "DATABASE_URL=" prefix');
+    if (!scheme) notes.push('it contains no "://" at all');
+
+    return (
+      `DATABASE_URL is ${raw.length} characters and begins "${trimmed.slice(0, 12)}"` +
+      (notes.length > 0 ? ` — ${notes.join(', ')}.` : '.')
+    );
+  }
+
   private async connectInBackground(): Promise<void> {
     // Capped exponential backoff, repeating at the cap. It does not give up:
     // a wrong DATABASE_URL announces itself through the repeated warning, and
@@ -86,8 +119,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         return;
       } catch (error) {
         const wait = delays[Math.min(attempt, delays.length - 1)]!;
+        const message = (error as Error).message;
+
+        /*
+         * A malformed URL is a different problem from an unreachable database,
+         * and retrying cannot fix it. Say so once, with a description of the
+         * value, rather than repeating a message that never names the cause.
+         */
+        if (attempt === 0 && message.includes('must start with the protocol')) {
+          this.logger.error(
+            `DATABASE_URL is not a PostgreSQL connection string, so no connection was attempted. ` +
+              `${this.describeDatabaseUrl()} It must begin "postgresql://" and contain nothing ` +
+              'before that — no variable name, no quotes, no leading space.',
+          );
+        }
+
         this.logger.warn(
-          `Database unreachable (attempt ${attempt + 1}): ${(error as Error).message}. ` +
+          `Database unreachable (attempt ${attempt + 1}): ${message}. ` +
             `Retrying in ${wait / 1000}s. The API is listening; requests needing ` +
             'data will fail until this succeeds.',
         );

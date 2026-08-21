@@ -159,6 +159,40 @@ const nextConfig = {
      * and a CSP source with a path matches by path prefix — narrower than
      * intended and silently wrong the day a route moves.
      */
+    /**
+     * The media server, which the browser must be allowed to reach directly.
+     *
+     * `livekit-client` makes two calls to it, and CSP treats them as different
+     * things: a `fetch` of `/rtc/validate` to check the token, then the
+     * signalling WebSocket. `connect-src` infers neither scheme from the other,
+     * so both are listed — the same trap already documented for the badge
+     * stream above.
+     *
+     * Unlisted, the failure is not a network error. The browser refuses before
+     * anything leaves the machine, and the page reports "this browser cannot
+     * reach the media server at all. An extension, tracking protection, a proxy
+     * or a firewall is blocking it" — which sends you looking at the network
+     * when the policy is what refused.
+     *
+     * Read from `NEXT_PUBLIC_LIVEKIT_URL` in `apps/web/.env`, and only there.
+     * Next reads env files from `apps/web`, never from the monorepo root — the
+     * trap documented for Cloudinary and for recordings above. The copy in the
+     * root `.env` is what the *API* uses to mint tokens; this one is what the
+     * *browser* is permitted to dial, and they have to be kept the same.
+     *
+     * Empty when unset, which leaves the policy exactly as strict as it was.
+     */
+    const liveKitOrigins = (() => {
+      const configured = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+      if (!configured) return '';
+      try {
+        const { origin } = new URL(configured);
+        return `${origin} ${origin.replace(/^ws/, 'http')}`;
+      } catch {
+        return '';
+      }
+    })();
+
     const apiMediaOrigin = (() => {
       try {
         return new URL(apiOrigin).origin;
@@ -184,7 +218,7 @@ const nextConfig = {
        */
       `media-src 'self' blob: ${storageOrigin} ${apiMediaOrigin} ${recordingsOrigin}`.trim(),
       "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} ${socketOrigin} ${recordingsOrigin}`,
+      `connect-src 'self' ${apiOrigin} ${socketOrigin} ${recordingsOrigin} ${liveKitOrigins}`.trim(),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

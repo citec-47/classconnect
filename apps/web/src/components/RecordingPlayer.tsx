@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { api, ApiError, API_BASE } from '@/lib/api';
+import { api, ApiError, apiBase } from '@/lib/api';
 import type { RecordingStateDto } from '@classconnect/shared';
 
 /**
@@ -162,12 +162,21 @@ export function RecordingPlayer({
        * Resolved against the API's origin, not the page's.
        *
        * A playlist URL comes back as `/api/v1/recordings/…`, which is absolute
-       * *for the API* — and the browser, sitting on the web origin, resolved it
-       * against port 3000 and got a 404 from Next. Signed segment URLs already
-       * carry their own host, so `new URL` leaves those untouched.
+       * *for the API* — left relative, the browser would resolve it against
+       * whatever page it happens to be on. Signed segment URLs already carry
+       * their own host, so `new URL` leaves those untouched.
+       *
+       * `apiBase()`, never the deprecated `API_BASE`. That constant is
+       * evaluated once at module load and falls back to `http://localhost:4000`
+       * — the standalone API's port. Where the API is served from the web
+       * origin, as the /api/v1 bridge does, nothing listens on 4000: the
+       * playlist request is refused by the Content-Security-Policy before it is
+       * even attempted, and every recording renders as a black rectangle that
+       * never plays. `apiBase()` resolves at call time and returns the page's
+       * own origin.
        */
       setSource({
-        url: new URL(result.url, API_BASE).toString(),
+        url: new URL(result.url, apiBase()).toString(),
         audioOnly: result.audioOnly,
         format: result.format,
       });

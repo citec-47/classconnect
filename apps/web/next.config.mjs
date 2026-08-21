@@ -58,9 +58,39 @@ const nextConfig = {
   },
 
   async headers() {
-    const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
+    /**
+     * A CSP source built from an environment variable, made safe to put in a
+     * header.
+     *
+     * Two failures this prevents, both seen in production:
+     *
+     * A value pasted into a hosting dashboard can carry a trailing newline. It
+     * reaches here intact, Node refuses to write a header containing one —
+     * `ERR_INVALID_CHAR` — and because this policy is attached to `/:path*`,
+     * *every* request 500s. Nothing in the page or the route is wrong, and the
+     * error names only the header, so the site looks comprehensively broken.
+     *
+     * And a source with a path is narrower than it appears: CSP matches a path
+     * without a trailing slash exactly, so listing `https://api.example/api/v1`
+     * permits that one URL and refuses `/api/v1/auth/login` — while the same
+     * variable, minus the prefix, works. Whether the caller included the prefix
+     * should not decide whether sign-in is allowed, so only the origin is kept.
+     */
+    const cspSource = (value) => {
+      const trimmed = String(value ?? '').trim();
+      if (!trimmed) return '';
+      try {
+        return new URL(trimmed).origin;
+      } catch {
+        // Not absolute — a bare host, or something malformed. Keep it usable
+        // but never let a control character through.
+        return trimmed.replace(/[\s;,]+/g, '');
+      }
+    };
+
+    const configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? '/api/v1').trim();
     const sameOriginApi = configuredApiUrl.startsWith('/');
-    const apiOrigin = sameOriginApi ? "'self'" : configuredApiUrl;
+    const apiOrigin = sameOriginApi ? "'self'" : cspSource(configuredApiUrl);
 
     /**
      * COM-002: the admin badge stream is a WebSocket to the same API origin.
@@ -148,9 +178,10 @@ const nextConfig = {
      * from `LIVEKIT_S3_ENDPOINT`, because that lives in the monorepo root where
      * Next does not look — the same trap documented for Cloudinary above.
      */
-    const recordingsOrigin =
+    const recordingsOrigin = cspSource(
       process.env.NEXT_PUBLIC_RECORDINGS_ORIGIN ??
-      'https://jwiifqyrivspyslbbiyq.storage.supabase.co';
+        'https://jwiifqyrivspyslbbiyq.storage.supabase.co',
+    );
 
     /*
      * The API's *origin*, with any path removed.
@@ -183,7 +214,7 @@ const nextConfig = {
      * Empty when unset, which leaves the policy exactly as strict as it was.
      */
     const liveKitOrigins = (() => {
-      const configured = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+      const configured = process.env.NEXT_PUBLIC_LIVEKIT_URL?.trim();
       if (!configured) return '';
       try {
         const { origin } = new URL(configured);
@@ -223,7 +254,15 @@ const nextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
       "object-src 'none'",
-    ].join('; ');
+    ]
+      .join('; ')
+      /*
+       * Last line of defence. Every source above is sanitised individually;
+       * this guarantees the assembled header can be written even if a future
+       * one is not, because the cost of being wrong here is the whole site.
+       */
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/ {2,}/g, " ");
 
     return [
       {

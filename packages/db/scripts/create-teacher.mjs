@@ -204,6 +204,17 @@ const user = await prisma.$transaction(async (tx) => {
   });
 
   return created;
+}, {
+  /*
+   * Prisma's default interactive-transaction budget is five seconds, which is
+   * generous against a database on the same machine and far too tight against a
+   * managed one. This transaction makes a dozen round trips, and to a database
+   * in another region each costs its own latency — enough to blow the default
+   * and fail with P2028 "transaction already closed" after having created
+   * nothing. The work is identical either way; only the clock differs.
+   */
+  timeout: 60_000,
+  maxWait: 30_000,
 });
 
 console.log(`

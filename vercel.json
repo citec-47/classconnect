@@ -1,4 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//installCommand": "Stated rather than inferred. Vercel's own monorepo install — `npm install --include=dev --workspaces --include-workspace-root` — materialised only 739 of this lockfile's 1113 packages, and the ones it skipped were apps/api's: the build failed with 'Cannot find module @nestjs/common' for every file, while `ws` resolved because Next.js happens to depend on it. `npm ci` installs the whole lockfile for every workspace with no filtering, and fails loudly if the lockfile and a package.json ever disagree instead of installing a subset and leaving the compiler to report it 160 lines later. `--include=dev` because Vercel sets NODE_ENV=production, under which npm omits devDependencies by default.",
+  "installCommand": "npm ci --include=dev",
   "buildCommand": "npm run generate --workspace @classconnect/db && npm run build"
 }

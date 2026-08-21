@@ -27,7 +27,19 @@ import { createApp } from './create-app';
 async function bootstrap(): Promise<void> {
   const app = await createApp();
 
-  const port = Number(process.env.API_PORT ?? 4000);
+  /**
+   * PORT first, because the host assigns it.
+   *
+   * Render, Railway, Fly and Heroku all inject `PORT` and route public traffic
+   * to exactly that number. A server that listens anywhere else is never
+   * reached: the platform reports "no open ports detected" and kills the
+   * deploy, or worse, keeps it running and answers every request with 502.
+   *
+   * `API_PORT` stays as the local override, because 4000 is what
+   * `apps/web`'s dev proxy and the README both expect, and no host sets `PORT`
+   * on a developer machine.
+   */
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
   await app.listen(port, '0.0.0.0');
 
   /*

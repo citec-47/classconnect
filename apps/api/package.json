@@ -5,7 +5,8 @@
   "scripts": {
     "//prebuild": "Compiles the workspace packages this API imports. `prisma generate` is deliberately NOT here. The root postinstall runs it against the same node_modules, and @classconnect/db's own build runs it again immediately before this one, so a third pass rewrites a client that is already correct. On a two-core Vercel builder that third pass is where the build stopped — after 'Prisma schema loaded' and before it ever reached nest build.",
     "prebuild": "tsc -b ../../packages/shared ../../packages/db",
-    "build": "nest build",
+    "//build": "tsc, not `nest build`. The Nest CLI is a devDependency and Vercel's build could not find it — 'sh: line 1: nest: command not found', exit 127 — while `tsc` in the same script ran fine, because typescript is a regular dependency. Rather than depend on which dependency groups a host installs, this calls the compiler that is guaranteed present. Nothing is lost: nest-cli.json sets webpack:false and declares no assets, so `nest build` was already only running tsc over this same tsconfig. Verified identical — both produce the same 123 files at the same paths. The CLI stays in devDependencies for `nest start --watch`.",
+    "build": "tsc -p tsconfig.json",
     "//vercel-build": "What Vercel runs. `prisma migrate deploy` is deliberately NOT here: a build runs on every preview deployment and on every instance of a rolled-back one, and migrations must be applied once, deliberately, against a known target. Run `npm run db:migrate` from a machine holding DIRECT_DATABASE_URL.",
     "vercel-build": "npm run build",
     "dev": "nest start --watch",

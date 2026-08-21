@@ -8,9 +8,9 @@
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": "./",
-    // Kept inside outDir so that nest-cli's `deleteOutDir` clears it with the
-    // output. Left outside, a stale build-info survives the delete and tsc
-    // reports "Found 0 errors" while emitting no dist/main.js.
+    // Kept inside outDir so it is deleted with the output rather than
+    // surviving it. Left outside, a stale build-info outlives a cleared dist
+    // and tsc reports "Found 0 errors" while emitting no dist/main.js.
     "incremental": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "paths": {

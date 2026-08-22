@@ -2263,6 +2263,8 @@ timetable: {
       exams: 'Examens',
       messages: 'Messages',
       videos: 'Mes vidéos de cours',
+      /* Voir en.ts : les documents publiés, pas les enregistrements. */
+      lessons: 'Mes leçons',
     },
     navLabel: 'Menu principal',
     navMore: 'Plus',
@@ -2420,6 +2422,21 @@ timetable: {
       notRecorded: 'Ce cours n’a pas été enregistré',
       availableUntil: 'Disponible jusqu’au {date}',
       filterAll: 'Toutes les matières',
+    },
+    /* Voir en.ts : les documents publiés, distincts des enregistrements. */
+    myLessons: {
+      title: 'Mes leçons',
+      subtitle:
+        'Les notes, fiches et autres documents que tes enseignants ont publiés pour ta classe.',
+      none: 'Rien de publié pour l’instant',
+      noneBody: 'Quand un enseignant publiera des notes ou une fiche, elles apparaîtront ici.',
+      nothingInSubject: 'Rien dans cette matière pour l’instant',
+      unread: '{count} nouveau(x)',
+      allRead: 'Tout est lu',
+      open: 'Ouvrir',
+      download: 'Télécharger',
+      back: 'Toutes les matières',
+      published: 'Publié le {date}',
     },
 
     /* ---------------------------------------------------------------- *

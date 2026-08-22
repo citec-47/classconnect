@@ -14,6 +14,7 @@ import { LearnerPracticeService } from './learner-practice.service';
 import { LearnerProgressService } from './learner-progress.service';
 import { LearnerSubjectsService } from './learner-subjects.service';
 import { LearnerLessonsService } from './learner-lessons.service';
+import { LearnerMaterialsService } from './learner-materials.service';
 import { LearnerMessagingService, COMPOSE_LIMITS } from './learner-messaging.service';
 import { LearnerFeesService } from './learner-fees.service';
 import { LearnerRatingsService } from './learner-ratings.service';
@@ -66,6 +67,7 @@ export class LearnerController {
     private readonly progress: LearnerProgressService,
     private readonly subjects: LearnerSubjectsService,
     private readonly lessons: LearnerLessonsService,
+    private readonly materials: LearnerMaterialsService,
     private readonly messaging: LearnerMessagingService,
     private readonly fees: LearnerFeesService,
     private readonly ratings: LearnerRatingsService,
@@ -293,6 +295,47 @@ export class LearnerController {
   ) {
     const context = await this.learner.context(user);
     return this.lessons.list(context.id, user.id, context.language, { subjectId });
+  }
+
+  /**
+   * My lessons — the materials a teacher published, by subject.
+   *
+   * Named `materials` on the wire because `lessons` above is already the
+   * recordings, and one word meaning two things is what put class videos at
+   * `/student/lessons` in the first place.
+   */
+  @Get('materials')
+  @RequirePermissions('profile:read:own')
+  async materialSubjects(@CurrentUser() user: AuthenticatedUser) {
+    const context = await this.learner.context(user);
+    return this.materials.subjects(context.id, user.id, context.levelId, context.language);
+  }
+
+  @Get('materials/:subjectId')
+  @RequirePermissions('profile:read:own')
+  async materialsInSubject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('subjectId', uuidParam()) subjectId: string,
+  ) {
+    const context = await this.learner.context(user);
+    return this.materials.bySubject(
+      context.id,
+      user.id,
+      context.levelId,
+      subjectId,
+      context.language,
+    );
+  }
+
+  /** Opening one clears its badge. Idempotent; the first read is the one kept. */
+  @Post('materials/:materialId/read')
+  @RequirePermissions('profile:read:own')
+  async markMaterialRead(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('materialId', uuidParam()) materialId: string,
+  ) {
+    const context = await this.learner.context(user);
+    return this.materials.markRead(context.id, user.id, context.levelId, materialId);
   }
 
   /**

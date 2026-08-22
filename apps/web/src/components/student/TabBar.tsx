@@ -51,8 +51,11 @@ const TAB_PATHS: Record<TabKey, string> = {
   messages: '/messages',
   practice: '/practice',
   progress: '/progress',
-  /* The screen already exists at /lessons; this gives it a way in. */
-  videos: '/lessons',
+  /* Recordings of lessons already taught. Named for what it holds: /lessons
+     now belongs to the materials a teacher publishes, which is a different
+     thing a learner reasonably expects to find under that word. */
+  videos: '/class-videos',
+  lessons: '/lessons',
 };
 
 const TAB_ICONS: Record<TabKey, (props: { className?: string }) => ReactNode> = {
@@ -65,6 +68,8 @@ const TAB_ICONS: Record<TabKey, (props: { className?: string }) => ReactNode> = 
   practice: FileTextIcon,
   progress: ChartIcon,
   videos: VideoIcon,
+  /* A book, not a video: this is what was handed out to read. */
+  lessons: BookIcon,
 };
 
 export function TabBar({ language, config }: { language: string; config: LevelConfig }) {

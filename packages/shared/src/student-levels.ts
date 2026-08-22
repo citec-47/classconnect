@@ -50,18 +50,28 @@ export type TabKey =
   | 'exams'
   | 'messages'
   /** FR-LIV: the recordings of lessons this learner is entitled to. */
-  | 'videos';
+  | 'videos'
+  /**
+   * Materials a teacher has published to this learner's class.
+   *
+   * Distinct from `videos`, which is the recording of a lesson that happened.
+   * This is what was handed out: notes, a worksheet, a diagram, a clip to watch
+   * before Thursday. The two were briefly the same route, and `/lessons`
+   * showing recordings is the sort of thing a learner reads once and stops
+   * trusting the navigation over.
+   */
+  | 'lessons';
 
 /** The ceiling, asserted in `resolveLevelConfig` rather than trusted. */
 /*
- * Nine, because My class videos joined the list.
+ * Ten, because My lessons joined the list.
  *
  * The ceiling is asserted rather than trusted, so adding a destination without
  * raising it stops the app at boot instead of quietly overflowing - which is
  * the behaviour worth keeping. The bottom bar is unaffected: it still shows
  * MAX_BOTTOM_BAR_TABS and the rest live behind the overflow control.
  */
-export const MAX_TABS = 9;
+export const MAX_TABS = 10;
 
 /**
  * How many fit across a 360px bottom bar before labels stop being readable.
@@ -175,6 +185,14 @@ const ALL_TABS: readonly TabKey[] = [
   'subjects',
   'classes',
   'work',
+  /*
+   * After Work, deliberately.
+   *
+   * Placed before it, My lessons took the fourth seat on the bottom bar and
+   * pushed Work behind the overflow — homework that is due outranks material to
+   * read, and the four-item bar is the whole of the navigation on a phone.
+   */
+  'lessons',
   'messages',
   'exams',
   'practice',
@@ -194,6 +212,14 @@ const PRIMARY_TABS: readonly TabKey[] = [
   'subjects',
   'classes',
   'work',
+  /*
+   * After Work, deliberately.
+   *
+   * Placed before it, My lessons took the fourth seat on the bottom bar and
+   * pushed Work behind the overflow — homework that is due outranks material to
+   * read, and the four-item bar is the whole of the navigation on a phone.
+   */
+  'lessons',
   'messages',
   'progress',
   'videos',

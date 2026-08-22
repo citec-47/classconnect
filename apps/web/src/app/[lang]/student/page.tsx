@@ -92,12 +92,14 @@ export default function StudentHome() {
 
 const TAB_PATHS: Record<TabKey, string> = {
   home: '', subjects: '/subjects', classes: '/classes', exams: '/exams', work: '/work',
-  messages: '/messages', practice: '/practice', progress: '/progress', videos: '/lessons',
+  messages: '/messages', practice: '/practice', progress: '/progress', videos: '/class-videos',
+  lessons: '/lessons',
 };
 
 const TAB_ICONS = {
   home: HomeIcon, subjects: BookIcon, classes: VideoIcon, exams: ExamIcon, work: PencilIcon,
   messages: MessageIcon, practice: FileTextIcon, progress: ChartIcon, videos: VideoIcon,
+  lessons: BookIcon,
 };
 
 /** Visual, one-tap counterparts to every destination in the learner navigation. */

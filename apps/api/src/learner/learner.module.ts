@@ -8,6 +8,7 @@ import { LearnerPracticeService } from './learner-practice.service';
 import { LearnerProgressService } from './learner-progress.service';
 import { LearnerSubjectsService } from './learner-subjects.service';
 import { LearnerLessonsService } from './learner-lessons.service';
+import { LearnerMaterialsService } from './learner-materials.service';
 import { LearnerMessagingService } from './learner-messaging.service';
 import { LearnerFeesService } from './learner-fees.service';
 import { LearnerRatingsService } from './learner-ratings.service';
@@ -58,6 +59,7 @@ import { TeachersModule } from '../teachers/teachers.module';
     LearnerProgressService,
     LearnerSubjectsService,
     LearnerLessonsService,
+    LearnerMaterialsService,
     LearnerMessagingService,
     LearnerFeesService,
     LearnerRatingsService,

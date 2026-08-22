@@ -39,13 +39,25 @@ describe('§10 criterion 1 — the destination ceiling', () => {
      * changed is which destinations count as too much for a young learner, not
      * that fewer of them do.
      */
+    /*
+     * Two destinations joined the list after this expectation was written and
+     * it was left behind, which is why it had been red rather than useful:
+     * My class videos, then My lessons. Both belong at Primary — a Class One
+     * child watches back the lesson they missed and reads what the teacher
+     * handed out, the same as anyone else.
+     *
+     * The order is asserted, not just the membership, because the first four
+     * are the bottom bar on a phone and the rest are behind the overflow.
+     */
     expect(resolveLevelConfig(at('primary')).tabs).toEqual([
       'home',
       'subjects',
       'classes',
       'work',
+      'lessons',
       'messages',
       'progress',
+      'videos',
     ]);
   });
 
@@ -207,9 +219,18 @@ describe('§10 criterion 2 — a level change is a data change', () => {
     const before = resolveLevelConfig(at('primary'));
     const after = resolveLevelConfig(at('secondary'));
 
-    // Six at Primary, eight from Form 1: the move adds Exams and Practice.
-    expect(before.tabs).toHaveLength(6);
-    expect(after.tabs).toHaveLength(8);
+    /*
+     * Eight at Primary, ten from Form 1: the move adds Exams and Practice, and
+     * nothing else changes. The absolute numbers moved as destinations were
+     * added — the difference between the two is the assertion that matters, and
+     * it is still exactly those two.
+     */
+    expect(before.tabs).toHaveLength(8);
+    expect(after.tabs).toHaveLength(10);
+    expect(after.tabs.filter((tab) => !before.tabs.includes(tab))).toEqual([
+      'exams',
+      'practice',
+    ]);
     expect(before.tabs).not.toContain('exams');
     expect(after.tabs).toContain('exams');
     expect(before.typeScale).toBe('large');

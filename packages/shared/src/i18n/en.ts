@@ -2401,6 +2401,10 @@ timetable: {
       exams: 'Exams',
       messages: 'Messages',
       videos: 'My class videos',
+      /* The materials a teacher published, not the recordings — "My class
+         videos" above is the recordings. Two words that mean the same thing to
+         a fourteen-year-old, so both say what they hold. */
+      lessons: 'My lessons',
     },
     navLabel: 'Main menu',
     navMore: 'More',
@@ -2577,6 +2581,28 @@ timetable: {
       notRecorded: 'This lesson was not recorded',
       availableUntil: 'Available until {date}',
       filterAll: 'All subjects',
+    },
+    /**
+     * My lessons — what the teacher handed out, not the recording of the class.
+     *
+     * A separate block from `lessons` above, which is the class videos screen.
+     * The two were briefly one route and the confusion reached the URL bar; one
+     * i18n block serving both would put it straight back.
+     */
+    myLessons: {
+      title: 'My lessons',
+      subtitle: 'Notes, worksheets and anything else your teachers have published to your class.',
+      none: 'Nothing published yet',
+      noneBody: 'When a teacher publishes notes or a worksheet, it will appear here.',
+      nothingInSubject: 'Nothing in this subject yet',
+      /* The badge. Plural handled by the count, which is always shown. */
+      unread: '{count} new',
+      allRead: 'All caught up',
+      open: 'Open',
+      download: 'Download',
+      back: 'All subjects',
+      /* Said before the tap, not after: NFR-BAN-002, a metered connection. */
+      published: 'Published {date}',
     },
 
     /* ---------------------------------------------------------------- *

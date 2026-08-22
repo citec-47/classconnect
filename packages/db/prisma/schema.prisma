@@ -468,34 +468,35 @@ model User {
   /// DAT-006: soft deletion.
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  roles            UserRole[]
-  learnerProfile   Learner?           @relation("LearnerUser")
-  guardianProfile  Guardian?
-  teacherProfile   Teacher?
-  authSessions     AuthSession[]
-  otpCodes         OtpCode[]
-  consents         Consent[]
-  notifications    Notification[]
-  auditEntries     AuditLog[]         @relation("AuditActor")
-  paidSubscriptions Subscription[]    @relation("SubscriptionPayer")
-  ticketsRequested Ticket[]           @relation("TicketRequester")
-  ticketsAssigned  Ticket[]           @relation("TicketAssignee")
-  ticketMessages   TicketMessage[]
-  reviewsWritten   Review[]           @relation("ReviewRater")
-  sessionSeats     SessionParticipant[]
-  guardianLinks    GuardianLearner[]  @relation("GuardianLink")
-  timetableConfirmed TimetableSlot[]  @relation("TimetableSlotConfirmer")
-  materialsUploaded Material[]
-  publishRequests  MediaPublishRequest[]
-  recordingPlayback RecordingPlayback[]
-  threadSeats      ThreadParticipant[]
-  messagesSent     Message[]
-  exercisesUnlocked WorkAssignment[]  @relation("ExerciseUnlocker")
-  groupScoresAwarded GroupScore[]     @relation("GroupScoreAwarder")
-  reportCardsGenerated ReportCard[]   @relation("ReportCardGenerator")
-  sessionInvites   SessionInvite[]  @relation("SessionInviteUser")
+  roles                 UserRole[]
+  learnerProfile        Learner?              @relation("LearnerUser")
+  guardianProfile       Guardian?
+  teacherProfile        Teacher?
+  authSessions          AuthSession[]
+  otpCodes              OtpCode[]
+  consents              Consent[]
+  notifications         Notification[]
+  auditEntries          AuditLog[]            @relation("AuditActor")
+  paidSubscriptions     Subscription[]        @relation("SubscriptionPayer")
+  ticketsRequested      Ticket[]              @relation("TicketRequester")
+  ticketsAssigned       Ticket[]              @relation("TicketAssignee")
+  ticketMessages        TicketMessage[]
+  reviewsWritten        Review[]              @relation("ReviewRater")
+  sessionSeats          SessionParticipant[]
+  guardianLinks         GuardianLearner[]     @relation("GuardianLink")
+  timetableConfirmed    TimetableSlot[]       @relation("TimetableSlotConfirmer")
+  materialsUploaded     Material[]
+  materialReads         MaterialRead[]
+  publishRequests       MediaPublishRequest[]
+  recordingPlayback     RecordingPlayback[]
+  threadSeats           ThreadParticipant[]
+  messagesSent          Message[]
+  exercisesUnlocked     WorkAssignment[]      @relation("ExerciseUnlocker")
+  groupScoresAwarded    GroupScore[]          @relation("GroupScoreAwarder")
+  reportCardsGenerated  ReportCard[]          @relation("ReportCardGenerator")
+  sessionInvites        SessionInvite[]       @relation("SessionInviteUser")
   studyGroupMemberships StudyGroupMember[]
-  ownedStudyGroups StudyGroup[] @relation("StudyGroupOwner")
+  ownedStudyGroups      StudyGroup[]          @relation("StudyGroupOwner")
 
   @@index([status])
   @@index([createdAt])
@@ -620,28 +621,28 @@ model Learner {
   enrolmentType EnrolmentType @default(school) @map("enrolment_type")
 
   /// FR-PRO-003: instruction preferences.
-  preferredLanguage    Language  @default(en) @map("preferred_language")
-  preferredStudyDays   Int[]     @map("preferred_study_days")
-  preferredStartTime   String?   @map("preferred_start_time") @db.VarChar(5)
-  preferredEndTime     String?   @map("preferred_end_time") @db.VarChar(5)
-  targetExamSession    String?   @map("target_exam_session") @db.VarChar(50)
-  targetExamDate       DateTime? @map("target_exam_date") @db.Date
+  preferredLanguage  Language  @default(en) @map("preferred_language")
+  preferredStudyDays Int[]     @map("preferred_study_days")
+  preferredStartTime String?   @map("preferred_start_time") @db.VarChar(5)
+  preferredEndTime   String?   @map("preferred_end_time") @db.VarChar(5)
+  targetExamSession  String?   @map("target_exam_session") @db.VarChar(50)
+  targetExamDate     DateTime? @map("target_exam_date") @db.Date
 
-  status    UserStatus @default(active)
+  status UserStatus @default(active)
 
   /// §4.2: the approval queue. A learner may not transact or attend until an
   /// Admin has approved them, and the deciding Admin is recorded (FR-AI-005).
   approvalState  LearnerApprovalState @default(submitted) @map("approval_state")
-  submittedAt    DateTime?  @map("submitted_at") @db.Timestamptz(6)
-  approvedBy     String?    @map("approved_by") @db.Uuid
-  approvedAt     DateTime?  @map("approved_at") @db.Timestamptz(6)
+  submittedAt    DateTime?            @map("submitted_at") @db.Timestamptz(6)
+  approvedBy     String?              @map("approved_by") @db.Uuid
+  approvedAt     DateTime?            @map("approved_at") @db.Timestamptz(6)
   /// Mandatory on reject and on request-more-information, and sent to the guardian.
-  decisionReason String?    @map("decision_reason") @db.Text
+  decisionReason String?              @map("decision_reason") @db.Text
 
   /// FR-RBA-004: which Admin created this learner account.
-  createdBy String?    @map("created_by") @db.Uuid
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// FR-FAM-005: archived rather than deleted while obligations exist.
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
 
@@ -650,13 +651,13 @@ model Learner {
   guardians GuardianLearner[]
   subjects  LearnerSubject[]
 
-  assignments   Assignment[]
-  sessions      Session[]
-  subscriptions Subscription[]
-  submissions   Submission[]
-  attempts      Attempt[]
-  cohortSeats   CohortMember[]
-  freezes       AccountFreeze[]
+  assignments    Assignment[]
+  sessions       Session[]
+  subscriptions  Subscription[]
+  submissions    Submission[]
+  attempts       Attempt[]
+  cohortSeats    CohortMember[]
+  freezes        AccountFreeze[]
   redactionFlags RedactionFlag[]
   messageThreads MessageThread[]
   reportCards    ReportCard[]
@@ -681,9 +682,9 @@ model GuardianLearner {
   acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz(6)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  guardian    Guardian @relation(fields: [guardianId], references: [userId], onDelete: Cascade)
-  learner     Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  invitedByUser User?  @relation("GuardianLink", fields: [invitedBy], references: [id])
+  guardian      Guardian @relation(fields: [guardianId], references: [userId], onDelete: Cascade)
+  learner       Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  invitedByUser User?    @relation("GuardianLink", fields: [invitedBy], references: [id])
 
   @@unique([guardianId, learnerId])
   @@index([learnerId])
@@ -701,20 +702,20 @@ model Teacher {
   /// FR-RBA-004 / FR-TVR-010: which Admin brought this account into existence.
   createdBy  String?     @map("created_by") @db.Uuid
 
-  bio             String? @db.Text
-  yearsExperience Int     @default(0) @map("years_experience")
-  photoKey        String? @map("photo_key") @db.VarChar(500)
+  bio             String?    @db.Text
+  yearsExperience Int        @default(0) @map("years_experience")
+  photoKey        String?    @map("photo_key") @db.VarChar(500)
   languages       Language[]
 
   /// FR-PRO-005: identity and payout detail are never visible to learners or parents.
   /// NFR-SEC-003: encrypted at the application layer with a separate key.
-  nationalIdEnc   String? @map("national_id_enc") @db.Text
-  addressEnc      String? @map("address_enc") @db.Text
-  payoutWalletEnc String? @map("payout_wallet_enc") @db.Text
+  nationalIdEnc   String?        @map("national_id_enc") @db.Text
+  addressEnc      String?        @map("address_enc") @db.Text
+  payoutWalletEnc String?        @map("payout_wallet_enc") @db.Text
   payoutMethod    PaymentMethod? @map("payout_method")
   /// FR-ERN-010: no payout to an unverified wallet or an incomplete KYC record.
-  walletVerified  Boolean @default(false) @map("wallet_verified")
-  kycComplete     Boolean @default(false) @map("kyc_complete")
+  walletVerified  Boolean        @default(false) @map("wallet_verified")
+  kycComplete     Boolean        @default(false) @map("kyc_complete")
 
   highestQualification String? @map("highest_qualification") @db.VarChar(200)
   institution          String? @map("institution") @db.VarChar(200)
@@ -739,7 +740,7 @@ model Teacher {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents TeacherDocument[]
   subjects  TeacherSubject[]
   checklist VerificationChecklistItem[]
@@ -808,11 +809,11 @@ enum TimetableSlotState {
 /// read their timetable from the slots for their level, so "only the people in
 /// that class see it" is a `where`, not a filter applied in the UI.
 model TimetableSlot {
-  id        String @id @default(uuid()) @db.Uuid
-  levelId   String @map("level_id") @db.Uuid
+  id        String  @id @default(uuid()) @db.Uuid
+  levelId   String  @map("level_id") @db.Uuid
   cohortId  String? @map("cohort_id") @db.Uuid
-  teacherId String @map("teacher_id") @db.Uuid
-  subjectId String @map("subject_id") @db.Uuid
+  teacherId String  @map("teacher_id") @db.Uuid
+  subjectId String  @map("subject_id") @db.Uuid
 
   /// 1 = Monday … 7 = Sunday.
   ///
@@ -851,29 +852,29 @@ model TimetableSlot {
   /// clears them; rejection clears them alone. They are deliberately not a
   /// second `TimetableSlot` row: a proposal that exists as a slot is a slot that
   /// something will eventually treat as real.
-  proposedStartMinute Int? @map("proposed_start_minute") @db.SmallInt
-  proposedEndMinute   Int? @map("proposed_end_minute") @db.SmallInt
+  proposedStartMinute Int?      @map("proposed_start_minute") @db.SmallInt
+  proposedEndMinute   Int?      @map("proposed_end_minute") @db.SmallInt
   /// When the change was asked for, so an admin can see what has been waiting.
   proposedAt          DateTime? @map("proposed_at") @db.Timestamptz(6)
   /// The teacher who asked. Recorded because an admin approving a move should
   /// know whose class it is without joining back through the slot.
   proposedBy          String?   @map("proposed_by") @db.Uuid
 
-  state       TimetableSlotState @default(proposed)
+  state        TimetableSlotState @default(proposed)
   /// FR-TVR-004-style attribution: who agreed this, and when.
-  confirmedBy String?   @map("confirmed_by") @db.Uuid
-  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  confirmedBy  String?            @map("confirmed_by") @db.Uuid
+  confirmedAt  DateTime?          @map("confirmed_at") @db.Timestamptz(6)
   /// Why a proposal was refused, shown to the teacher who made it.
-  decisionNote String?  @map("decision_note") @db.Text
+  decisionNote String?            @map("decision_note") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  level     Level    @relation(fields: [levelId], references: [id], onDelete: Cascade)
-  cohort    Cohort?  @relation(fields: [cohortId], references: [id], onDelete: SetNull)
-  teacher   Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
-  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  confirmer User?    @relation("TimetableSlotConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  level     Level     @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  cohort    Cohort?   @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  teacher   Teacher   @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  confirmer User?     @relation("TimetableSlotConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
   /// Lessons actually taught in this slot. FR-ERN-003 counts against these.
   sessions  Session[]
 
@@ -929,34 +930,33 @@ model VerificationChecklistItem {
 
 /// `levels` — education-level taxonomy (FR-PRO-001).
 model Level {
-  id     String @id @default(uuid()) @db.Uuid
-  code   String @unique @db.VarChar(50)
-  nameEn String @map("name_en") @db.VarChar(100)
-  nameFr String @map("name_fr") @db.VarChar(100)
+  id         String     @id @default(uuid()) @db.Uuid
+  code       String     @unique @db.VarChar(50)
+  nameEn     String     @map("name_en") @db.VarChar(100)
+  nameFr     String     @map("name_fr") @db.VarChar(100)
   /// The Admin's first choice when creating a student or teacher account.
   schoolType SchoolType @map("school_type")
   /// The finer grouping kept from FR-PRO-001: primary, secondary, high_school,
   /// exam, adult. `schoolType` is what the UI offers; this stays for reporting
   /// and for the GCE preparation areas in §4.8.
-  category  String   @db.VarChar(50)
-  sortOrder Int      @map("sort_order")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  category   String     @db.VarChar(50)
+  sortOrder  Int        @map("sort_order")
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  subjects      LevelSubject[]
-  learners      Learner[]
+  subjects        LevelSubject[]
+  learners        Learner[]
   teacherSubjects TeacherSubject[]
+  cohorts         Cohort[]
+  materials       Material[]
+  pastPapers      PastPaper[]
+  timetableSlots  TimetableSlot[]
+  assessments     Assessment[]
+  reportCards     ReportCard[]
+  termMarks       SubjectTermMark[]
+  studyGroups     StudyGroup[]
 
   @@index([schoolType, sortOrder])
-  cohorts       Cohort[]
-  materials     Material[]
-  pastPapers    PastPaper[]
-  timetableSlots TimetableSlot[]
-  assessments   Assessment[]
-  reportCards   ReportCard[]
-  termMarks     SubjectTermMark[]
-  studyGroups   StudyGroup[]
-
   @@map("levels")
 }
 
@@ -1122,11 +1122,11 @@ model Cohort {
   active         Boolean  @default(true)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  teacher Teacher        @relation(fields: [teacherId], references: [userId])
-  subject Subject        @relation(fields: [subjectId], references: [id])
-  level   Level          @relation(fields: [levelId], references: [id])
-  members CohortMember[]
-  sessions Session[]
+  teacher        Teacher         @relation(fields: [teacherId], references: [userId])
+  subject        Subject         @relation(fields: [subjectId], references: [id])
+  level          Level           @relation(fields: [levelId], references: [id])
+  members        CohortMember[]
+  sessions       Session[]
   timetableSlots TimetableSlot[]
   assessments    Assessment[]
   groupScores    GroupScore[]
@@ -1135,9 +1135,9 @@ model Cohort {
 }
 
 model CohortMember {
-  cohortId  String   @map("cohort_id") @db.Uuid
-  learnerId String   @map("learner_id") @db.Uuid
-  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  cohortId  String    @map("cohort_id") @db.Uuid
+  learnerId String    @map("learner_id") @db.Uuid
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
   leftAt    DateTime? @map("left_at") @db.Timestamptz(6)
 
   cohort  Cohort  @relation(fields: [cohortId], references: [id], onDelete: Cascade)
@@ -1161,10 +1161,10 @@ model StudyGroup {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  level       Level            @relation(fields: [levelId], references: [id])
-  owner       User             @relation("StudyGroupOwner", fields: [ownerUserId], references: [id])
-  thread      MessageThread    @relation(fields: [threadId], references: [id])
-  members     StudyGroupMember[]
+  level   Level              @relation(fields: [levelId], references: [id])
+  owner   User               @relation("StudyGroupOwner", fields: [ownerUserId], references: [id])
+  thread  MessageThread      @relation(fields: [threadId], references: [id])
+  members StudyGroupMember[]
 
   @@index([levelId, deletedAt])
   @@index([ownerUserId])
@@ -1172,15 +1172,15 @@ model StudyGroup {
 }
 
 model StudyGroupMember {
-  groupId  String   @map("group_id") @db.Uuid
-  userId   String   @map("user_id") @db.Uuid
-  isAdmin  Boolean  @default(false) @map("is_admin")
-  allowImages Boolean @default(true) @map("allow_images")
-  allowVideos Boolean @default(true) @map("allow_videos")
-  allowVoice  Boolean @default(true) @map("allow_voice")
-  allowDocuments Boolean @default(true) @map("allow_documents")
-  leftAt   DateTime? @map("left_at") @db.Timestamptz(6)
-  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  groupId        String    @map("group_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  isAdmin        Boolean   @default(false) @map("is_admin")
+  allowImages    Boolean   @default(true) @map("allow_images")
+  allowVideos    Boolean   @default(true) @map("allow_videos")
+  allowVoice     Boolean   @default(true) @map("allow_voice")
+  allowDocuments Boolean   @default(true) @map("allow_documents")
+  leftAt         DateTime? @map("left_at") @db.Timestamptz(6)
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
 
   group StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1192,19 +1192,19 @@ model StudyGroupMember {
 
 /// `sessions` — a scheduled teaching event. State model per Appendix A.
 model Session {
-  id           String        @id @default(uuid()) @db.Uuid
-  teacherId    String        @map("teacher_id") @db.Uuid
+  id               String        @id @default(uuid()) @db.Uuid
+  teacherId        String        @map("teacher_id") @db.Uuid
   /// Exactly one of learnerId (one-to-one) or cohortId (group) is set.
-  learnerId    String?       @map("learner_id") @db.Uuid
-  cohortId     String?       @map("cohort_id") @db.Uuid
-  subjectId    String        @map("subject_id") @db.Uuid
+  learnerId        String?       @map("learner_id") @db.Uuid
+  cohortId         String?       @map("cohort_id") @db.Uuid
+  subjectId        String        @map("subject_id") @db.Uuid
   /// DAT-003/DAT-004: stored UTC, unique per (teacher, start) to bar double-booking.
-  startsAtUtc  DateTime      @map("starts_at_utc") @db.Timestamptz(6)
-  durationMin  Int           @map("duration_min")
-  type         SessionType
-  status       SessionStatus @default(scheduled)
+  startsAtUtc      DateTime      @map("starts_at_utc") @db.Timestamptz(6)
+  durationMin      Int           @map("duration_min")
+  type             SessionType
+  status           SessionStatus @default(scheduled)
   /// SI-005: the media server room this session maps to.
-  roomId       String?       @map("room_id") @db.VarChar(200)
+  roomId           String?       @map("room_id") @db.VarChar(200)
   /// The confirmed timetable slot this session was claimed against, recorded when
   /// it went live.
   ///
@@ -1212,9 +1212,9 @@ model Session {
   /// at any time, so the two facts differ and both matter. Deriving the slot
   /// afterwards by matching a start time against the week is guesswork the moment
   /// a slot is edited; this records what was true at the instant of going live.
-  timetableSlotId String?    @map("timetable_slot_id") @db.Uuid
+  timetableSlotId  String?       @map("timetable_slot_id") @db.Uuid
   /// FR-SAF-004: minor one-to-one sessions default to recording enabled.
-  recordingEnabled Boolean   @default(false) @map("recording_enabled")
+  recordingEnabled Boolean       @default(false) @map("recording_enabled")
   /// What one period paid when this lesson was taught, in XAF.
   ///
   /// Copied from `PlatformConfig` at the moment the room opens, and never read
@@ -1225,7 +1225,7 @@ model Session {
   ///
   /// Null on sessions that predate the rate, and on the invite-only calls that
   /// earn nothing at all.
-  periodRateXaf Int?      @map("period_rate_xaf")
+  periodRateXaf    Int?          @map("period_rate_xaf")
 
   /// Was this lesson claimed against a timetabled period?
   ///
@@ -1241,22 +1241,22 @@ model Session {
   /// so a recording that never appeared can be traced back to the job that was
   /// supposed to produce it. Null when the media server was unreachable, which
   /// is deliberately not a reason to stop the lesson going ahead.
-  egressId     String?       @map("egress_id") @db.VarChar(200)
-  endedAt      DateTime?     @map("ended_at") @db.Timestamptz(6)
-  cancelledAt  DateTime?     @map("cancelled_at") @db.Timestamptz(6)
-  cancelReason String?       @map("cancel_reason") @db.Text
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  egressId     String?   @map("egress_id") @db.VarChar(200)
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz(6)
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason String?   @map("cancel_reason") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  teacher      Teacher              @relation(fields: [teacherId], references: [userId])
-  learner      Learner?             @relation(fields: [learnerId], references: [id])
-  cohort       Cohort?              @relation(fields: [cohortId], references: [id])
-  subject      Subject              @relation(fields: [subjectId], references: [id])
-  timetableSlot TimetableSlot?      @relation(fields: [timetableSlotId], references: [id])
-  participants SessionParticipant[]
-  recordings   Recording[]
-  invites      SessionInvite[]
-  reviews      Review[]
+  teacher         Teacher               @relation(fields: [teacherId], references: [userId])
+  learner         Learner?              @relation(fields: [learnerId], references: [id])
+  cohort          Cohort?               @relation(fields: [cohortId], references: [id])
+  subject         Subject               @relation(fields: [subjectId], references: [id])
+  timetableSlot   TimetableSlot?        @relation(fields: [timetableSlotId], references: [id])
+  participants    SessionParticipant[]
+  recordings      Recording[]
+  invites         SessionInvite[]
+  reviews         Review[]
   publishRequests MediaPublishRequest[]
 
   /// DAT-004: a teacher cannot hold two sessions at the same instant.
@@ -1274,17 +1274,17 @@ model Session {
 /// `session_participants` — attendance, sourced from the media server's
 /// authoritative join/leave events (FR-LIV-014, SI-005).
 model SessionParticipant {
-  id              String    @id @default(uuid()) @db.Uuid
-  sessionId       String    @map("session_id") @db.Uuid
-  userId          String    @map("user_id") @db.Uuid
-  firstJoinAt     DateTime? @map("first_join_at") @db.Timestamptz(6)
-  lastLeaveAt     DateTime? @map("last_leave_at") @db.Timestamptz(6)
+  id              String           @id @default(uuid()) @db.Uuid
+  sessionId       String           @map("session_id") @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  firstJoinAt     DateTime?        @map("first_join_at") @db.Timestamptz(6)
+  lastLeaveAt     DateTime?        @map("last_leave_at") @db.Timestamptz(6)
   /// The unit of revenue attribution (FR-ERN-003).
-  attendedMinutes Int       @default(0) @map("attended_minutes")
+  attendedMinutes Int              @default(0) @map("attended_minutes")
   /// §1.3 — reported to the learner, their guardian, the teacher and admin.
   /// Never scored, never ranked, never shown to other learners.
-  micOnMinutes    Int       @default(0) @map("mic_on_minutes")
-  cameraOnMinutes Int       @default(0) @map("camera_on_minutes")
+  micOnMinutes    Int              @default(0) @map("mic_on_minutes")
+  cameraOnMinutes Int              @default(0) @map("camera_on_minutes")
   /// Null while the stream was on for some of the session. Set when it was off
   /// throughout, and then it must say *why* — see `StreamOffReason`. Recording
   /// "camera off" without the reason attributes FR-LIV-009's own bandwidth
@@ -1314,12 +1314,12 @@ model SessionParticipant {
 /// the cohort, and duplicating those learners here would give one lesson two
 /// disagreeing guest lists.
 model SessionInvite {
-  id        String   @id @default(uuid()) @db.Uuid
-  sessionId String   @map("session_id") @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
   /// The invited account. A student or another teacher — the brief allows both.
-  userId    String   @map("user_id") @db.Uuid
-  invitedBy String   @map("invited_by") @db.Uuid
-  invitedAt DateTime @default(now()) @map("invited_at") @db.Timestamptz(6)
+  userId    String    @map("user_id") @db.Uuid
+  invitedBy String    @map("invited_by") @db.Uuid
+  invitedAt DateTime  @default(now()) @map("invited_at") @db.Timestamptz(6)
   /// Set when the invitation is withdrawn, rather than deleting the row: who
   /// was let into a call and when is a safeguarding question, and a deleted
   /// row answers it with silence.
@@ -1334,20 +1334,20 @@ model SessionInvite {
 }
 
 model Recording {
-  id             String    @id @default(uuid()) @db.Uuid
-  sessionId      String    @map("session_id") @db.Uuid
-  storageKey     String    @map("storage_key") @db.VarChar(500)
-  durationSec    Int       @map("duration_sec")
-  sizeBytes      BigInt?   @map("size_bytes")
-  availableUntil DateTime  @map("available_until") @db.Timestamptz(6)
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  storageKey     String   @map("storage_key") @db.VarChar(500)
+  durationSec    Int      @map("duration_sec")
+  sizeBytes      BigInt?  @map("size_bytes")
+  availableUntil DateTime @map("available_until") @db.Timestamptz(6)
   /// A safeguarding or dispute flag suspends the retention clock (§5.5).
-  legalHold      Boolean   @default(false) @map("legal_hold")
+  legalHold      Boolean  @default(false) @map("legal_hold")
   /// §3: an audio-only rendition. On a metered 3G connection this is the
   /// difference between using the feature and not (NFR-BAN-002), so it is a
   /// stored artefact rather than a player setting over the full-size video.
-  audioKey       String?   @map("audio_key") @db.VarChar(500)
-  audioSizeBytes BigInt?   @map("audio_size_bytes")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  audioKey       String?  @map("audio_key") @db.VarChar(500)
+  audioSizeBytes BigInt?  @map("audio_size_bytes")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   session  Session             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   playback RecordingPlayback[]
@@ -1378,37 +1378,65 @@ model Material {
   scanStatus      String   @default("pending") @map("scan_status") @db.VarChar(20)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  uploader User    @relation(fields: [uploadedBy], references: [id])
-  subject  Subject @relation(fields: [subjectId], references: [id])
-  level    Level   @relation(fields: [levelId], references: [id])
+  uploader User           @relation(fields: [uploadedBy], references: [id])
+  reads    MaterialRead[]
+  subject  Subject        @relation(fields: [subjectId], references: [id])
+  level    Level          @relation(fields: [levelId], references: [id])
 
   @@index([subjectId, levelId])
   @@map("materials")
 }
 
+/// Which published materials a learner has already opened.
+///
+/// Rows exist only for materials that *have* been read. The alternative —  a
+/// row per learner per material, created on publish and flipped on open —
+/// writes one row per child in the class every time a teacher uploads a
+/// worksheet, to record something that has not happened yet. Unread is the
+/// absence of a row, which is also the correct answer for a learner who joined
+/// the class after the material was published.
+///
+/// The composite key is the deduplication: opening the same lesson twice is one
+/// fact, not two, and `readAt` keeps the first time rather than the last —
+/// "when did this child first see it" is the question a teacher asks.
+model MaterialRead {
+  materialId String   @map("material_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  readAt     DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, userId])
+  /// The unread count is "materials at my level minus my rows", so the read
+  /// side is looked up by learner.
+  @@index([userId])
+  @@map("material_reads")
+}
+
 /// `assignments_work` — homework tasks. Named to avoid collision with the
 /// teacher↔learner `assignments` relation in §5.1.
 model WorkAssignment {
-  id           String   @id @default(uuid()) @db.Uuid
-  teacherId    String   @map("teacher_id") @db.Uuid
-  subjectId    String   @map("subject_id") @db.Uuid
-  targetLearnerId String? @map("target_learner_id") @db.Uuid
-  targetCohortId  String? @map("target_cohort_id") @db.Uuid
-  title        String   @db.VarChar(300)
-  instructions String   @db.Text
-  dueAt        DateTime @map("due_at") @db.Timestamptz(6)
-  maxScore     Int      @map("max_score")
+  id              String    @id @default(uuid()) @db.Uuid
+  teacherId       String    @map("teacher_id") @db.Uuid
+  subjectId       String    @map("subject_id") @db.Uuid
+  targetLearnerId String?   @map("target_learner_id") @db.Uuid
+  targetCohortId  String?   @map("target_cohort_id") @db.Uuid
+  title           String    @db.VarChar(300)
+  instructions    String    @db.Text
+  dueAt           DateTime  @map("due_at") @db.Timestamptz(6)
+  maxScore        Int       @map("max_score")
   /// The deadline that closes submission entirely, distinct from `dueAt`.
   ///
   /// Work can be handed in after `dueAt` and is marked late (FR-HWK-004). Once
   /// `locksAt` passes nothing can be handed in at all, which is the brief's
   /// "the group automatically locks". Null means the exercise never locks.
-  locksAt      DateTime? @map("locks_at") @db.Timestamptz(6)
+  locksAt         DateTime? @map("locks_at") @db.Timestamptz(6)
   /// Reopening is an act with an owner. Only a teacher who set the exercise or an
   /// admin may do it, and the audit trail carries both.
-  unlockedBy   String?   @map("unlocked_by") @db.Uuid
-  unlockedAt   DateTime? @map("unlocked_at") @db.Timestamptz(6)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  unlockedBy      String?   @map("unlocked_by") @db.Uuid
+  unlockedAt      DateTime? @map("unlocked_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   teacher     Teacher      @relation(fields: [teacherId], references: [userId])
   subject     Subject      @relation(fields: [subjectId], references: [id])
@@ -1447,15 +1475,15 @@ model GroupScore {
 }
 
 model Submission {
-  id            String    @id @default(uuid()) @db.Uuid
-  assignmentId  String    @map("assignment_id") @db.Uuid
-  learnerId     String    @map("learner_id") @db.Uuid
-  bodyText      String?   @map("body_text") @db.Text
-  submittedAt   DateTime  @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @map("assignment_id") @db.Uuid
+  learnerId    String   @map("learner_id") @db.Uuid
+  bodyText     String?  @map("body_text") @db.Text
+  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
   /// FR-HWK-004: lateness is derived against the due date and recorded.
-  isLate        Boolean   @default(false) @map("is_late")
+  isLate       Boolean  @default(false) @map("is_late")
   /// FR-HWK-005: all versions are retained.
-  version       Int       @default(1)
+  version      Int      @default(1)
 
   assignment WorkAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   learner    Learner          @relation(fields: [learnerId], references: [id])
@@ -1482,17 +1510,17 @@ model SubmissionFile {
 }
 
 model Grade {
-  id               String    @id @default(uuid()) @db.Uuid
-  submissionId     String    @unique @map("submission_id") @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
+  submissionId     String   @unique @map("submission_id") @db.Uuid
   score            Int
-  feedbackText     String?   @map("feedback_text") @db.Text
-  feedbackAudioKey String?   @map("feedback_audio_key") @db.VarChar(500)
-  annotationsKey   String?   @map("annotations_key") @db.VarChar(500)
-  gradedBy         String    @map("graded_by") @db.Uuid
-  gradedAt         DateTime  @default(now()) @map("graded_at") @db.Timestamptz(6)
+  feedbackText     String?  @map("feedback_text") @db.Text
+  feedbackAudioKey String?  @map("feedback_audio_key") @db.VarChar(500)
+  annotationsKey   String?  @map("annotations_key") @db.VarChar(500)
+  gradedBy         String   @map("graded_by") @db.Uuid
+  gradedAt         DateTime @default(now()) @map("graded_at") @db.Timestamptz(6)
   /// FR-ASM-010: an override records reason and identity.
-  overriddenBy     String?   @map("overridden_by") @db.Uuid
-  overrideReason   String?   @map("override_reason") @db.Text
+  overriddenBy     String?  @map("overridden_by") @db.Uuid
+  overrideReason   String?  @map("override_reason") @db.Text
 
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
@@ -1501,32 +1529,32 @@ model Grade {
 
 /// `assessments` — quizzes and timed mock examinations (FR-ASM-004/005).
 model Assessment {
-  id              String         @id @default(uuid()) @db.Uuid
-  subjectId       String         @map("subject_id") @db.Uuid
+  id                String         @id @default(uuid()) @db.Uuid
+  subjectId         String         @map("subject_id") @db.Uuid
   /// Which class this is set for. Null for the past-paper library, which is
   /// offered to anyone taking the subject rather than set by a teacher.
-  levelId         String?        @map("level_id") @db.Uuid
+  levelId           String?        @map("level_id") @db.Uuid
   /// Narrower still: one group inside the level.
-  cohortId        String?        @map("cohort_id") @db.Uuid
-  title           String         @db.VarChar(300)
-  type            AssessmentType
-  durationMin     Int?           @map("duration_min")
-  shuffleQuestions Boolean       @default(false) @map("shuffle_questions")
-  shuffleOptions   Boolean       @default(false) @map("shuffle_options")
-  attemptsAllowed  Int           @default(1) @map("attempts_allowed")
+  cohortId          String?        @map("cohort_id") @db.Uuid
+  title             String         @db.VarChar(300)
+  type              AssessmentType
+  durationMin       Int?           @map("duration_min")
+  shuffleQuestions  Boolean        @default(false) @map("shuffle_questions")
+  shuffleOptions    Boolean        @default(false) @map("shuffle_options")
+  attemptsAllowed   Int            @default(1) @map("attempts_allowed")
   /// `immediate` | `deferred`
-  releasePolicy    String        @default("immediate") @map("release_policy") @db.VarChar(20)
-  opensAt          DateTime?     @map("opens_at") @db.Timestamptz(6)
-  closesAt         DateTime?     @map("closes_at") @db.Timestamptz(6)
+  releasePolicy     String         @default("immediate") @map("release_policy") @db.VarChar(20)
+  opensAt           DateTime?      @map("opens_at") @db.Timestamptz(6)
+  closesAt          DateTime?      @map("closes_at") @db.Timestamptz(6)
   /// Null while the teacher is still writing it. A draft exam is invisible to
   /// every learner, and a timestamp answers "published when" as well as
   /// "published at all" — which a boolean cannot.
-  publishedAt      DateTime?     @map("published_at") @db.Timestamptz(6)
+  publishedAt       DateTime?      @map("published_at") @db.Timestamptz(6)
   /// FR-ASM-004: a deferred exam is marked but withheld until the teacher has
   /// read the structural answers and released the lot.
-  resultsReleasedAt DateTime?    @map("results_released_at") @db.Timestamptz(6)
-  createdBy        String        @map("created_by") @db.Uuid
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  resultsReleasedAt DateTime?      @map("results_released_at") @db.Timestamptz(6)
+  createdBy         String         @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   subject   Subject    @relation(fields: [subjectId], references: [id])
   level     Level?     @relation(fields: [levelId], references: [id])
@@ -1545,27 +1573,27 @@ model Assessment {
 /// for a single piece of work; this is many subjects with coefficients, a
 /// weighted average and a position in the class.
 model ReportCard {
-  id           String   @id @default(uuid()) @db.Uuid
-  learnerId    String   @db.Uuid
-  levelId      String   @db.Uuid
+  id               String    @id @default(uuid()) @db.Uuid
+  learnerId        String    @db.Uuid
+  levelId          String    @db.Uuid
   /// `term_1` | `term_2` | `term_3`. A varchar rather than an enum: not every
   /// Cameroonian school runs three terms, and an enum would need a migration to
   /// find that out.
-  term         String   @db.VarChar(20)
-  academicYear String   @db.VarChar(20)
+  term             String    @db.VarChar(20)
+  academicYear     String    @db.VarChar(20)
   /// Stored, not recomputed on read. The average a family was shown in December
   /// must not change because a mark was edited in March — a regeneration writes
   /// the row again, deliberately and with an owner.
-  averageMark  Decimal? @db.Decimal(5, 2)
-  totalCoefficient Int  @default(0)
+  averageMark      Decimal?  @db.Decimal(5, 2)
+  totalCoefficient Int       @default(0)
   classPosition    Int?
   classSize        Int?
-  remark       String?  @db.Text
-  generatedBy  String?  @db.Uuid
-  generatedAt  DateTime @default(now()) @db.Timestamptz(6)
+  remark           String?   @db.Text
+  generatedBy      String?   @db.Uuid
+  generatedAt      DateTime  @default(now()) @db.Timestamptz(6)
   /// Generated and published are separate acts: a report card is checked before a
   /// family sees it.
-  publishedAt  DateTime? @db.Timestamptz(6)
+  publishedAt      DateTime? @db.Timestamptz(6)
 
   learner   Learner          @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   level     Level            @relation(fields: [levelId], references: [id])
@@ -1664,30 +1692,30 @@ model QuestionOption {
 }
 
 model Attempt {
-  id           String    @id @default(uuid()) @db.Uuid
-  assessmentId String    @map("assessment_id") @db.Uuid
-  learnerId    String    @map("learner_id") @db.Uuid
+  id                String       @id @default(uuid()) @db.Uuid
+  assessmentId      String       @map("assessment_id") @db.Uuid
+  learnerId         String       @map("learner_id") @db.Uuid
   /// FR-ASM-007: remaining time is computed server-side from this timestamp.
-  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  submittedAt  DateTime? @map("submitted_at") @db.Timestamptz(6)
-  score        Int?
-  percentage   Decimal?  @db.Decimal(5, 2)
-  perTopicJson Json?     @map("per_topic_json")
-  timeTakenSec Int?      @map("time_taken_sec")
-  autoSubmitted Boolean  @default(false) @map("auto_submitted")
+  startedAt         DateTime     @default(now()) @map("started_at") @db.Timestamptz(6)
+  submittedAt       DateTime?    @map("submitted_at") @db.Timestamptz(6)
+  score             Int?
+  percentage        Decimal?     @db.Decimal(5, 2)
+  perTopicJson      Json?        @map("per_topic_json")
+  timeTakenSec      Int?         @map("time_taken_sec")
+  autoSubmitted     Boolean      @default(false) @map("auto_submitted")
   /// §4.3. `flagged_for_review` is reached by three noise flags and means a
   /// human will look; it does not mean the attempt ended. The attempt submits
   /// normally and every answer is kept.
-  state        AttemptState @default(in_progress)
+  state             AttemptState @default(in_progress)
   /// FR-ASM-010: an overridden mark is shown as overridden, never silently
   /// swapped for the original.
-  overriddenBy String?   @map("overridden_by") @db.Uuid
-  overriddenAt DateTime? @map("overridden_at") @db.Timestamptz(6)
+  overriddenBy      String?      @map("overridden_by") @db.Uuid
+  overriddenAt      DateTime?    @map("overridden_at") @db.Timestamptz(6)
   /// §4.2.1: a proctored attempt by a minor requires recorded guardian consent.
   /// Null means the attempt was taken unproctored, which is the offered
   /// alternative rather than a failure state.
-  proctored    Boolean   @default(false)
-  consentId    String?   @map("consent_id") @db.Uuid
+  proctored         Boolean      @default(false)
+  consentId         String?      @map("consent_id") @db.Uuid
   /// The exam was stopped by the system — the third noise flag, or a mic or
   /// camera that went off and stayed off.
   ///
@@ -1695,14 +1723,14 @@ model Attempt {
   /// submitted and kept (FR-ASM-007), the attempt lands in `flagged_for_review`,
   /// and what the paper is worth remains a human's call (FR-AI-005). There is
   /// still no path by which the system zeroes or voids a script.
-  terminatedAt     DateTime? @map("terminated_at") @db.Timestamptz(6)
+  terminatedAt      DateTime?    @map("terminated_at") @db.Timestamptz(6)
   /// `noise_flag_limit` | `mic_off` | `camera_off`.
-  terminationReason String?  @map("termination_reason") @db.VarChar(30)
+  terminationReason String?      @map("termination_reason") @db.VarChar(30)
 
-  assessment  Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  learner     Learner          @relation(fields: [learnerId], references: [id])
-  answers     Answer[]
-  deviceCheck ExamDeviceCheck?
+  assessment    Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  learner       Learner          @relation(fields: [learnerId], references: [id])
+  answers       Answer[]
+  deviceCheck   ExamDeviceCheck?
   proctorEvents ProctorEvent[]
   proctorFlags  ProctorFlag[]
   reviews       AttemptReview[]
@@ -1732,19 +1760,19 @@ model Answer {
 
 /// `past_papers` — the GCE library (FR-GCE-002).
 model PastPaper {
-  id        String         @id @default(uuid()) @db.Uuid
-  levelId   String         @map("level_id") @db.Uuid
-  subjectId String         @map("subject_id") @db.Uuid
-  boardLevel ExamBoardLevel @map("board_level")
-  year      Int
-  paperNo   Int            @map("paper_no")
-  storageKey String        @map("storage_key") @db.VarChar(500)
-  modelAnswerKey String?   @map("model_answer_key") @db.VarChar(500)
+  id             String         @id @default(uuid()) @db.Uuid
+  levelId        String         @map("level_id") @db.Uuid
+  subjectId      String         @map("subject_id") @db.Uuid
+  boardLevel     ExamBoardLevel @map("board_level")
+  year           Int
+  paperNo        Int            @map("paper_no")
+  storageKey     String         @map("storage_key") @db.VarChar(500)
+  modelAnswerKey String?        @map("model_answer_key") @db.VarChar(500)
   /// FR-GCE-007 / AS-05 / OI-05: an item with no recorded right is not publishable.
-  source       String       @db.VarChar(300)
-  rightsStatus RightsStatus @default(unverified) @map("rights_status")
-  publishable  Boolean      @default(false)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  source         String         @db.VarChar(300)
+  rightsStatus   RightsStatus   @default(unverified) @map("rights_status")
+  publishable    Boolean        @default(false)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   level   Level   @relation(fields: [levelId], references: [id])
   subject Subject @relation(fields: [subjectId], references: [id])
@@ -1759,20 +1787,20 @@ model PastPaper {
 
 /// `plans` — subscription products (FR-PAY-001/002).
 model Plan {
-  id         String        @id @default(uuid()) @db.Uuid
-  code       String        @unique @db.VarChar(50)
-  nameEn     String        @map("name_en") @db.VarChar(150)
-  nameFr     String        @map("name_fr") @db.VarChar(150)
-  levelScope String        @map("level_scope") @db.VarChar(50)
-  period     BillingPeriod
+  id               String        @id @default(uuid()) @db.Uuid
+  code             String        @unique @db.VarChar(50)
+  nameEn           String        @map("name_en") @db.VarChar(150)
+  nameFr           String        @map("name_fr") @db.VarChar(150)
+  levelScope       String        @map("level_scope") @db.VarChar(50)
+  period           BillingPeriod
   /// CON-02 / DAT-002: whole XAF as BigInt. Never a float.
-  priceXaf   BigInt        @map("price_xaf")
+  priceXaf         BigInt        @map("price_xaf")
   /// OI-03: entitlements are undefined in the brief. Held as configurable JSON so
   /// the commercial decision can land without a schema change.
-  entitlementsJson Json    @map("entitlements_json")
-  active     Boolean       @default(true)
-  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  entitlementsJson Json          @map("entitlements_json")
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   subscriptions Subscription[]
 
@@ -1781,24 +1809,24 @@ model Plan {
 
 /// `subscriptions` — a learner's entitlement for one period (FR-PAY-003/007).
 model Subscription {
-  id          String             @id @default(uuid()) @db.Uuid
-  learnerId   String             @map("learner_id") @db.Uuid
-  payerUserId String             @map("payer_user_id") @db.Uuid
-  planId      String             @map("plan_id") @db.Uuid
-  periodStart DateTime           @map("period_start") @db.Timestamptz(6)
-  periodEnd   DateTime           @map("period_end") @db.Timestamptz(6)
-  status      SubscriptionStatus @default(pending_payment)
+  id                   String             @id @default(uuid()) @db.Uuid
+  learnerId            String             @map("learner_id") @db.Uuid
+  payerUserId          String             @map("payer_user_id") @db.Uuid
+  planId               String             @map("plan_id") @db.Uuid
+  periodStart          DateTime           @map("period_start") @db.Timestamptz(6)
+  periodEnd            DateTime           @map("period_end") @db.Timestamptz(6)
+  status               SubscriptionStatus @default(pending_payment)
   /// FR-PAY-007: configurable grace period, default 3 days.
-  graceUntil  DateTime?          @map("grace_until") @db.Timestamptz(6)
+  graceUntil           DateTime?          @map("grace_until") @db.Timestamptz(6)
   /// Remaining entitlement counters, decremented at booking (FR-PAY-006).
-  entitlementStateJson Json?     @map("entitlement_state_json")
-  cancelledAt DateTime?          @map("cancelled_at") @db.Timestamptz(6)
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  entitlementStateJson Json?              @map("entitlement_state_json")
+  cancelledAt          DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  learner  Learner   @relation(fields: [learnerId], references: [id])
-  payer    User      @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
-  plan     Plan      @relation(fields: [planId], references: [id])
+  learner  Learner          @relation(fields: [learnerId], references: [id])
+  payer    User             @relation("SubscriptionPayer", fields: [payerUserId], references: [id])
+  plan     Plan             @relation(fields: [planId], references: [id])
   payments Payment[]
   /// §5.1: instalments are a payment schedule attached to a subscription, reusing
   /// the FR-PAY-007 state machine rather than inventing a parallel one.
@@ -1831,10 +1859,10 @@ model Payment {
   /// §4.7.2: a Finance Admin may record a payment taken outside the platform.
   /// Reason and evidence are mandatory at the API, and it still produces ledger
   /// entries — it is a recorded collection, not a state edit.
-  recordedOffline Boolean  @default(false) @map("recorded_offline")
-  recordedBy      String?  @map("recorded_by") @db.Uuid
-  recordReason    String?  @map("record_reason") @db.Text
-  evidenceKey     String?  @map("evidence_key") @db.VarChar(500)
+  recordedOffline Boolean @default(false) @map("recorded_offline")
+  recordedBy      String? @map("recorded_by") @db.Uuid
+  recordReason    String? @map("record_reason") @db.Text
+  evidenceKey     String? @map("evidence_key") @db.VarChar(500)
 
   /// FR-PAY-017: a refund is its own payment row pointing at what it reverses,
   /// so the collection history is never rewritten.
@@ -1842,14 +1870,14 @@ model Payment {
   refundReason      String? @map("refund_reason") @db.Text
   refundedBy        String? @map("refunded_by") @db.Uuid
 
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-  refundOf     Payment?      @relation("PaymentRefund", fields: [refundOfPaymentId], references: [id])
-  refunds      Payment[]     @relation("PaymentRefund")
-  instalments  Instalment[]
-  invoice      Invoice?
+  subscription        Subscription?        @relation(fields: [subscriptionId], references: [id])
+  refundOf            Payment?             @relation("PaymentRefund", fields: [refundOfPaymentId], references: [id])
+  refunds             Payment[]            @relation("PaymentRefund")
+  instalments         Instalment[]
+  invoice             Invoice?
   reconciliationItems ReconciliationItem[]
 
   @@index([status, createdAt])
@@ -1911,27 +1939,27 @@ model Earning {
 
 /// `payouts` — money out (FR-ERN-007/008/010).
 model Payout {
-  id          String        @id @default(uuid()) @db.Uuid
-  teacherId   String        @map("teacher_id") @db.Uuid
-  amountXaf   BigInt        @map("amount_xaf")
-  method      PaymentMethod
-  providerRef String?       @map("provider_ref") @db.VarChar(200)
+  id             String        @id @default(uuid()) @db.Uuid
+  teacherId      String        @map("teacher_id") @db.Uuid
+  amountXaf      BigInt        @map("amount_xaf")
+  method         PaymentMethod
+  providerRef    String?       @map("provider_ref") @db.VarChar(200)
   /// FR-ERN-008: payouts require Finance Admin approval and are idempotent.
-  idempotencyKey String     @unique @map("idempotency_key") @db.VarChar(100)
-  status      PayoutStatus  @default(requested)
-  approvedBy  String?       @map("approved_by") @db.Uuid
-  approvedAt  DateTime?     @map("approved_at") @db.Timestamptz(6)
-  executedAt  DateTime?     @map("executed_at") @db.Timestamptz(6)
-  failureReason String?     @map("failure_reason") @db.VarChar(500)
-  withheldTaxXaf BigInt     @default(0) @map("withheld_tax_xaf")
-  providerFeeXaf BigInt     @default(0) @map("provider_fee_xaf")
+  idempotencyKey String        @unique @map("idempotency_key") @db.VarChar(100)
+  status         PayoutStatus  @default(requested)
+  approvedBy     String?       @map("approved_by") @db.Uuid
+  approvedAt     DateTime?     @map("approved_at") @db.Timestamptz(6)
+  executedAt     DateTime?     @map("executed_at") @db.Timestamptz(6)
+  failureReason  String?       @map("failure_reason") @db.VarChar(500)
+  withheldTaxXaf BigInt        @default(0) @map("withheld_tax_xaf")
+  providerFeeXaf BigInt        @default(0) @map("provider_fee_xaf")
   /// §4.7.4: where a suspended teacher has accrued earnings the money is held,
   /// not forfeited. A held payout waits for a named human decision (FR-AI-005).
-  heldReason  String?       @map("held_reason") @db.Text
+  heldReason     String?       @map("held_reason") @db.Text
   /// The accrual period this payout settles, so §4.7.3 can link every figure
   /// through to the sessions that produced it.
-  period      String?       @db.VarChar(7)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  period         String?       @db.VarChar(7)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   teacher  Teacher   @relation(fields: [teacherId], references: [userId])
   earnings Earning[]
@@ -1946,20 +1974,20 @@ model Payout {
 
 /// `notifications` — sent messages (FR-NOT-006).
 model Notification {
-  id          String              @id @default(uuid()) @db.Uuid
-  userId      String              @map("user_id") @db.Uuid
-  eventType   String              @map("event_type") @db.VarChar(100)
-  channel     NotificationChannel
-  template    String              @db.VarChar(100)
-  language    Language
-  status      NotificationStatus  @default(queued)
+  id            String              @id @default(uuid()) @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  eventType     String              @map("event_type") @db.VarChar(100)
+  channel       NotificationChannel
+  template      String              @db.VarChar(100)
+  language      Language
+  status        NotificationStatus  @default(queued)
   /// FR-NOT-005: deduplication key across channels for one logical event.
-  dedupeKey   String?             @map("dedupe_key") @db.VarChar(200)
-  payloadJson Json?               @map("payload_json")
-  sentAt      DateTime?           @map("sent_at") @db.Timestamptz(6)
-  deliveredAt DateTime?           @map("delivered_at") @db.Timestamptz(6)
-  failureReason String?           @map("failure_reason") @db.VarChar(500)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  dedupeKey     String?             @map("dedupe_key") @db.VarChar(200)
+  payloadJson   Json?               @map("payload_json")
+  sentAt        DateTime?           @map("sent_at") @db.Timestamptz(6)
+  deliveredAt   DateTime?           @map("delivered_at") @db.Timestamptz(6)
+  failureReason String?             @map("failure_reason") @db.VarChar(500)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1971,31 +1999,31 @@ model Notification {
 /// FR-NOT-002: the notification catalogue — default channels, priority,
 /// EN and FR templates, and whether the user may disable it.
 model NotificationTemplate {
-  id             String                @id @default(uuid()) @db.Uuid
-  eventType      String                @unique @map("event_type") @db.VarChar(100)
-  defaultChannels NotificationChannel[] @map("default_channels")
-  priority       String                @db.VarChar(20)
+  id                   String                @id @default(uuid()) @db.Uuid
+  eventType            String                @unique @map("event_type") @db.VarChar(100)
+  defaultChannels      NotificationChannel[] @map("default_channels")
+  priority             String                @db.VarChar(20)
   /// FR-NOT-003: transactional and safety notifications are not disableable.
-  userDisableable Boolean              @default(true) @map("user_disableable")
-  subjectEn      String?               @map("subject_en") @db.VarChar(300)
-  subjectFr      String?               @map("subject_fr") @db.VarChar(300)
-  bodyEn         String                @map("body_en") @db.Text
-  bodyFr         String                @map("body_fr") @db.Text
+  userDisableable      Boolean               @default(true) @map("user_disableable")
+  subjectEn            String?               @map("subject_en") @db.VarChar(300)
+  subjectFr            String?               @map("subject_fr") @db.VarChar(300)
+  bodyEn               String                @map("body_en") @db.Text
+  bodyFr               String                @map("body_fr") @db.Text
   /// FR-NOT-007 / SI-008: WhatsApp sends outside the 24h window need an approved template.
-  whatsappTemplateName String?         @map("whatsapp_template_name") @db.VarChar(150)
+  whatsappTemplateName String?               @map("whatsapp_template_name") @db.VarChar(150)
 
   @@map("notification_templates")
 }
 
 /// FR-NOT-004: per-user channel choices and quiet hours (default 21:00–06:00).
 model NotificationPreference {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  eventType String   @map("event_type") @db.VarChar(100)
-  channels  NotificationChannel[]
-  enabled   Boolean  @default(true)
-  quietStart String? @map("quiet_start") @db.VarChar(5)
-  quietEnd   String? @map("quiet_end") @db.VarChar(5)
+  id         String                @id @default(uuid()) @db.Uuid
+  userId     String                @map("user_id") @db.Uuid
+  eventType  String                @map("event_type") @db.VarChar(100)
+  channels   NotificationChannel[]
+  enabled    Boolean               @default(true)
+  quietStart String?               @map("quiet_start") @db.VarChar(5)
+  quietEnd   String?               @map("quiet_end") @db.VarChar(5)
 
   @@unique([userId, eventType])
   @@map("notification_preferences")
@@ -2003,35 +2031,35 @@ model NotificationPreference {
 
 /// `tickets` — support requests (FR-SUP-003).
 model Ticket {
-  id          String         @id @default(uuid()) @db.Uuid
-  requesterId String         @map("requester_id") @db.Uuid
-  category    TicketCategory @default(general)
-  priority    TicketPriority @default(normal)
-  status      TicketStatus   @default(open)
-  subject     String         @db.VarChar(300)
+  id                   String         @id @default(uuid()) @db.Uuid
+  requesterId          String         @map("requester_id") @db.Uuid
+  category             TicketCategory @default(general)
+  priority             TicketPriority @default(normal)
+  status               TicketStatus   @default(open)
+  subject              String         @db.VarChar(300)
   /// FR-SUP-001: in-app chat, WhatsApp or email.
-  channel     TicketChannel  @default(in_app)
-  assigneeId  String?        @map("assignee_id") @db.Uuid
-  assignedBy  String?        @map("assigned_by") @db.Uuid
-  assignedAt  DateTime?      @map("assigned_at") @db.Timestamptz(6)
+  channel              TicketChannel  @default(in_app)
+  assigneeId           String?        @map("assignee_id") @db.Uuid
+  assignedBy           String?        @map("assigned_by") @db.Uuid
+  assignedAt           DateTime?      @map("assigned_at") @db.Timestamptz(6)
   /// FR-SUP-004: context captured at creation time.
-  contextJson Json?          @map("context_json")
-  firstResponseAt DateTime?  @map("first_response_at") @db.Timestamptz(6)
+  contextJson          Json?          @map("context_json")
+  firstResponseAt      DateTime?      @map("first_response_at") @db.Timestamptz(6)
   /// FR-SUP-006: first-response and resolution targets are configurable, and the
   /// deadline is stamped at creation so the countdown survives a config change.
-  firstResponseDueAt DateTime? @map("first_response_due_at") @db.Timestamptz(6)
-  resolutionDueAt    DateTime? @map("resolution_due_at") @db.Timestamptz(6)
-  escalatedAt        DateTime? @map("escalated_at") @db.Timestamptz(6)
+  firstResponseDueAt   DateTime?      @map("first_response_due_at") @db.Timestamptz(6)
+  resolutionDueAt      DateTime?      @map("resolution_due_at") @db.Timestamptz(6)
+  escalatedAt          DateTime?      @map("escalated_at") @db.Timestamptz(6)
   /// FR-NOT-007 / R7: outside this instant a WhatsApp reply must use a
   /// pre-approved template. Null for any other channel.
-  whatsappWindowEndsAt DateTime? @map("whatsapp_window_ends_at") @db.Timestamptz(6)
-  resolvedAt  DateTime?      @map("resolved_at") @db.Timestamptz(6)
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  whatsappWindowEndsAt DateTime?      @map("whatsapp_window_ends_at") @db.Timestamptz(6)
+  resolvedAt           DateTime?      @map("resolved_at") @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  requester User            @relation("TicketRequester", fields: [requesterId], references: [id])
-  assignee  User?           @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  messages  TicketMessage[]
+  requester          User                @relation("TicketRequester", fields: [requesterId], references: [id])
+  assignee           User?               @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  messages           TicketMessage[]
   safeguardingReport SafeguardingReport?
 
   @@index([status, priority])
@@ -2040,12 +2068,12 @@ model Ticket {
 }
 
 model TicketMessage {
-  id         String   @id @default(uuid()) @db.Uuid
-  ticketId   String   @map("ticket_id") @db.Uuid
-  authorId   String   @map("author_id") @db.Uuid
-  body       String   @db.Text
-  internal   Boolean  @default(false)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   author User   @relation(fields: [authorId], references: [id])
@@ -2078,20 +2106,20 @@ model Review {
 /// `audit_log` — immutable trail (FR-RBA-004).
 /// DAT-005: UPDATE and DELETE are revoked from the application role.
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  actorId    String?  @map("actor_id") @db.Uuid
-  action     String   @db.VarChar(100)
-  entity     String   @db.VarChar(100)
-  entityId   String?  @map("entity_id") @db.VarChar(100)
-  before     Json?
-  after      Json?
-  ip         String?  @db.VarChar(64)
-  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  action        String   @db.VarChar(100)
+  entity        String   @db.VarChar(100)
+  entityId      String?  @map("entity_id") @db.VarChar(100)
+  before        Json?
+  after         Json?
+  ip            String?  @db.VarChar(64)
+  userAgent     String?  @map("user_agent") @db.VarChar(500)
   /// NFR-MNT-005: correlation IDs span client, API and workers.
-  correlationId String? @map("correlation_id") @db.VarChar(100)
+  correlationId String?  @map("correlation_id") @db.VarChar(100)
   /// FR-RBA-005: an impersonation ("view as") session records its reason.
-  reason     String?  @db.Text
-  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  reason        String?  @db.Text
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id])
 
@@ -2123,13 +2151,13 @@ model Consent {
 
 /// FR-RBA-005: time-boxed, read-only "view as" grants, individually logged.
 model ImpersonationGrant {
-  id          String    @id @default(uuid()) @db.Uuid
-  staffUserId String    @map("staff_user_id") @db.Uuid
-  targetUserId String   @map("target_user_id") @db.Uuid
-  reason      String    @db.Text
-  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
-  endedAt     DateTime? @map("ended_at") @db.Timestamptz(6)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String    @id @default(uuid()) @db.Uuid
+  staffUserId  String    @map("staff_user_id") @db.Uuid
+  targetUserId String    @map("target_user_id") @db.Uuid
+  reason       String    @db.Text
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([staffUserId, expiresAt])
   @@map("impersonation_grants")
@@ -2144,25 +2172,25 @@ model ImpersonationGrant {
 /// §5.1: the payer chooses pay-in-full or pay-in-3. Instalment amounts and dates
 /// come from plan configuration and are visible before commitment (UI-007).
 model PaymentSchedule {
-  id             String             @id @default(uuid()) @db.Uuid
-  subscriptionId String             @unique @map("subscription_id") @db.Uuid
-  planType       InstalmentPlanType @map("plan_type")
+  id                 String             @id @default(uuid()) @db.Uuid
+  subscriptionId     String             @unique @map("subscription_id") @db.Uuid
+  planType           InstalmentPlanType @map("plan_type")
   /// CON-02: whole XAF. §5.1 requires the instalments to sum exactly to this.
-  totalXaf       BigInt             @map("total_xaf")
+  totalXaf           BigInt             @map("total_xaf")
   /// The one-off registration fee, separate from tuition.
   ///
   /// Registration and tuition are different debts: a family pays to enrol, then
   /// pays to be taught. Folding the first into the instalments made "Part 1"
   /// mean two different things and made the plan total unexplainable to the
   /// person paying it. `total_xaf` is tuition only; this sits beside it.
-  registrationFeeXaf BigInt   @default(0) @map("registration_fee_xaf")
-  registrationPaidAt DateTime? @map("registration_paid_at") @db.Timestamptz(6)
+  registrationFeeXaf BigInt             @default(0) @map("registration_fee_xaf")
+  registrationPaidAt DateTime?          @map("registration_paid_at") @db.Timestamptz(6)
   /// OI-03/Q3: a pay-in-full discount is configuration, defaulting to zero.
-  discountXaf    BigInt             @default(0) @map("discount_xaf")
+  discountXaf        BigInt             @default(0) @map("discount_xaf")
   /// §5.1: settling the balance clears all future instalments and lifts any
   /// automatic freeze immediately.
-  settledInFullAt DateTime?         @map("settled_in_full_at") @db.Timestamptz(6)
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  settledInFullAt    DateTime?          @map("settled_in_full_at") @db.Timestamptz(6)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   instalments  Instalment[]
@@ -2172,27 +2200,27 @@ model PaymentSchedule {
 
 /// `instalments` — one part of a schedule. §5.2.
 model Instalment {
-  id         String          @id @default(uuid()) @db.Uuid
-  scheduleId String          @map("schedule_id") @db.Uuid
+  id               String          @id @default(uuid()) @db.Uuid
+  scheduleId       String          @map("schedule_id") @db.Uuid
   /// 1, 2 or 3. §5.3 applies the freeze rule independently at each.
-  sequence   Int
-  amountXaf  BigInt          @map("amount_xaf")
+  sequence         Int
+  amountXaf        BigInt          @map("amount_xaf")
   /// Stored as a date: a due date is a calendar fact in Africa/Douala, not an
   /// instant. The grace deadline is derived from it at UTC midnight + offset.
-  dueOn      DateTime        @map("due_on") @db.Date
-  state      InstalmentState @default(scheduled)
-  paidAt     DateTime?       @map("paid_at") @db.Timestamptz(6)
+  dueOn            DateTime        @map("due_on") @db.Date
+  state            InstalmentState @default(scheduled)
+  paidAt           DateTime?       @map("paid_at") @db.Timestamptz(6)
   /// Set when an Admin moved this instalment's state without a payment — a
   /// correction, a waiver, a scholarship. Kept beside the state so the row
   /// itself says it was adjusted rather than collected, and by whom.
-  adjustedBy       String? @map("adjusted_by") @db.Uuid
-  adjustmentReason String? @map("adjustment_reason") @db.VarChar(500)
-  paymentId  String?         @map("payment_id") @db.Uuid
+  adjustedBy       String?         @map("adjusted_by") @db.Uuid
+  adjustmentReason String?         @map("adjustment_reason") @db.VarChar(500)
+  paymentId        String?         @map("payment_id") @db.Uuid
   /// FR-PAY-019 / §5.3: which of the 7/3/1/0/freeze-day notices have gone out,
   /// so a restart or a re-run never sends the same notice twice.
-  noticesSentJson Json?      @map("notices_sent_json")
-  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  noticesSentJson  Json?           @map("notices_sent_json")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   schedule PaymentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   payment  Payment?        @relation(fields: [paymentId], references: [id])
@@ -2209,30 +2237,30 @@ model Instalment {
 /// actor, reason, timestamp and IP; the audit row carries the triggering
 /// instalment ID. This table is the operational state behind that trail.
 model AccountFreeze {
-  id       String         @id @default(uuid()) @db.Uuid
-  scope    FreezeScope
+  id            String      @id @default(uuid()) @db.Uuid
+  scope         FreezeScope
   /// Exactly one of these is set, matching `scope`.
-  learnerId     String?   @map("learner_id") @db.Uuid
-  teacherUserId String?   @map("teacher_user_id") @db.Uuid
+  learnerId     String?     @map("learner_id") @db.Uuid
+  teacherUserId String?     @map("teacher_user_id") @db.Uuid
 
-  kind     FreezeKind
-  category FreezeCategory
+  kind                   FreezeKind
+  category               FreezeCategory
   /// Mandatory and free-text for a manual freeze; the rule text for an automatic one.
-  reason   String         @db.Text
+  reason                 String         @db.Text
   /// §5.3: set for an automatic freeze so the trail names the missed instalment.
-  triggeringInstalmentId String? @map("triggering_instalment_id") @db.Uuid
+  triggeringInstalmentId String?        @map("triggering_instalment_id") @db.Uuid
 
   /// §5.4: never freeze mid-session. A freeze that becomes due while the learner
   /// is in a live class is written now and takes effect at session end, so the
   /// decision is recorded at the moment it was made.
-  appliedAt     DateTime  @default(now()) @map("applied_at") @db.Timestamptz(6)
-  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(6)
-  deferredForSessionId String? @map("deferred_for_session_id") @db.Uuid
+  appliedAt            DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+  effectiveFrom        DateTime @map("effective_from") @db.Timestamptz(6)
+  deferredForSessionId String?  @map("deferred_for_session_id") @db.Uuid
 
-  liftedAt     DateTime? @map("lifted_at") @db.Timestamptz(6)
-  liftedBy     String?   @map("lifted_by") @db.Uuid
-  liftReason   String?   @map("lift_reason") @db.Text
-  createdBy    String?   @map("created_by") @db.Uuid
+  liftedAt   DateTime? @map("lifted_at") @db.Timestamptz(6)
+  liftedBy   String?   @map("lifted_by") @db.Uuid
+  liftReason String?   @map("lift_reason") @db.Text
+  createdBy  String?   @map("created_by") @db.Uuid
 
   learner    Learner?    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   teacher    Teacher?    @relation(fields: [teacherUserId], references: [userId], onDelete: Cascade)
@@ -2252,31 +2280,31 @@ model AccountFreeze {
 /// FR-SAF-006: visible only to designated staff, and nothing here is ever
 /// deleted by an operator. FR-SAF-005: first response within 4 hours.
 model SafeguardingReport {
-  id        String             @id @default(uuid()) @db.Uuid
-  source    SafeguardingSource
-  reporterId String?           @map("reporter_id") @db.Uuid
+  id               String             @id @default(uuid()) @db.Uuid
+  source           SafeguardingSource
+  reporterId       String?            @map("reporter_id") @db.Uuid
   /// Who or what the report is about.
-  subjectTeacherId String?     @map("subject_teacher_id") @db.Uuid
-  subjectLearnerId String?     @map("subject_learner_id") @db.Uuid
-  relatedSessionId String?     @map("related_session_id") @db.Uuid
+  subjectTeacherId String?            @map("subject_teacher_id") @db.Uuid
+  subjectLearnerId String?            @map("subject_learner_id") @db.Uuid
+  relatedSessionId String?            @map("related_session_id") @db.Uuid
   /// A safeguarding ticket never appears in the general support pool
   /// (FR-SUP-007); when one arrives by ticket it is linked here and hidden there.
-  ticketId  String?            @unique @map("ticket_id") @db.Uuid
+  ticketId         String?            @unique @map("ticket_id") @db.Uuid
 
-  summary   String             @db.Text
+  summary      String @db.Text
   /// Links to recordings, message threads and files. Retained in full.
-  evidenceJson Json?           @map("evidence_json")
+  evidenceJson Json?  @map("evidence_json")
 
-  state     SafeguardingState  @default(open)
-  assignedTo String?           @map("assigned_to") @db.Uuid
+  state              SafeguardingState @default(open)
+  assignedTo         String?           @map("assigned_to") @db.Uuid
   /// FR-SAF-005: stamped at creation from the configurable 4-hour target.
-  firstResponseDueAt DateTime  @map("first_response_due_at") @db.Timestamptz(6)
-  firstResponseAt    DateTime? @map("first_response_at") @db.Timestamptz(6)
+  firstResponseDueAt DateTime          @map("first_response_due_at") @db.Timestamptz(6)
+  firstResponseAt    DateTime?         @map("first_response_at") @db.Timestamptz(6)
   /// A named human decision-maker, per FR-AI-005.
-  actionTaken   String?        @map("action_taken") @db.Text
-  decidedBy     String?        @map("decided_by") @db.Uuid
-  closedAt      DateTime?      @map("closed_at") @db.Timestamptz(6)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  actionTaken        String?           @map("action_taken") @db.Text
+  decidedBy          String?           @map("decided_by") @db.Uuid
+  closedAt           DateTime?         @map("closed_at") @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
   teacher Teacher? @relation(fields: [subjectTeacherId], references: [userId])
   ticket  Ticket?  @relation(fields: [ticketId], references: [id])
@@ -2290,13 +2318,13 @@ model SafeguardingReport {
 /// queue. The excerpt is stored already redacted: the evidence is that a
 /// contact detail was sent, not the detail itself.
 model RedactionFlag {
-  id         String        @id @default(uuid()) @db.Uuid
-  teacherId  String        @map("teacher_id") @db.Uuid
-  learnerId  String?       @map("learner_id") @db.Uuid
-  kind       RedactionKind
-  excerptRedacted String   @map("excerpt_redacted") @db.Text
-  occurredAt DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
-  reportId   String?       @map("report_id") @db.Uuid
+  id              String        @id @default(uuid()) @db.Uuid
+  teacherId       String        @map("teacher_id") @db.Uuid
+  learnerId       String?       @map("learner_id") @db.Uuid
+  kind            RedactionKind
+  excerptRedacted String        @map("excerpt_redacted") @db.Text
+  occurredAt      DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  reportId        String?       @map("report_id") @db.Uuid
 
   teacher Teacher  @relation(fields: [teacherId], references: [userId], onDelete: Cascade)
   learner Learner? @relation(fields: [learnerId], references: [id])
@@ -2312,15 +2340,15 @@ model RedactionFlag {
 /// `reconciliation_runs` — one daily comparison against one provider's
 /// settlement report (FR-LDG-003).
 model ReconciliationRun {
-  id            String   @id @default(uuid()) @db.Uuid
-  provider      PaymentMethod
-  statementDate DateTime @map("statement_date") @db.Date
-  itemCount     Int      @default(0) @map("item_count")
-  unmatchedCount Int     @default(0) @map("unmatched_count")
-  unmatchedValueXaf BigInt @default(0) @map("unmatched_value_xaf")
+  id                String        @id @default(uuid()) @db.Uuid
+  provider          PaymentMethod
+  statementDate     DateTime      @map("statement_date") @db.Date
+  itemCount         Int           @default(0) @map("item_count")
+  unmatchedCount    Int           @default(0) @map("unmatched_count")
+  unmatchedValueXaf BigInt        @default(0) @map("unmatched_value_xaf")
   /// FR-LDG-004: set when the run crossed the configurable alert threshold.
-  alertedAt     DateTime? @map("alerted_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  alertedAt         DateTime?     @map("alerted_at") @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   items ReconciliationItem[]
 
@@ -2353,16 +2381,16 @@ model ReconciliationItem {
 /// invoice. The number is allocated from a gapless sequence, because a tax
 /// authority reads a gap as a deleted document.
 model Invoice {
-  id        String   @id @default(uuid()) @db.Uuid
-  number    String   @unique @db.VarChar(40)
-  paymentId String   @unique @map("payment_id") @db.Uuid
-  totalXaf  BigInt   @map("total_xaf")
-  taxXaf    BigInt   @default(0) @map("tax_xaf")
+  id              String   @id @default(uuid()) @db.Uuid
+  number          String   @unique @db.VarChar(40)
+  paymentId       String   @unique @map("payment_id") @db.Uuid
+  totalXaf        BigInt   @map("total_xaf")
+  taxXaf          BigInt   @default(0) @map("tax_xaf")
   /// OI-07: the legal fields a Cameroonian invoice must carry are unresolved, so
   /// they are held as configuration-driven JSON rather than fixed columns.
-  legalFieldsJson Json? @map("legal_fields_json")
-  storageKey String? @map("storage_key") @db.VarChar(500)
-  issuedAt  DateTime @default(now()) @map("issued_at") @db.Timestamptz(6)
+  legalFieldsJson Json?    @map("legal_fields_json")
+  storageKey      String?  @map("storage_key") @db.VarChar(500)
+  issuedAt        DateTime @default(now()) @map("issued_at") @db.Timestamptz(6)
 
   payment Payment @relation(fields: [paymentId], references: [id])
 
@@ -2392,13 +2420,13 @@ model UnallocatedPool {
 /// `support_agent_profiles` — §4.5's agent panel needs a presence state and a
 /// workload ceiling that are not properties of the underlying user account.
 model SupportAgentProfile {
-  userId         String        @id @map("user_id") @db.Uuid
-  presence       AgentPresence @default(offline)
-  lastSeenAt     DateTime?     @map("last_seen_at") @db.Timestamptz(6)
-  maxOpenTickets Int           @default(25) @map("max_open_tickets")
+  userId                 String        @id @map("user_id") @db.Uuid
+  presence               AgentPresence @default(offline)
+  lastSeenAt             DateTime?     @map("last_seen_at") @db.Timestamptz(6)
+  maxOpenTickets         Int           @default(25) @map("max_open_tickets")
   /// FR-SAF-006: safeguarding visibility is a per-person designation, not a role
   /// level. A super_admin who is not designated still does not see the queue.
-  safeguardingDesignated Boolean @default(false) @map("safeguarding_designated")
+  safeguardingDesignated Boolean       @default(false) @map("safeguarding_designated")
 
   @@map("support_agent_profiles")
 }
@@ -2644,12 +2672,12 @@ model MessageThread {
 }
 
 model ThreadParticipant {
-  threadId String   @map("thread_id") @db.Uuid
-  userId   String   @map("user_id") @db.Uuid
+  threadId   String    @map("thread_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
   /// A guardian is a participant for reading (FR-SAF-003) without being a party
   /// to the conversation, so posting rights are explicit rather than implied.
-  mayPost  Boolean  @default(true) @map("may_post")
-  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  mayPost    Boolean   @default(true) @map("may_post")
+  joinedAt   DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
   /// When this participant last opened the thread. Unread is everything after
   /// it, so the count is derived rather than stored — a stored counter drifts
   /// the first time a write fails halfway through.

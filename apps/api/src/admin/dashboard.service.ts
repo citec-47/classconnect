@@ -159,7 +159,7 @@ export class DashboardService {
   }
 
   /** §3: the sidebar itself, filtered server-side rather than trusted from the client. */
-  async navFor(user: { id: string; roles: Role[] }) {
+  async navFor(user: { id: string; roles: Role[] }, viaHttpBridge = false) {
     const permissions = permissionsFor(user.roles);
     const designated = await this.safeguarding.isDesignated(user.id);
 
@@ -178,11 +178,19 @@ export class DashboardService {
        * client opening a socket that will never succeed and then retrying it on
        * a backoff for the rest of the session.
        *
+       * `viaHttpBridge` is the same answer for a different reason: this process
+       * can hold a socket perfectly well, but the request reached it through the
+       * frontend's `/api/v1` forwarder, and the client will dial the socket at
+       * the origin it is already using. An upgrade never reaches a Next API
+       * route, so that dial has nowhere to land. Where the browser addresses the
+       * API directly the header is absent and push stays on.
+       *
        * COM-003's 60-second reconciliation poll runs either way and is the
        * authoritative path, so this is a latency difference rather than a lost
        * feature: a badge is correct within a minute instead of immediately.
        */
-      pushEnabled: !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME,
+      pushEnabled:
+        !viaHttpBridge && !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME,
     };
   }
 

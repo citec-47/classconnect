@@ -1,9 +1,13 @@
-# Deploying ClassConnect on Vercel
+# Deploying ClassConnect
 
 One Vercel project, plus a managed PostgreSQL. The frontend is served at
 `https://<project>.vercel.app`; the Nest API is served from the very same
 deployment at `https://<project>.vercel.app/api/v1`. No Docker anywhere — not
 in development, not in CI, not in production.
+
+The other supported shape is a web service and an API service side by side, on a
+host that keeps a process alive — Render, Railway, Fly. §1 is the same either
+way; §2 covers the single project and §2a covers the pair.
 
 ---
 
@@ -84,6 +88,80 @@ deployed infrastructure, which is the point — a pasted-in laptop environment
 file fails loudly instead of quietly handing out one-time codes.
 
 ---
+
+## 2a. Two services instead of one — Render, Railway, Fly
+
+The layout above puts the frontend and the API in one deployment. The other
+shape is a web service and an API service side by side, which is what the Render
+deployment does. Everything in §1 still applies; what changes is how the browser
+reaches the API.
+
+There are two ways, and the second exists because the first is easy to get
+wrong.
+
+### The API behind the frontend's own origin — `API_ORIGIN`
+
+Set one variable on the **web** service:
+
+| Variable | Value |
+| --- | --- |
+| `API_ORIGIN` | The API service's URL, e.g. `https://classconnect-api.onrender.com`. The `/api/v1` suffix is optional; only the origin is used. |
+
+`apps/web/src/pages/api/v1/[...path].ts` then streams every `/api/v1` request to
+that service and streams the answer back. The browser only ever talks to the web
+origin.
+
+This is the recommended shape, for three reasons that are all about failure
+modes rather than elegance:
+
+- **It is read at run time.** Setting it takes effect on restart, with no
+  rebuild. `NEXT_PUBLIC_API_URL` is inlined into the client bundle *and* into the
+  CSP when the frontend is compiled, so with that route the value has to be
+  correct before the build, and a wrong one is invisible until someone tries to
+  sign in.
+- **No second origin.** No CORS preflight, and `connect-src 'self'` already
+  covers it, so the CSP needs nothing.
+- **It tolerates the value being written badly.** A leading `API_ORIGIN=`, shell
+  quotes, surrounding whitespace and a trailing `/api/v1` are all absorbed.
+  Those four are pinned by `apps/web/src/lib/api-origin.spec.ts` because each
+  one has cost this deployment real time.
+
+The API service itself still needs `WEB_ORIGIN` set to the web service's origin,
+and its own database and secret variables from §2.
+
+### The API addressed directly — `NEXT_PUBLIC_API_URL`
+
+Set `NEXT_PUBLIC_API_URL` on the web service to the full base —
+`https://classconnect-api.onrender.com/api/v1` — and **redeploy**, because it is
+compiled in. The browser then calls the API service directly, and CORS admits it
+because `WEB_ORIGIN` names the frontend.
+
+The one thing this buys is the **push channel**. A WebSocket upgrade never
+reaches a Next API route, so the admin badge stream cannot travel through
+`API_ORIGIN`. The bridge marks forwarded requests with `x-cc-api-bridge`, and
+`DashboardService.navFor` returns `pushEnabled: false` when it sees one — so the
+client uses COM-003's 60-second poll instead of opening a socket that would fail
+and retry for the rest of the session. Same trade-off as §3 below, arrived at
+from a different direction.
+
+Both variables may be set at once. `API_ORIGIN` wins for anything that reaches
+the bridge, and a bundle built with `NEXT_PUBLIC_API_URL` bypasses the bridge
+entirely, so the two agree as long as they name the same API.
+
+### If sign-in returns 503
+
+That status comes from the bridge, and it means the frontend answered the call
+itself rather than passing it on — `API_ORIGIN` and `NEXT_PUBLIC_API_URL` are
+both unset or relative, so the web service tried to boot the whole API
+in-process, without a database. It is not a statement about the API service,
+which is usually healthy at the time. Check it separately:
+
+```bash
+curl https://<api-service>.onrender.com/api/v1/jobs/health
+```
+
+The web service's log says the same thing in words, once per boot, and names the
+way out.
 
 ---
 

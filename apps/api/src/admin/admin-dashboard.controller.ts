@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { zodBody } from '../common/zod-validation.pipe';
 import { CurrentUser, RequirePermissions, type AuthenticatedUser } from '../rbac/decorators';
@@ -62,8 +62,17 @@ export class AdminDashboardController {
   /** The sidebar, filtered server-side. Presentation follows authorisation. */
   @Get('nav')
   @RequirePermissions('profile:read:own')
-  async nav(@CurrentUser() admin: AuthenticatedUser) {
-    return this.dashboard.navFor(admin);
+  async nav(
+    @CurrentUser() admin: AuthenticatedUser,
+    /*
+     * Set by the frontend's `/api/v1` bridge when it is forwarding rather than
+     * running the API in-process. A forwarded request arrived over HTTP through
+     * a Next route, which cannot carry a WebSocket upgrade — so the socket the
+     * client would open next has nowhere to land.
+     */
+    @Headers('x-cc-api-bridge') bridge?: string,
+  ) {
+    return this.dashboard.navFor(admin, bridge === 'proxy');
   }
 
   /** COM-003: the 60-second reconciliation poll behind the WebSocket push. */

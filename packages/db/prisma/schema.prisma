@@ -489,6 +489,8 @@ model User {
   materialReads         MaterialRead[]
   /// Visitor chats this member of staff picked up. Advisory assignment only.
   chatSessions          ChatSession[]  @relation("ChatAssignee")
+  groupInvitesSent      StudyGroupInvitation[] @relation("StudyGroupInviter")
+  groupInvitesReceived  StudyGroupInvitation[] @relation("StudyGroupInvitee")
   publishRequests       MediaPublishRequest[]
   recordingPlayback     RecordingPlayback[]
   threadSeats           ThreadParticipant[]
@@ -1184,6 +1186,7 @@ model StudyGroup {
   owner   User               @relation("StudyGroupOwner", fields: [ownerUserId], references: [id])
   thread  MessageThread      @relation(fields: [threadId], references: [id])
   members StudyGroupMember[]
+  invitations StudyGroupInvitation[]
 
   @@index([levelId, deletedAt])
   @@index([ownerUserId])
@@ -1207,6 +1210,44 @@ model StudyGroupMember {
   @@id([groupId, userId])
   @@index([userId, leftAt])
   @@map("study_group_members")
+}
+
+/// An ask, rather than an addition.
+///
+/// `addMembers` puts a classmate in a group without consulting them, which is
+/// defensible for people who already sit in the same room every day. It is not
+/// defensible for somebody in another class, and it is certainly not defensible
+/// for a teacher — being placed in a group of children by one of them is the
+/// wrong way round. So reaching outside the class goes through this: the invitee
+/// decides, and the owner can see what they decided.
+///
+/// One row per (group, person), reused rather than accumulated. Re-inviting
+/// somebody who declined sets this back to `pending`; keeping a history of every
+/// ask would turn "who is in this group" into a query over the most recent of
+/// several rows, and that is the kind of question that gets answered wrongly.
+model StudyGroupInvitation {
+  id            String                     @id @default(uuid()) @db.Uuid
+  groupId       String                     @map("group_id") @db.Uuid
+  inviterUserId String                     @map("inviter_user_id") @db.Uuid
+  inviteeUserId String                     @map("invitee_user_id") @db.Uuid
+  status        StudyGroupInvitationStatus @default(pending)
+  createdAt     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  respondedAt   DateTime?                  @map("responded_at") @db.Timestamptz(6)
+
+  group   StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviter User       @relation("StudyGroupInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee User       @relation("StudyGroupInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, inviteeUserId])
+  /// "What am I being asked to join" — the badge on the invitee's Work page.
+  @@index([inviteeUserId, status])
+  @@map("study_group_invitations")
+}
+
+enum StudyGroupInvitationStatus {
+  pending
+  accepted
+  declined
 }
 
 /// `sessions` — a scheduled teaching event. State model per Appendix A.

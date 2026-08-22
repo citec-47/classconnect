@@ -715,6 +715,21 @@ export type UpdateStudyGroupMembersInput = z.infer<typeof updateStudyGroupMember
 export const setStudyGroupLockSchema = z.object({ locked: z.boolean() });
 export type SetStudyGroupLockInput = z.infer<typeof setStudyGroupLockSchema>;
 
+/**
+ * Asking somebody outside the class to join a study group.
+ *
+ * A user id rather than a name or an email: the id came from the search, which
+ * is where the rule about who is findable lives. Accepting a raw email here
+ * would let a caller invite anybody whose address they could guess, and quietly
+ * confirm which addresses exist.
+ */
+export const inviteToStudyGroupSchema = z.object({ inviteeUserId: z.string().uuid() });
+export type InviteToStudyGroupInput = z.infer<typeof inviteToStudyGroupSchema>;
+
+/** Answering an invitation. Declining is a real answer, and is recorded. */
+export const respondToInvitationSchema = z.object({ accept: z.boolean() });
+export type RespondToInvitationInput = z.infer<typeof respondToInvitationSchema>;
+
 export const setStudyGroupMemberPermissionSchema = z.object({
   mayPost: z.boolean().optional(),
   allowImages: z.boolean().optional(),

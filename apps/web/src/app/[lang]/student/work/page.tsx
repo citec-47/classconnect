@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { HomeworkDto, MaterialDto } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
+import { GroupInvitations } from '@/components/student/GroupInvitations';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
 import { HomeworkRow, MaterialRow } from '@/components/student/cards';
@@ -50,6 +51,15 @@ export default function StudentWork() {
   return (
     <>
       <PageTitle large={config.typeScale === 'large'}>{t('student.work.title')}</PageTitle>
+
+      {/*
+        * Above the tabs, because an invitation is a thing to answer before
+        * getting on with anything else — and below one of the tabs it would sit
+        * unseen behind whichever panel the learner last had open. Renders
+        * nothing when there is nothing pending, so it costs no space on the
+        * ordinary day.
+        */}
+      <GroupInvitations onJoined={() => refresh()} />
 
       {/*
        * A tablist, because these switch a panel in place rather than navigate.

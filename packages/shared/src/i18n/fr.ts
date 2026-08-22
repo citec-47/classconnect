@@ -2470,6 +2470,15 @@ timetable: {
       filterAll: 'Toutes les matières',
     },
     /* Voir en.ts : les documents publiés, distincts des enregistrements. */
+    invitations: {
+      /* Voir en.ts. */
+      title: 'Invitations de groupe ({count})',
+      fromTeacher: '{name} — votre enseignant — vous invite à rejoindre',
+      fromClassmate: '{name} vous invite à rejoindre',
+      accept: 'Rejoindre',
+      decline: 'Non merci',
+      failed: 'Cela n’a pas fonctionné. Réessayez dans un instant.',
+    },
     myLessons: {
       title: 'Mes leçons',
       subtitle:

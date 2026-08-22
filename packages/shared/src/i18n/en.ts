@@ -2640,6 +2640,16 @@ timetable: {
      * The two were briefly one route and the confusion reached the URL bar; one
      * i18n block serving both would put it straight back.
      */
+    invitations: {
+      /* Renders only when there is something to answer, so the count is always
+         at least one and a plural-free phrasing is honest. */
+      title: 'Group invitations ({count})',
+      fromTeacher: '{name} — your teacher — has asked you to join',
+      fromClassmate: '{name} has asked you to join',
+      accept: 'Join',
+      decline: 'No thanks',
+      failed: 'That did not go through. Try again in a moment.',
+    },
     myLessons: {
       title: 'My lessons',
       subtitle: 'Notes, worksheets and anything else your teachers have published to your class.',

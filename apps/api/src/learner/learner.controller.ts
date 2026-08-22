@@ -40,7 +40,11 @@ import {
   setStudyGroupLockSchema,
   type SetStudyGroupLockInput,
   setStudyGroupMemberPermissionSchema,
+  inviteToStudyGroupSchema,
+  respondToInvitationSchema,
   type SetStudyGroupMemberPermissionInput,
+  type InviteToStudyGroupInput,
+  type RespondToInvitationInput,
 } from '@classconnect/shared';
 
 /**
@@ -243,6 +247,56 @@ export class LearnerController {
   @RequirePermissions('profile:read:own')
   async deleteStudyGroup(@CurrentUser() user: AuthenticatedUser, @Param('groupId', uuidParam()) groupId: string) {
     return this.studyGroups.delete(groupId, user.id);
+  }
+
+  /**
+   * Finding somebody outside the class.
+   *
+   * Teachers by name; a learner from another class only by their exact phone or
+   * email. See the service — a name search over the school's children is a
+   * directory of minors with a search box on it.
+   */
+  @Get('practice/study-groups/invitee-search')
+  @RequirePermissions('profile:read:own')
+  async findInvitee(@Query('q') q?: string) {
+    return this.studyGroups.findInvitee(q ?? '');
+  }
+
+  @Post('practice/study-groups/:groupId/invitations')
+  @RequirePermissions('profile:read:own')
+  async inviteToStudyGroup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+    @Body(zodBody(inviteToStudyGroupSchema)) body: InviteToStudyGroupInput,
+  ) {
+    return this.studyGroups.invite(groupId, user.id, body.inviteeUserId);
+  }
+
+  /** What the owner sees: who was asked, and what they said. */
+  @Get('practice/study-groups/:groupId/invitations')
+  @RequirePermissions('profile:read:own')
+  async studyGroupInvitations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+  ) {
+    return this.studyGroups.groupInvitations(groupId, user.id);
+  }
+
+  /** The invitee's own list — the badge on their Work page. */
+  @Get('practice/invitations')
+  @RequirePermissions('profile:read:own')
+  async myStudyGroupInvitations(@CurrentUser() user: AuthenticatedUser) {
+    return this.studyGroups.myInvitations(user.id);
+  }
+
+  @Post('practice/invitations/:invitationId/respond')
+  @RequirePermissions('profile:read:own')
+  async respondToStudyGroupInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('invitationId', uuidParam()) invitationId: string,
+    @Body(zodBody(respondToInvitationSchema)) body: RespondToInvitationInput,
+  ) {
+    return this.studyGroups.respondToInvitation(invitationId, user.id, body.accept);
   }
 
   /** §5.5 */

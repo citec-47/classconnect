@@ -1948,6 +1948,13 @@ timetable: {
     nonePending: 'No hours are waiting for a decision.',
     addTitle: 'Offer an hour',
     classAndSubject: 'Class and subject',
+    /* Two fields now, not one. A teacher of four subjects across three classes
+       had twelve near-identical entries in a single list; picking the class
+       first means the wrong pairing is never offered. */
+    classLabel: 'Class',
+    subjectLabel: 'Subject',
+    choose: 'Choose…',
+    chooseClassFirst: 'Choose a class first',
     dayLabel: 'Day',
     from: 'From',
     to: 'To',

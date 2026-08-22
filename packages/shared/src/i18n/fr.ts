@@ -1836,6 +1836,11 @@ timetable: {
     nonePending: 'Aucune heure n’attend de décision.',
     addTitle: 'Proposer une heure',
     classAndSubject: 'Classe et matière',
+    /* Voir en.ts : la classe d’abord, puis ses matières. */
+    classLabel: 'Classe',
+    subjectLabel: 'Matière',
+    choose: 'Choisir…',
+    chooseClassFirst: 'Choisissez d’abord une classe',
     dayLabel: 'Jour',
     from: 'De',
     to: 'À',

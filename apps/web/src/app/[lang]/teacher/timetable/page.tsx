@@ -66,14 +66,19 @@ function TeacherTimetablePage() {
       ]);
       setSlots(mine.slots);
       setPairs(application.subjects);
-      setForm((current) =>
-        current.pair || application.subjects.length === 0
-          ? current
-          : {
-              ...current,
-              pair: `${application.subjects[0]!.subject.id}:${application.subjects[0]!.level.id}`,
-            },
-      );
+      /*
+       * Nothing is chosen for the teacher.
+       *
+       * This used to select the first teaching pair — and since the list comes
+       * back in a stable order, that meant every teacher whose first pair was
+       * Mathematics opened the form on Mathematics and submitted it unless they
+       * noticed the dropdown. It read as "Mathematics is the default subject for
+       * all teachers", which is what it was in effect, and the period landed on
+       * the admin's approval queue under the wrong subject.
+       *
+       * A pre-filled field that decides something on your behalf is worse than
+       * an empty one that asks. `Save` stays disabled until both are picked.
+       */
     } catch (caught) {
       setError(caught as ApiError);
       setSlots([]);
@@ -83,6 +88,23 @@ function TeacherTimetablePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /*
+   * `form.pair` stays the single source of truth, as "subjectId:levelId".
+   *
+   * The two dropdowns are a view over it rather than two more pieces of state:
+   * `propose` already splits this string, and a second copy of the same fact is
+   * a second thing that can disagree with the first. A class chosen with no
+   * subject yet is ":levelId", which is why the split tolerates an empty half.
+   */
+  const [subjectId = '', levelId = ''] = form.pair.split(':');
+
+  /** Each class once, in the order the teacher's approved subjects came back. */
+  const levels = pairs
+    .filter((pair, index) => pairs.findIndex((p) => p.level.id === pair.level.id) === index)
+    .map((pair) => pair.level);
+
+  const subjectsForLevel = pairs.filter((pair) => pair.level.id === levelId);
 
   const startMinute = clockToMinutes(form.start);
   const endMinute = clockToMinutes(form.end);
@@ -101,7 +123,14 @@ function TeacherTimetablePage() {
       : null;
   const problem = draft ? validateTimetableSlot(draft) : 'errors.timetable.reversed';
   const clashes = draft && slots ? findClashes(draft, slots) : [];
-  const blocked = problem !== null || clashes.length > 0;
+  /*
+   * An unchosen class or subject blocks the save as firmly as a clash does.
+   *
+   * Necessary now that nothing is pre-selected: without it the button is live
+   * over an empty pair, `propose` returns silently on the split, and the teacher
+   * presses Save and watches nothing happen.
+   */
+  const blocked = problem !== null || clashes.length > 0 || !subjectId || !levelId;
 
   const propose = async () => {
     if (!draft || blocked) return;
@@ -226,19 +255,48 @@ function TeacherTimetablePage() {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/*
+                * Class first, then the subjects taught in it.
+                *
+                * One combined dropdown listed every pair a teacher holds — for
+                * somebody teaching four subjects across three classes that is
+                * twelve entries reading "Form 4 · Mathematics", and picking the
+                * wrong one is a scroll away. Choosing the class narrows the
+                * second list to what is actually taught there, so the wrong
+                * combination is not offered rather than merely discouraged.
+                */}
               <label className="block">
-                <span className="cc-label">{t('timetable.classAndSubject')}</span>
+                <span className="cc-label">{t('timetable.classLabel')}</span>
                 <select
                   className="cc-field w-full"
-                  value={form.pair}
-                  onChange={(e) => setForm({ ...form, pair: e.target.value })}
+                  value={levelId}
+                  onChange={(e) => setForm({ ...form, pair: e.target.value ? `:${e.target.value}` : '' })}
                 >
-                  {pairs.map((pair) => (
-                    <option
-                      key={`${pair.subject.id}:${pair.level.id}`}
-                      value={`${pair.subject.id}:${pair.level.id}`}
-                    >
-                      {name(pair.level)} · {name(pair.subject)}
+                  <option value="">{t('timetable.choose')}</option>
+                  {levels.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {name(level)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="cc-label">{t('timetable.subjectLabel')}</span>
+                <select
+                  className="cc-field w-full"
+                  value={subjectId}
+                  disabled={!levelId}
+                  onChange={(e) =>
+                    setForm({ ...form, pair: e.target.value ? `${e.target.value}:${levelId}` : `:${levelId}` })
+                  }
+                >
+                  <option value="">
+                    {levelId ? t('timetable.choose') : t('timetable.chooseClassFirst')}
+                  </option>
+                  {subjectsForLevel.map((pair) => (
+                    <option key={pair.subject.id} value={pair.subject.id}>
+                      {name(pair.subject)}
                     </option>
                   ))}
                 </select>

@@ -1422,6 +1422,11 @@ export const fr: Messages = {
       /* Voir en.ts. */
       unchanged: 'Choisissez un mot de passe différent de l’actuel.',
     },
+    lesson: {
+      /* Voir en.ts. */
+      not_scanned:
+        'Ce fichier est encore en cours de vérification antivirus. Vous pourrez le publier une fois la vérification terminée.',
+    },
     identifier: { required: 'Donnez-nous un numéro de téléphone ou une adresse e-mail.' },
     language: { required: 'Choisissez au moins une langue.' },
     terms: { required: 'Veuillez accepter les conditions pour continuer.' },
@@ -1902,6 +1907,9 @@ timetable: {
   lessons: {
     teacherDescription:
       'Publiez une leçon pour l’une de vos classes. Toute la classe la reçoit et peut la lire dans l’application ou la garder pour la lire hors connexion.',
+    /* Voir en.ts : deux badges, l’analyse et la publication étant deux faits. */
+    badgePublished: 'Publiée',
+    badgeDraft: 'Brouillon — visible par vous seul',
     publishTitle: 'Publier une leçon',
     listTitle: 'Leçons que vous avez publiées',
     classAndSubject: 'Classe et matière',

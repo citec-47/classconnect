@@ -15,6 +15,8 @@ interface Lesson {
   sizeBytes: number;
   scanStatus: string;
   published: boolean;
+  /** Clean and not yet released: the Publish button is live for exactly these. */
+  publishable: boolean;
   createdAt: string;
   subject: { id: string; nameEn: string; nameFr: string };
   level: { id: string; nameEn: string; nameFr: string };
@@ -163,6 +165,31 @@ function TeacherLessonsPage() {
       setForm((current) => ({ ...current, title: '', topic: '' }));
       if (fileRef.current) fileRef.current.value = '';
       await load();
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Releasing a draft to the class.
+   *
+   * Reloads rather than flipping the row locally: publishing is the moment the
+   * teacher most wants to be sure it took, and a badge changed optimistically
+   * would say "Published" even when the request failed.
+   */
+  const releaseToClass = async (id: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/teacher/lessons/${id}/publish`, {
+        method: 'POST',
+        language,
+        timeoutMs: 120_000,
+      });
+      await load();
+      setOutcome('published');
     } catch (caught) {
       setError(caught as ApiError);
     } finally {
@@ -337,15 +364,47 @@ function TeacherLessonsPage() {
                 {megabytes(lesson.sizeBytes)}
               </span>
 
+              {/*
+                * Two facts, said separately, because they are two facts.
+                *
+                * The scan is the platform's business — clean, waiting, refused.
+                * Publication is the teacher's decision. Showing only one badge
+                * meant a clean-but-unpublished draft read as "published", and
+                * the teacher believed the class had it.
+                */}
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                  lesson.published
+                  lesson.scanStatus === 'clean'
                     ? 'bg-success-50 text-success-600'
                     : 'bg-warning-50 text-warning-600'
                 }`}
               >
                 {t(`lessons.state.${lesson.scanStatus}`)}
               </span>
+
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  lesson.published ? 'bg-success-50 text-success-600' : 'bg-ink-100 text-ink-600'
+                }`}
+              >
+                {lesson.published ? t('lessons.badgePublished') : t('lessons.badgeDraft')}
+              </span>
+
+              {/*
+                * Live for exactly the lessons that can be published: scanned
+                * clean and not yet released. The API refuses the rest anyway —
+                * this stops the teacher pressing a button that says no.
+                */}
+              {lesson.publishable && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void releaseToClass(lesson.id)}
+                  className="shrink-0 rounded-lg bg-brand-700 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {t('lessons.publish')}
+                </button>
+              )}
 
               <button
                 type="button"

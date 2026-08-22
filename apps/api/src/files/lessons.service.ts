@@ -183,6 +183,47 @@ export class LessonsService {
   }
 
   /** Step 3 — check what storage really received, scan it, then publish. */
+  /**
+   * Releasing a lesson to the class.
+   *
+   * Refuses anything the scanner has not cleared. The learner queries filter on
+   * `scanStatus` as well, so a quarantined file could not reach a child either
+   * way — but publishing one and having it silently not appear would leave the
+   * teacher believing the class had it.
+   *
+   * Idempotent, and keeps the first publication time: re-pressing the button is
+   * not a second release, and "when did the class get this" should not move
+   * because somebody clicked twice.
+   */
+  async publish(user: AuthenticatedUser, materialId: string) {
+    const material = await this.prisma.material.findFirst({
+      where: { id: materialId, uploadedBy: user.id },
+      select: { id: true, scanStatus: true, publishedAt: true, title: true, levelId: true },
+    });
+    if (!material) throw AppError.notFound();
+
+    if (material.scanStatus !== 'clean') {
+      throw AppError.badRequest('errors.lesson.not_scanned');
+    }
+    if (material.publishedAt) return { published: true, publishedAt: material.publishedAt };
+
+    const publishedAt = new Date();
+    await this.prisma.material.update({
+      where: { id: materialId },
+      data: { publishedAt },
+    });
+
+    await this.audit.record({
+      action: 'lesson.published',
+      entity: 'material',
+      entityId: materialId,
+      actorId: user.id,
+      after: { title: material.title, levelId: material.levelId },
+    });
+
+    return { published: true, publishedAt };
+  }
+
   async confirm(user: AuthenticatedUser, materialId: string) {
     const material = await this.prisma.material.findFirst({
       where: { id: materialId, uploadedBy: user.id },
@@ -280,8 +321,18 @@ export class LessonsService {
         mimeType: row.mimeType,
         sizeBytes: row.sizeBytes,
         scanStatus: row.scanStatus,
-        // FR-FIL-001: say plainly whether a learner can open it yet.
-        published: row.scanStatus === 'clean',
+        /*
+         * Published is now the teacher's decision, not the scanner's.
+         *
+         * This read `scanStatus === 'clean'`, which was true while confirming an
+         * upload also released it. It is no longer: a clean file the teacher has
+         * not published is a draft, and reporting it as published would tell
+         * them the class had a worksheet nobody could see.
+         */
+        published: row.publishedAt !== null,
+        publishedAt: row.publishedAt?.toISOString() ?? null,
+        /** Clean and unpublished: the Publish button is live for exactly these. */
+        publishable: row.scanStatus === 'clean' && row.publishedAt === null,
         createdAt: row.createdAt.toISOString(),
         subject: row.subject,
         level: row.level,

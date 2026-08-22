@@ -1393,6 +1393,18 @@ model Material {
   targetLearnerId String?  @map("target_learner_id") @db.Uuid
   targetCohortId  String?  @map("target_cohort_id") @db.Uuid
   scanStatus      String   @default("pending") @map("scan_status") @db.VarChar(20)
+  /// When the teacher released this to the class. Null while it is a draft.
+  ///
+  /// A separate fact from `scanStatus`. A file can be scanned clean and still
+  /// not be ready — the teacher wants to look at it first, or it is next
+  /// Thursday's worksheet uploaded this Monday. Conflating the two would mean
+  /// the class receives every upload the instant the scanner finishes, which is
+  /// what happened before this column existed.
+  ///
+  /// A timestamp rather than a boolean, because "when did the class get this"
+  /// is worth knowing and a boolean would have to be joined to the audit trail
+  /// to answer it.
+  publishedAt     DateTime? @map("published_at") @db.Timestamptz(6)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   uploader User           @relation(fields: [uploadedBy], references: [id])

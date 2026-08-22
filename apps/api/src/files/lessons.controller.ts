@@ -64,6 +64,24 @@ export class TeacherLessonsController {
     return this.lessons.confirm(user, materialId);
   }
 
+  /**
+   * Step 4: release it to the class.
+   *
+   * Separate from `confirm`, which only establishes that the bytes arrived and
+   * are clean. A teacher uploads Thursday's worksheet on Monday, looks at it,
+   * and decides when the class gets it — before this existed, confirming an
+   * upload published it, so the two decisions were one and the teacher had no
+   * way to make the second one later.
+   */
+  @Post(':materialId/publish')
+  @RequirePermissions('lesson:publish:own')
+  async publish(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('materialId', uuidParam()) materialId: string,
+  ) {
+    return this.lessons.publish(user, materialId);
+  }
+
   @Delete(':materialId')
   @RequirePermissions('lesson:publish:own')
   async remove(

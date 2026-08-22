@@ -54,6 +54,14 @@ export class LearnerMaterialsService {
       subjectId: { in: subjectIds },
       // FR-FIL-004: nothing unscanned is ever offered to a child.
       scanStatus: 'clean',
+      /*
+       * A draft is the teacher's, not the class's.
+       *
+       * Enforced in the `where` rather than filtered afterwards, so an unpublished
+       * lesson is not merely hidden — it is not in the result, cannot be counted
+       * towards an unread badge, and cannot be reached by its id.
+       */
+      publishedAt: { not: null },
       OR: [
         { visibilityScope: 'level' },
         { targetLearnerId: learnerId },

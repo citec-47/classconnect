@@ -1499,6 +1499,12 @@ export const en = {
          secret would survive. */
       unchanged: 'Please choose a different password from the one you have now.',
     },
+    lesson: {
+      /* Refused rather than queued: a teacher told 'published' about a file the
+         class cannot open would not find out until somebody asked. */
+      not_scanned:
+        'This file is still being checked for viruses. You can publish it once the check finishes.',
+    },
     identifier: { required: 'Please give us a phone number or an email address.' },
     language: { required: 'Choose at least one language.' },
     terms: { required: 'Please accept the terms before continuing.' },
@@ -2018,6 +2024,10 @@ timetable: {
   lessons: {
     teacherDescription:
       'Publish a lesson to one of your classes. Everyone in that class gets it, and can read it in the app or keep it to read offline.',
+    /* Two badges: the scan is the platform's business, publication is the
+       teacher's decision, and one badge for both made a draft read as sent. */
+    badgePublished: 'Published',
+    badgeDraft: 'Draft — only you',
     publishTitle: 'Publish a lesson',
     listTitle: 'Lessons you have published',
     classAndSubject: 'Class and subject',

@@ -192,6 +192,10 @@ export class LearnerWorkService {
       where: {
         levelId,
         scanStatus: 'clean',
+        // A draft belongs to the teacher until they release it. The same rule as
+        // `learner-materials.service.ts`; both learner-facing reads carry it,
+        // because a lesson leaking through the Work screen is the same leak.
+        publishedAt: { not: null },
         OR: [
           { visibilityScope: 'level' },
           { targetLearnerId: learnerId },

@@ -11,6 +11,7 @@ import { ApprovalsService } from './approvals.service';
 import { SupportService } from './support.service';
 import { SafeguardingService } from './safeguarding.service';
 import { GovernanceService } from './governance.service';
+import { AdminStudyGroupsService } from './study-groups.service';
 import { RosterService } from './roster.service';
 import { LiveService } from './live.service';
 import { ScheduleService } from './schedule.service';
@@ -60,6 +61,7 @@ import { EarningsModule } from '../earnings/earnings.module';
     SupportService,
     SafeguardingService,
     GovernanceService,
+    AdminStudyGroupsService,
     RosterService,
     LiveService,
     ScheduleService,

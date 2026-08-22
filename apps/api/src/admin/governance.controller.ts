@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { uuidParam } from '../common/zod-validation.pipe';
 import { RecordingsService } from '../teachers/recordings.service';
 import { GovernanceService } from './governance.service';
+import { AdminStudyGroupsService } from './study-groups.service';
 import { SafeguardingService } from './safeguarding.service';
 import { DashboardService } from './dashboard.service';
 import { EarningsService } from '../earnings/earnings.service';
@@ -50,6 +51,7 @@ export class GovernanceController {
     private readonly recordings: RecordingsService,
     private readonly payouts: PayoutsService,
     private readonly payments: PaymentsAdminService,
+    private readonly studyGroupsService: AdminStudyGroupsService,
   ) {}
 
   // --- Accounts & access --------------------------------------------------
@@ -250,6 +252,34 @@ export class GovernanceController {
    * the recordings exist at all, and a review that can only see part of the
    * archive is not one.
    */
+  /**
+   * Study groups, and the deleted ones in particular.
+   *
+   * A learner can delete a group they own, which makes a conversation between
+   * children invisible to everyone who was in it. That is the right default —
+   * closing a group should not need permission — but it is exactly the event a
+   * safeguarding review has to be able to find, and nothing could show it until
+   * now.
+   *
+   * `safeguarding:read` rather than a general admin permission: the rows behind
+   * this are children's messages.
+   */
+  @Get('study-groups')
+  @RequirePermissions('safeguarding:read')
+  async studyGroups(@Query('filter') filter?: 'all' | 'active' | 'deleted') {
+    return this.studyGroupsService.list(filter ?? 'deleted');
+  }
+
+  /** Putting one back, with its members re-seated on the thread. Audited. */
+  @Post('study-groups/:groupId/restore')
+  @RequirePermissions('safeguarding:act')
+  async restoreStudyGroup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+  ) {
+    return this.studyGroupsService.restore(user, groupId);
+  }
+
   @Get('recordings')
   @RequirePermissions('recording:delete')
   async allRecordings(@CurrentUser() user: AuthenticatedUser) {

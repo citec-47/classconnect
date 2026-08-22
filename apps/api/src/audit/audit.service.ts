@@ -81,6 +81,14 @@ export type AuditAction =
    */
   | 'timetable.rate_set'
   | 'group.archived'
+  /**
+   * Staff put a deleted study group back.
+   *
+   * Audited because it undoes somebody else's decision, and because the thing
+   * being restored is a conversation between children — whoever made it
+   * readable again should be nameable afterwards.
+   */
+  | 'group.restored'
   /*
    * BUILD-PLAN Phase 2 — lessons.
    *

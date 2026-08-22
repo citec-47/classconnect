@@ -70,12 +70,21 @@ function declaredRoutes(): string[] {
  * option objects that follow the path. The query string is dropped — routing
  * never sees it — which also disposes of the inline `?a=${b}` filters before
  * they reach the segment comparison.
+ *
+ * The web app's own tests are skipped. A spec that drives the client calls
+ * `api('/a')` with a path chosen to be short rather than real, and no such route
+ * should exist — counting those makes this check permanently red, which costs it
+ * the only thing it is for: being believed when it names a route that is
+ * genuinely missing.
  */
 function requestedPaths(): { path: string; file: string }[] {
   const requested: { path: string; file: string }[] = [];
   const call = /\bapi(?:<[^(]*?>)?\(\s*(['"`])(\/[^'"`]*)\1/g;
 
-  for (const file of sourceFiles(WEB_SRC, ['.ts', '.tsx'])) {
+  const sources = sourceFiles(WEB_SRC, ['.ts', '.tsx']).filter(
+    (file) => !/\.spec\.tsx?$/.test(file),
+  );
+  for (const file of sources) {
     for (const [, , path] of readFileSync(file, 'utf8').matchAll(call)) {
       requested.push({
         path: path!.split('?')[0]!,

@@ -1287,6 +1287,10 @@ export const fr: Messages = {
 
   errors: {
     generic: 'Un problème est survenu de notre côté. Veuillez réessayer.',
+    /* Voir en.ts : le service a été joint mais n’a pas pu répondre — attendre
+       sert à quelque chose, contrairement à `generic`. */
+    service_unavailable:
+      'ClassConnect est en cours de démarrage. Patientez un instant et réessayez.',
     network: 'Nous n’avons pas pu joindre ClassConnect. Vérifiez votre connexion et réessayez.',
     timeout:
       'Cela prend plus de temps que prévu. Vérifiez votre connexion et réessayez.',

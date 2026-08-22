@@ -114,10 +114,42 @@ async function forward(
     ...({ duplex: 'half' } as Record<string, unknown>),
     // A redirect is the API's answer and belongs to the browser, not to us.
     redirect: 'manual',
-    // Matches the 30s function ceiling the deployment already documents, so a
-    // hung upstream fails as a timeout rather than as a killed function.
-    signal: AbortSignal.timeout(30_000),
+    /*
+     * Just under the client's own 30s ceiling in `api.ts`, so that when time
+     * runs out it is this hop that gives up first and answers with a message
+     * key the page can render. At exactly 30s the two race, and when the
+     * browser wins it aborts with no response at all.
+     */
+    signal: AbortSignal.timeout(28_000),
   });
+
+  /*
+   * A gateway answer from the platform, not from the API.
+   *
+   * A host returns 502/504 — as HTML — for a service that is not currently
+   * accepting requests: spun down after an idle period, restarting, or out of
+   * instances. Relaying that verbatim gives the browser a body it cannot parse,
+   * so `api()` falls through to `errors.generic`: "something went wrong on our
+   * side", which is both vague and wrong about whose side.
+   *
+   * The application's own 503s are JSON and carry a message key, so they are
+   * passed through untouched. Anything else at these statuses is the platform
+   * talking, and the honest translation is "not available right now, waiting
+   * will help" — which is what `errors.service_unavailable` says.
+   */
+  const contentType = upstream.headers.get('content-type') ?? '';
+  if (
+    (upstream.status === 502 || upstream.status === 503 || upstream.status === 504) &&
+    !contentType.includes('json')
+  ) {
+    console.error(
+      `ClassConnect API bridge: ${origin} answered ${upstream.status} ` +
+        `(${contentType || 'no content-type'}). That is the platform, not the API — ` +
+        'the API service is asleep, restarting, or refusing connections.',
+    );
+    response.status(503).json({ messageKey: 'errors.service_unavailable' });
+    return;
+  }
 
   response.status(upstream.status);
 

@@ -1346,6 +1346,17 @@ export const en = {
 
   errors: {
     generic: 'Something went wrong on our side. Please try again.',
+    /*
+     * The API was reached and could not answer — distinct from `network`, where
+     * the request never arrived, and from `generic`, which says nothing about
+     * whether waiting would help. Here it would: the usual cause is a service
+     * that has been idle and is starting up again, which takes under a minute.
+     *
+     * Emitted by the `/api/v1` bridge, and it had no entry here at all, so the
+     * key itself was rendered to users as "errors.service_unavailable".
+     */
+    service_unavailable:
+      'ClassConnect is starting up. Give it a moment and try again.',
     network: 'We could not reach ClassConnect. Check your connection and try again.',
     timeout: 'That is taking longer than expected. Check your connection and try again.',
     unauthorised: 'Please sign in to continue.',

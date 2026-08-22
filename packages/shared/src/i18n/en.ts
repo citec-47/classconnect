@@ -2640,6 +2640,12 @@ timetable: {
      * The two were briefly one route and the confusion reached the URL bar; one
      * i18n block serving both would put it straight back.
      */
+    groupTasks: {
+      /* Shared to-dos from study groups. Not homework — that has a mark and a
+         hand-in, and sits in the tabs above. */
+      title: 'Group tasks',
+      due: 'due {date}',
+    },
     invitations: {
       /* Renders only when there is something to answer, so the count is always
          at least one and a plural-free phrasing is honest. */

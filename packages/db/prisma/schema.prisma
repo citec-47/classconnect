@@ -491,6 +491,8 @@ model User {
   chatSessions          ChatSession[]  @relation("ChatAssignee")
   groupInvitesSent      StudyGroupInvitation[] @relation("StudyGroupInviter")
   groupInvitesReceived  StudyGroupInvitation[] @relation("StudyGroupInvitee")
+  groupTasksAuthored    StudyGroupTask[]       @relation("StudyGroupTaskAuthor")
+  groupTasksDone        StudyGroupTaskDone[]
   publishRequests       MediaPublishRequest[]
   recordingPlayback     RecordingPlayback[]
   threadSeats           ThreadParticipant[]
@@ -1001,6 +1003,7 @@ model Subject {
   cohorts         Cohort[]
   timetableSlots  TimetableSlot[]
   materials       Material[]
+  studyGroupTasks StudyGroupTask[]
   workAssignments WorkAssignment[]
   assessments     Assessment[]
   pastPapers      PastPaper[]
@@ -1187,6 +1190,7 @@ model StudyGroup {
   thread  MessageThread      @relation(fields: [threadId], references: [id])
   members StudyGroupMember[]
   invitations StudyGroupInvitation[]
+  tasks       StudyGroupTask[]
 
   @@index([levelId, deletedAt])
   @@index([ownerUserId])
@@ -2940,4 +2944,61 @@ model ChatMessage {
 
   @@index([sessionId, createdAt])
   @@map("chat_messages")
+}
+
+/// A piece of work set for a study group.
+///
+/// Distinct from `WorkAssignment`, which is homework the platform grades: it
+/// carries a mark, a submission, a deadline that locks, and a teacher who owns
+/// the marking. This is a shared to-do — "read chapter 4 before Thursday" — with
+/// no mark and no submission, and conflating the two would put ungraded reminders
+/// into the gradebook.
+model StudyGroupTask {
+  id        String  @id @default(uuid()) @db.Uuid
+  groupId   String  @map("group_id") @db.Uuid
+  createdBy String  @map("created_by") @db.Uuid
+  /// Optional, and it decides how the learner's list is grouped. A study group
+  /// belongs to a level rather than a subject, so a task about revision in
+  /// general genuinely has none — those sit under the group's own name.
+  subjectId String? @map("subject_id") @db.Uuid
+
+  title       String    @db.VarChar(300)
+  description String?   @db.Text
+  dueAt       DateTime? @map("due_at") @db.Timestamptz(6)
+
+  /// Soft, so a task somebody already ticked off does not vanish from their
+  /// record when it is withdrawn.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  group    StudyGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author   User                   @relation("StudyGroupTaskAuthor", fields: [createdBy], references: [id])
+  subject  Subject?               @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  progress StudyGroupTaskDone[]
+
+  @@index([groupId, deletedAt])
+  @@map("study_group_tasks")
+}
+
+/// Who has ticked a task off.
+///
+/// A row means done; no row means not done. The same shape as `MaterialRead`,
+/// and for the same reason: setting a task for a group of ten would otherwise
+/// write ten rows to record something nobody has done yet, and a learner who
+/// joins next week would need one backfilled to appear correctly undone.
+///
+/// Un-ticking deletes the row, so `doneAt` is always the moment it was actually
+/// finished rather than the last time somebody changed their mind.
+model StudyGroupTaskDone {
+  taskId String   @map("task_id") @db.Uuid
+  userId String   @map("user_id") @db.Uuid
+  doneAt DateTime @default(now()) @map("done_at") @db.Timestamptz(6)
+
+  task StudyGroupTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("study_group_task_done")
 }

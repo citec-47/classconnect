@@ -42,9 +42,13 @@ import {
   setStudyGroupMemberPermissionSchema,
   inviteToStudyGroupSchema,
   respondToInvitationSchema,
+  createStudyGroupTaskSchema,
+  setTaskDoneSchema,
   type SetStudyGroupMemberPermissionInput,
   type InviteToStudyGroupInput,
   type RespondToInvitationInput,
+  type CreateStudyGroupTaskInput,
+  type SetTaskDoneInput,
 } from '@classconnect/shared';
 
 /**
@@ -287,6 +291,61 @@ export class LearnerController {
   @RequirePermissions('profile:read:own')
   async myStudyGroupInvitations(@CurrentUser() user: AuthenticatedUser) {
     return this.studyGroups.myInvitations(user.id);
+  }
+
+  /**
+   * Group tasks.
+   *
+   * Under `practice/` with the groups they belong to rather than under `work/`,
+   * even though the Work screen shows them. The route names where the thing
+   * lives; the screen decides where it is displayed, and one of those changing
+   * should not change the other.
+   */
+  @Post('practice/study-groups/:groupId/tasks')
+  @RequirePermissions('profile:read:own')
+  async createStudyGroupTask(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+    @Body(zodBody(createStudyGroupTaskSchema)) body: CreateStudyGroupTaskInput,
+  ) {
+    return this.studyGroups.createTask(groupId, user.id, body);
+  }
+
+  @Get('practice/study-groups/:groupId/tasks')
+  @RequirePermissions('profile:read:own')
+  async studyGroupTasks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+  ) {
+    const context = await this.learner.context(user);
+    return this.studyGroups.tasks(groupId, user.id, context.language);
+  }
+
+  /** Every task across every group, for the Work screen. */
+  @Get('practice/tasks')
+  @RequirePermissions('profile:read:own')
+  async allStudyGroupTasks(@CurrentUser() user: AuthenticatedUser) {
+    const context = await this.learner.context(user);
+    return this.studyGroups.allTasks(user.id, context.language);
+  }
+
+  @Post('practice/tasks/:taskId/done')
+  @RequirePermissions('profile:read:own')
+  async setStudyGroupTaskDone(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('taskId', uuidParam()) taskId: string,
+    @Body(zodBody(setTaskDoneSchema)) body: SetTaskDoneInput,
+  ) {
+    return this.studyGroups.setTaskDone(taskId, user.id, body.done);
+  }
+
+  @Delete('practice/tasks/:taskId')
+  @RequirePermissions('profile:read:own')
+  async deleteStudyGroupTask(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('taskId', uuidParam()) taskId: string,
+  ) {
+    return this.studyGroups.deleteTask(taskId, user.id);
   }
 
   @Post('practice/invitations/:invitationId/respond')

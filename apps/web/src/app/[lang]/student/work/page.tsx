@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { HomeworkDto, MaterialDto } from '@classconnect/shared';
 import { useI18n } from '@/lib/i18n';
 import { GroupInvitations } from '@/components/student/GroupInvitations';
+import { GroupTasks } from '@/components/student/GroupTasks';
 import { useStudent } from '@/lib/student-context';
 import { useCachedApi } from '@/lib/use-cached-api';
 import { HomeworkRow, MaterialRow } from '@/components/student/cards';
@@ -122,6 +123,16 @@ export default function StudentWork() {
           )
         )}
       </div>
+
+      {/*
+        * Below the tabs, not inside one.
+        *
+        * Group tasks are not homework — no mark, no hand-in — so they are not a
+        * fifth tab beside To do / Submitted / Graded, which would suggest the
+        * same lifecycle. They sit under the panel as their own section, and
+        * render nothing at all when there are none.
+        */}
+      <GroupTasks />
     </>
   );
 }

@@ -730,6 +730,26 @@ export type InviteToStudyGroupInput = z.infer<typeof inviteToStudyGroupSchema>;
 export const respondToInvitationSchema = z.object({ accept: z.boolean() });
 export type RespondToInvitationInput = z.infer<typeof respondToInvitationSchema>;
 
+/**
+ * Setting a shared to-do for a group.
+ *
+ * No mark and no submission — that is `WorkAssignment`, which the platform
+ * grades. This is "read chapter 4 before Thursday", and giving it a score field
+ * would be the first step towards it becoming homework by accident.
+ */
+export const createStudyGroupTaskSchema = z.object({
+  title: z.string().min(2).max(300).trim(),
+  description: z.string().max(5_000).trim().optional(),
+  /** Decides which heading it appears under. Optional: not every task has one. */
+  subjectId: z.string().uuid().optional(),
+  dueAt: z.string().datetime().optional(),
+});
+export type CreateStudyGroupTaskInput = z.infer<typeof createStudyGroupTaskSchema>;
+
+/** Ticking a task off, or un-ticking it. Both directions, one route. */
+export const setTaskDoneSchema = z.object({ done: z.boolean() });
+export type SetTaskDoneInput = z.infer<typeof setTaskDoneSchema>;
+
 export const setStudyGroupMemberPermissionSchema = z.object({
   mayPost: z.boolean().optional(),
   allowImages: z.boolean().optional(),

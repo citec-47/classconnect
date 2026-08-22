@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AppError } from '../common/http-exception.filter';
 import { LearnerMessagesGateway } from './learner-messages.gateway';
-import type { CreateStudyGroupInput } from '@classconnect/shared';
+import type { CreateStudyGroupInput, Language } from '@classconnect/shared';
 
 /** Learner-owned groups used from the Practice surface. */
 @Injectable()
@@ -366,6 +366,186 @@ export class LearnerStudyGroupsService {
       this.prisma.threadParticipant.deleteMany({ where: { threadId: group.threadId } }),
     ]);
     this.messagesGateway.publishThreadUpdate(group.threadId);
+    return { deleted: true };
+  }
+
+  /** Any active member. Reading a group's tasks does not require running it. */
+  private async memberGroup(groupId: string, userId: string) {
+    const group = await this.prisma.studyGroup.findFirst({
+      where: { id: groupId, deletedAt: null, members: { some: { userId, leftAt: null } } },
+      select: { id: true, name: true, levelId: true },
+    });
+    if (!group) throw AppError.notFound();
+    return group;
+  }
+
+  /**
+   * Setting a task.
+   *
+   * A group admin — which is the owner, and anyone they have promoted. The brief
+   * describes this as the teacher's action, and a teacher who created the group
+   * is its owner; but a learner who set up a revision group and writes down what
+   * the group agreed to do is doing the same thing, and refusing them would mean
+   * a student group where nobody can record a plan.
+   *
+   * The subject is validated against the group's level rather than taken on
+   * trust, so a task cannot be filed under a subject that class does not study —
+   * which would leave it invisible in a list grouped by subject.
+   */
+  async createTask(
+    groupId: string,
+    actorUserId: string,
+    input: { title: string; description?: string; subjectId?: string; dueAt?: string },
+  ) {
+    const group = await this.adminGroup(groupId, actorUserId);
+
+    if (input.subjectId) {
+      const taught = await this.prisma.levelSubject.findFirst({
+        where: { levelId: group.levelId, subjectId: input.subjectId },
+        select: { subjectId: true },
+      });
+      if (!taught) throw AppError.badRequest('errors.group.subject_not_at_level');
+    }
+
+    const task = await this.prisma.studyGroupTask.create({
+      data: {
+        groupId,
+        createdBy: actorUserId,
+        subjectId: input.subjectId ?? null,
+        title: input.title.trim().slice(0, 300),
+        description: input.description?.trim().slice(0, 5_000) || null,
+        dueAt: input.dueAt ? new Date(input.dueAt) : null,
+      },
+      select: { id: true },
+    });
+
+    return { id: task.id };
+  }
+
+  /**
+   * A group's tasks, with this member's own progress and the group's.
+   *
+   * Both counts in one pass. "Have I done it" is what the learner acts on, and
+   * "how many of us have" is what makes a shared to-do shared rather than a
+   * private list that happens to be visible to others.
+   */
+  async tasks(groupId: string, userId: string, language: Language) {
+    await this.memberGroup(groupId, userId);
+
+    const [tasks, memberCount] = await Promise.all([
+      this.prisma.studyGroupTask.findMany({
+        where: { groupId, deletedAt: null },
+        orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+        include: {
+          subject: { select: { id: true, nameEn: true, nameFr: true } },
+          author: { select: { fullName: true } },
+          progress: { select: { userId: true } },
+        },
+      }),
+      this.prisma.studyGroupMember.count({ where: { groupId, leftAt: null } }),
+    ]);
+
+    return tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      subject: task.subject
+        ? {
+            id: task.subject.id,
+            name: language === 'fr' ? task.subject.nameFr : task.subject.nameEn,
+          }
+        : null,
+      setBy: task.author.fullName,
+      dueAt: task.dueAt?.toISOString() ?? null,
+      done: task.progress.some((row) => row.userId === userId),
+      doneCount: task.progress.length,
+      memberCount,
+    }));
+  }
+
+  /**
+   * Every task across every group this person is in, for the Work screen.
+   *
+   * Grouped by subject at the edge rather than here: the shape a screen wants is
+   * a screen's business, and a second endpoint returning the same rows in a
+   * different arrangement is two things to keep in step.
+   */
+  async allTasks(userId: string, language: Language) {
+    const tasks = await this.prisma.studyGroupTask.findMany({
+      where: {
+        deletedAt: null,
+        group: { deletedAt: null, members: { some: { userId, leftAt: null } } },
+      },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+      take: 200,
+      include: {
+        subject: { select: { id: true, nameEn: true, nameFr: true } },
+        group: { select: { id: true, name: true } },
+        progress: { where: { userId }, select: { userId: true } },
+      },
+    });
+
+    return tasks.map((task) => ({
+      id: task.id,
+      groupId: task.group.id,
+      groupName: task.group.name,
+      title: task.title,
+      description: task.description,
+      subject: task.subject
+        ? {
+            id: task.subject.id,
+            name: language === 'fr' ? task.subject.nameFr : task.subject.nameEn,
+          }
+        : null,
+      dueAt: task.dueAt?.toISOString() ?? null,
+      done: task.progress.length > 0,
+    }));
+  }
+
+  /**
+   * Ticking a task off, and un-ticking it.
+   *
+   * Membership is re-checked through the task's group, so somebody who left
+   * cannot keep marking its work done. Idempotent both ways: `createMany` with
+   * `skipDuplicates` keeps the first completion time, and deleting a row that is
+   * not there is not an error — a double tap is one intention.
+   */
+  async setTaskDone(taskId: string, userId: string, done: boolean) {
+    const task = await this.prisma.studyGroupTask.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null,
+        group: { deletedAt: null, members: { some: { userId, leftAt: null } } },
+      },
+      select: { id: true },
+    });
+    if (!task) throw AppError.notFound();
+
+    if (done) {
+      await this.prisma.studyGroupTaskDone.createMany({
+        data: [{ taskId, userId }],
+        skipDuplicates: true,
+      });
+    } else {
+      await this.prisma.studyGroupTaskDone.deleteMany({ where: { taskId, userId } });
+    }
+
+    return { done };
+  }
+
+  /** Withdrawing a task. Soft, so somebody's completion is not erased with it. */
+  async deleteTask(taskId: string, actorUserId: string) {
+    const task = await this.prisma.studyGroupTask.findFirst({
+      where: { id: taskId, deletedAt: null },
+      select: { id: true, groupId: true },
+    });
+    if (!task) throw AppError.notFound();
+    await this.adminGroup(task.groupId, actorUserId);
+
+    await this.prisma.studyGroupTask.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date() },
+    });
     return { deleted: true };
   }
 

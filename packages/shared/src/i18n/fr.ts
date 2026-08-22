@@ -2470,6 +2470,11 @@ timetable: {
       filterAll: 'Toutes les matières',
     },
     /* Voir en.ts : les documents publiés, distincts des enregistrements. */
+    groupTasks: {
+      /* Voir en.ts : des tâches partagées, pas des devoirs notés. */
+      title: 'Tâches de groupe',
+      due: 'pour le {date}',
+    },
     invitations: {
       /* Voir en.ts. */
       title: 'Invitations de groupe ({count})',

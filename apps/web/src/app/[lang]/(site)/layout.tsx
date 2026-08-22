@@ -3,6 +3,7 @@ import { t, type Language } from '@classconnect/shared';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Logo } from '@/components/Logo';
 import { DashboardLink } from '@/components/DashboardLink';
+import { ChatWidget } from '@/components/ChatWidget';
 
 /**
  * The learner, parent and teacher surface.
@@ -54,6 +55,16 @@ export default async function SiteLayout({
           </p>
         </div>
       </footer>
+
+      {/*
+        * Live chat, on the public surface only.
+        *
+        * Mounted here rather than in the root layout so it appears for visitors
+        * — the people it is for — and not on top of a lesson in progress or an
+        * admin's approval queue. A floating button over a live classroom is in
+        * the way of the thing that matters.
+        */}
+      <ChatWidget />
     </div>
   );
 }

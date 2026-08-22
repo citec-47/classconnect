@@ -751,6 +751,9 @@ export const en = {
     recordings: 'General Past Classes',
     academicResults: 'Academic Results',
     schedule: 'Schedules',
+    /* Visitors asking questions from the public site. Distinct from 'support'
+       below, which is about assigning agents rather than talking to anyone. */
+    chat: 'Live chat',
     support: 'Assign customer service',
     messages: 'Messages',
     safeguarding: 'Safeguarding',
@@ -1694,6 +1697,39 @@ export const en = {
     },
   },
 
+  chat: {
+    /* The visitor widget. Short strings: this is a floating panel on a phone. */
+    open: 'Chat with us',
+    title: 'Live chat',
+    minimise: 'Minimise chat',
+    intro: 'Ask us anything. Someone from the school will answer here.',
+    namePlaceholder: 'Your name (optional)',
+    start: 'Start chatting',
+    placeholder: 'Type your message',
+    send: 'Send',
+    emptyBody: 'Send a message and someone will reply here.',
+    /* With no malware scanner configured this is the permanent answer, which
+       is FR-FIL-001 working rather than failing. */
+    fileChecking: 'being checked',
+    closedBody: 'This conversation has been closed. Start a new one any time.',
+    failed: 'That did not send. Check your connection and try again.',
+  },
+  adminChat: {
+    title: 'Live chat',
+    /* The number that decides whether anyone needs to act right now. */
+    waitingCount: '{count} waiting for a first reply',
+    filter: { open: 'Open', waiting: 'Waiting', active: 'Active', closed: 'Closed' },
+    status: { waiting: 'Waiting', active: 'Active', closed: 'Closed' },
+    /* A visitor who gave no name is still a person waiting. */
+    guest: 'Guest',
+    emptyQueue: 'No conversations here.',
+    selectOne: 'Choose a conversation on the left.',
+    placeholder: 'Type your reply',
+    send: 'Send',
+    close: 'Close conversation',
+    closedBody: 'This conversation is closed. The visitor can still read it and can start a new one.',
+    fileChecking: 'being checked',
+  },
   notifications: {
     /*
      * The credentials for an account somebody else created.

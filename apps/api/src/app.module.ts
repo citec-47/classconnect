@@ -22,6 +22,7 @@ import { TeachersModule } from './teachers/teachers.module';
 import { FilesModule } from './files/files.module';
 import { BillingModule } from './billing/billing.module';
 import { EarningsModule } from './earnings/earnings.module';
+import { SupportModule } from './support/support.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
@@ -67,6 +68,7 @@ class CoreModule {}
     BillingModule,
     EarningsModule,
     AdminModule,
+    SupportModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -680,6 +680,8 @@ export const fr: Messages = {
     recordings: 'Cours passés — général',
     academicResults: 'Résultats scolaires',
     schedule: 'Emplois du temps',
+    /* Voir en.ts. */
+    chat: 'Chat en direct',
     support: 'Affecter le service client',
     messages: 'Messages',
     safeguarding: 'Protection de l’enfance',
@@ -1618,6 +1620,38 @@ export const fr: Messages = {
     },
   },
 
+  chat: {
+    /* Voir en.ts. */
+    open: 'Discuter avec nous',
+    title: 'Chat en direct',
+    minimise: 'Réduire le chat',
+    intro: 'Posez-nous vos questions. Quelqu’un de l’école vous répondra ici.',
+    namePlaceholder: 'Votre nom (facultatif)',
+    start: 'Commencer la discussion',
+    placeholder: 'Écrivez votre message',
+    send: 'Envoyer',
+    emptyBody: 'Envoyez un message et quelqu’un vous répondra ici.',
+    fileChecking: 'en cours de vérification',
+    closedBody: 'Cette conversation est terminée. Vous pouvez en démarrer une autre à tout moment.',
+    failed: 'L’envoi a échoué. Vérifiez votre connexion et réessayez.',
+  },
+  adminChat: {
+    /* Voir en.ts. */
+    title: 'Chat en direct',
+    waitingCount: '{count} en attente d’une première réponse',
+    filter: { open: 'Ouvertes', waiting: 'En attente', active: 'Actives', closed: 'Terminées' },
+    /* « En cours » plutôt qu’« Active » : décrit une conversation en train de se
+       tenir, et évite un mot identique à l’anglais. */
+    status: { waiting: 'En attente', active: 'En cours', closed: 'Terminée' },
+    guest: 'Visiteur',
+    emptyQueue: 'Aucune conversation ici.',
+    selectOne: 'Choisissez une conversation à gauche.',
+    placeholder: 'Écrivez votre réponse',
+    send: 'Envoyer',
+    close: 'Terminer la conversation',
+    closedBody: 'Cette conversation est terminée. Le visiteur peut encore la lire et en démarrer une autre.',
+    fileChecking: 'en cours de vérification',
+  },
   notifications: {
     /* Voir en.ts : le mot de passe et sa condition dans la même phrase. */
     studentCredentials: {

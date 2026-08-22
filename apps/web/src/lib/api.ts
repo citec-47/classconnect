@@ -117,6 +117,15 @@ interface RequestOptions {
    * the caller is in a position to handle.
    */
   keepalive?: boolean;
+  /**
+   * Extra request headers.
+   *
+   * Added for the visitor chat, whose credential is `x-chat-token` rather than a
+   * bearer token — the sender has no account, so `tokenStore` has nothing to
+   * offer. Merged after the defaults and before `authorization`, so a caller
+   * cannot accidentally replace a signed-in user's identity with a header.
+   */
+  headers?: Record<string, string>;
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -127,6 +136,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     retryOnUnauthorised = true,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     keepalive = false,
+    headers: extraHeaders,
   } = options;
 
   let response: Response;
@@ -136,6 +146,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       headers: {
         'content-type': 'application/json',
         'accept-language': language,
+        ...extraHeaders,
+        // Last, so a caller's headers cannot displace the signed-in identity.
         ...(tokenStore.access ? { authorization: `Bearer ${tokenStore.access}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

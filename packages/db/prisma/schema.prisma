@@ -487,6 +487,8 @@ model User {
   timetableConfirmed    TimetableSlot[]       @relation("TimetableSlotConfirmer")
   materialsUploaded     Material[]
   materialReads         MaterialRead[]
+  /// Visitor chats this member of staff picked up. Advisory assignment only.
+  chatSessions          ChatSession[]  @relation("ChatAssignee")
   publishRequests       MediaPublishRequest[]
   recordingPlayback     RecordingPlayback[]
   threadSeats           ThreadParticipant[]
@@ -2786,4 +2788,115 @@ model MessageAttachment {
 
   @@index([messageId])
   @@map("message_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Live chat with visitors — FR-SUP-001's "in-app chat", for people who have no
+// account yet.
+//
+// Deliberately separate from `MessageThread`/`Ticket`. Everything in those is
+// anchored to a `User`: a thread has participants, a ticket has a requester, and
+// both carry the permission model that makes a learner's messages private. A
+// visitor has none of that — no id, no roles, nothing to check a permission
+// against — so bending those models to admit anonymous rows would weaken the one
+// property that protects children's conversations. Two models, one of which
+// nobody is authenticated for, is the honest shape.
+// ---------------------------------------------------------------------------
+
+enum ChatSessionStatus {
+  /// Opened, nobody has answered yet. This is what the desk queue reads.
+  waiting
+  /// A member of staff has replied at least once.
+  active
+  /// Staff closed it. Hidden from the queue, kept for the record.
+  closed
+}
+
+enum ChatSender {
+  visitor
+  /// Admin or customer service. Which one is a fact about `senderId`'s roles,
+  /// not about the message: storing it here lets the two disagree the day
+  /// somebody changes role, and the audit trail already answers "who".
+  staff
+}
+
+model ChatSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// The visitor's credential, and the reason `id` is safe to show staff.
+  ///
+  /// Anyone holding this can read and post to the conversation, so it is a
+  /// secret rather than an identifier: 32 random bytes, unique, never returned
+  /// to staff and never logged. The alternative — letting the session id double
+  /// as the key, as the brief sketched — means an id an admin can see over a
+  /// shoulder is an id that opens somebody else's chat.
+  visitorToken String @unique @map("visitor_token") @db.VarChar(64)
+
+  /// Optional, and asked for rather than required. A visitor who has to fill in
+  /// a form before saying "is anyone there" mostly does not say it.
+  visitorName  String? @map("visitor_name") @db.VarChar(120)
+  visitorEmail String? @map("visitor_email") @db.VarChar(320)
+  /// For rate limiting and abuse review only. NFR-SEC-009 keeps it out of logs.
+  visitorIp    String? @map("visitor_ip") @db.VarChar(64)
+
+  status     ChatSessionStatus @default(waiting)
+  /// Who picked it up. Advisory — it does not stop a colleague replying, because
+  /// a desk where one person's absence blocks a queue is worse than one where
+  /// two people occasionally answer together.
+  assignedTo String?           @map("assigned_to") @db.Uuid
+
+  /// Read watermarks, one per side.
+  ///
+  /// A timestamp per session rather than `isRead` on every message. The unread
+  /// count is "messages from the other side newer than this", which is one
+  /// indexed comparison — where a per-message flag means writing a row for every
+  /// message in the conversation each time somebody opens it.
+  staffReadAt   DateTime? @map("staff_read_at") @db.Timestamptz(6)
+  visitorReadAt DateTime? @map("visitor_read_at") @db.Timestamptz(6)
+
+  /// Denormalised so the queue can sort and preview without loading messages.
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(6)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  closedAt  DateTime? @map("closed_at") @db.Timestamptz(6)
+  closedBy  String?   @map("closed_by") @db.Uuid
+
+  assignee User?         @relation("ChatAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  /// The queue: waiting and active, oldest first.
+  @@index([status, lastMessageAt])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String     @id @default(uuid()) @db.Uuid
+  sessionId String     @map("session_id") @db.Uuid
+  sender    ChatSender
+  /// Null for a visitor, who has no account. Set for staff, so the trail names
+  /// the person rather than the desk.
+  senderId  String?    @map("sender_id") @db.Uuid
+
+  body String @db.Text
+
+  /// One optional attachment, held the way every other file here is.
+  ///
+  /// A storage key and not a URL. FR-FIL-003: a stored URL is permanent and
+  /// forwardable, so the download is signed per request and re-checks the scan
+  /// at that moment. `scanStatus` gates it — with no scanner configured the
+  /// verdict never becomes `clean`, which is FR-FIL-001 working rather than
+  /// failing, and the screen says so instead of offering a dead link.
+  fileName   String? @map("file_name") @db.VarChar(300)
+  storageKey String? @map("storage_key") @db.VarChar(500)
+  mimeType   String? @map("mime_type") @db.VarChar(100)
+  sizeBytes  Int?    @map("size_bytes")
+  scanStatus String? @map("scan_status") @db.VarChar(20)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }

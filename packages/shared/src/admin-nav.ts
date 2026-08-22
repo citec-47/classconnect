@@ -154,6 +154,18 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         permission: 'user:read:any',
       },
       {
+        /*
+         * Visitors asking questions from the public site.
+         *
+         * `support:read:own` is what customer service already holds for its own
+         * queue, so the desk sees this without a new grant — and admins hold it
+         * too. The people who answer support are the people who should see it.
+         */
+        id: 'chat',
+        href: '/chat',
+        permission: 'support:read:own',
+      },
+      {
         // Every lesson in progress, who is teaching it and who is in it.
         id: 'live',
         href: '/live',

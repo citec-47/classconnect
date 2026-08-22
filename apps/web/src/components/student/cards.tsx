@@ -233,6 +233,30 @@ export function HomeworkRow({
         {item.grade?.hasAudioFeedback && <Pill tone="neutral">♪</Pill>}
       </div>
 
+      {/*
+        * What the teacher asked for.
+        *
+        * The row previously showed a title, a subject and a due date — a child
+        * could see that homework existed and not what it was, which is what
+        * "the Work section should be readable" was about. The text was in the
+        * database the whole time and simply never left the server.
+        *
+        * Collapsed behind a disclosure rather than always open: instructions run
+        * to paragraphs, and four of them expanded turn a list of this week's
+        * homework into a page of scrolling. `whitespace-pre-wrap` because a
+        * teacher's line breaks and numbered steps are part of the instruction.
+        */}
+      {item.instructions.trim() && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-medium text-brand-700">
+            {t('student.work.readInstructions')}
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap rounded-lg bg-ink-100 px-3 py-2 text-sm text-ink-900">
+            {item.instructions}
+          </p>
+        </details>
+      )}
+
       {item.grade?.feedbackText && (
         <p className="mt-2 rounded-lg bg-ink-100 px-3 py-2 text-sm text-ink-900">
           {item.grade.feedbackText}

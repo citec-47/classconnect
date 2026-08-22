@@ -138,6 +138,14 @@ export class LearnerWorkService {
       return {
         id: row.id,
         title: row.title,
+        /*
+         * What the teacher actually asked for.
+         *
+         * Stored since the model was written and never sent to the learner, so
+         * the Work screen showed a title, a due date and nothing to read — a
+         * child could see that homework existed and not what it was.
+         */
+        instructions: row.instructions,
         subject: {
           id: row.subject.id,
           name: language === 'fr' ? row.subject.nameFr : row.subject.nameEn,

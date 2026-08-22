@@ -3028,6 +3028,9 @@ timetable: {
       materialFailed: 'We could not open that. Try again in a moment.',
       handIn: 'Hand in work',
       handInHint: 'Write your answer below, then hand it in for your teacher.',
+      /* A disclosure, because instructions run to paragraphs and four open at
+         once turn this week's homework into a page of scrolling. */
+      readInstructions: 'Read what to do',
       answer: 'Your answer',
       handInNow: 'Hand in',
       handingIn: 'Handing in…',

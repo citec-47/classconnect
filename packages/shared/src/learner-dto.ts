@@ -102,6 +102,8 @@ export interface RecordingDto {
 export interface HomeworkDto {
   id: string;
   title: string;
+  /** FR-HWK: what was asked for. Shown when the learner opens the row. */
+  instructions: string;
   subject: SubjectRefDto;
   teacher: TeacherRefDto;
   dueAt: IsoInstant;

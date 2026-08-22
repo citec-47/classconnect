@@ -2845,6 +2845,8 @@ timetable: {
       materialFailed: 'Impossible d’ouvrir ce fichier. Réessayez dans un instant.',
       handIn: 'Rendre le devoir',
       handInHint: 'Écrivez votre réponse ci-dessous, puis envoyez-la à votre enseignant.',
+      /* Voir en.ts. */
+      readInstructions: 'Lire la consigne',
       answer: 'Votre réponse',
       handInNow: 'Rendre',
       handingIn: 'Envoi en cours…',

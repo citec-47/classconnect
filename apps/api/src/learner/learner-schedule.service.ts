@@ -172,9 +172,21 @@ export function toSessionDto(
      * FR-LIV-003, computed from the server's clock. A shared family phone's
      * clock is not something to hang the start of a lesson on, so the client is
      * told the window rather than asked to work it out.
+     *
+     * Both ends were hard-coded to a quarter of an hour around the start, and
+     * both were wrong. `SESSION_JOIN_EARLY_MINUTES` was read from
+     * `PlatformConfig`, threaded all the way down to here as
+     * `windows.joinEarlyMinutes`, and then not used — so operations could widen
+     * the window, see the value saved, and change nothing a learner experiences.
+     *
+     * And the window closed fifteen minutes after the start rather than at the
+     * end of the lesson, which locked out the learner whose connection dropped
+     * twenty minutes in. Being late is not the same as being finished.
      */
-    joinOpensAt: new Date(startsAt.getTime() - 15 * 60_000).toISOString(),
-    joinClosesAt: new Date(startsAt.getTime() + 15 * 60_000).toISOString(),
+    joinOpensAt: new Date(
+      startsAt.getTime() - windows.joinEarlyMinutes * 60_000,
+    ).toISOString(),
+    joinClosesAt: endsAt.toISOString(),
     recordingEnabled: session.recordingEnabled,
     // FR-SCH-007 / UI-007: the consequence, in a form the client can state
     // plainly before it asks for confirmation.

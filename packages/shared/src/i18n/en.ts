@@ -754,6 +754,10 @@ export const en = {
     /* Visitors asking questions from the public site. Distinct from 'support'
        below, which is about assigning agents rather than talking to anyone. */
     chat: 'Live chat',
+    /* Screens that existed and had no way in until now. */
+    newStudent: 'Create student account',
+    newTeacher: 'Create teacher account',
+    studyGroups: 'Study groups',
     support: 'Assign customer service',
     messages: 'Messages',
     safeguarding: 'Safeguarding',
@@ -1713,6 +1717,20 @@ export const en = {
     fileChecking: 'being checked',
     closedBody: 'This conversation has been closed. Start a new one any time.',
     failed: 'That did not send. Check your connection and try again.',
+  },
+  studyGroupsAdmin: {
+    title: 'Study groups',
+    /* Says what the screen is for, because a list of groups does not explain
+       itself and the reason to open it is usually that one vanished. */
+    intro:
+      'Groups learners created for themselves. A learner can delete a group they own, which hides the conversation from everyone who was in it — deleted groups are listed here and can be put back.',
+    filter: { deleted: 'Deleted', active: 'Live', all: 'All' },
+    none: 'No groups match this filter.',
+    owner: 'created by {name}',
+    counts: '{members} members · {messages} messages · {tasks} tasks',
+    restore: 'Restore',
+    live: 'Live',
+    deletedOn: 'Deleted on {date}',
   },
   adminChat: {
     title: 'Live chat',

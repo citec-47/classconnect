@@ -129,6 +129,30 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         href: '/people/students',
         permission: 'user:read:any',
       },
+      /*
+       * Creating accounts, which had screens and no way in.
+       *
+       * `/admin/students` and `/admin/teachers/new` were built and never linked
+       * from anywhere — the same failure the teacher surface had, where a
+       * finished surface was reachable only by typing the URL. A page nobody can
+       * navigate to does not exist as far as the person using the product is
+       * concerned.
+       *
+       * Gated on the creation permissions rather than on `user:read:any`, so the
+       * entry appears for exactly the roles that can act on it. Customer service
+       * now holds `student:create` and sees the first; `teacher:create` stays
+       * with Ops, so they do not see the second.
+       */
+      {
+        id: 'newStudent',
+        href: '/students',
+        permission: 'student:create',
+      },
+      {
+        id: 'newTeacher',
+        href: '/teachers/new',
+        permission: 'teacher:create',
+      },
     ],
   },
   {
@@ -217,6 +241,18 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
         id: 'messages',
         href: '/messages',
         permission: 'support:read:any',
+      },
+      {
+        /*
+         * Study groups, and the deleted ones especially.
+         *
+         * Beside Safeguarding rather than under People, and on the same
+         * permission: the rows behind it are conversations between children,
+         * and the reason to open it is almost always that one disappeared.
+         */
+        id: 'studyGroups',
+        href: '/study-groups',
+        permission: 'safeguarding:read',
       },
       {
         id: 'safeguarding',

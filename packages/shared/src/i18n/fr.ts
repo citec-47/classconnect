@@ -682,6 +682,10 @@ export const fr: Messages = {
     schedule: 'Emplois du temps',
     /* Voir en.ts. */
     chat: 'Chat en direct',
+    /* Voir en.ts. */
+    newStudent: 'Créer un compte élève',
+    newTeacher: 'Créer un compte enseignant',
+    studyGroups: 'Groupes d’étude',
     support: 'Affecter le service client',
     messages: 'Messages',
     safeguarding: 'Protection de l’enfance',
@@ -1634,6 +1638,19 @@ export const fr: Messages = {
     fileChecking: 'en cours de vérification',
     closedBody: 'Cette conversation est terminée. Vous pouvez en démarrer une autre à tout moment.',
     failed: 'L’envoi a échoué. Vérifiez votre connexion et réessayez.',
+  },
+  studyGroupsAdmin: {
+    /* Voir en.ts. */
+    title: 'Groupes d’étude',
+    intro:
+      'Les groupes que les élèves ont créés eux-mêmes. Un élève peut supprimer un groupe dont il est propriétaire, ce qui masque la conversation à tous ses membres — les groupes supprimés sont listés ici et peuvent être rétablis.',
+    filter: { deleted: 'Supprimés', active: 'Actifs', all: 'Tous' },
+    none: 'Aucun groupe ne correspond à ce filtre.',
+    owner: 'créé par {name}',
+    counts: '{members} membres · {messages} messages · {tasks} tâches',
+    restore: 'Rétablir',
+    live: 'Actif',
+    deletedOn: 'Supprimé le {date}',
   },
   adminChat: {
     /* Voir en.ts. */

@@ -1743,6 +1743,14 @@ export const en = {
     restore: 'Restore',
     live: 'Live',
     deletedOn: 'Deleted on {date}',
+    /* The conversation view. Files are described, never linked: FR-FIL-003
+       signs a download per request and re-checks the scan. */
+    memberLeft: '{name} (left)',
+    noMessages: 'Nothing has been sent in this group.',
+    withheld: 'withheld from the group',
+    asTyped: 'As typed',
+    seconds: '{count}s',
+    fileChecking: 'being checked',
   },
   adminChat: {
     title: 'Live chat',

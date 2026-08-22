@@ -1658,6 +1658,13 @@ export const fr: Messages = {
     restore: 'Rétablir',
     live: 'Actif',
     deletedOn: 'Supprimé le {date}',
+    /* Voir en.ts. */
+    memberLeft: '{name} (parti)',
+    noMessages: 'Rien n’a été envoyé dans ce groupe.',
+    withheld: 'retiré du groupe',
+    asTyped: 'Tel qu’écrit',
+    seconds: '{count} s',
+    fileChecking: 'en cours de vérification',
   },
   adminChat: {
     /* Voir en.ts. */

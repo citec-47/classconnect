@@ -31,6 +31,37 @@ interface GroupRow {
   deletedAt: string | null;
 }
 
+interface Attachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  scanStatus: string;
+  /** Present on a voice note; null on everything else. */
+  durationSec: number | null;
+}
+
+interface GroupMessage {
+  id: string;
+  senderName: string;
+  body: string;
+  /** What was typed, where FR-SAF-002 redaction changed it. */
+  original: string | null;
+  /** Withheld from the group by a moderator, kept for the investigation. */
+  withheld: boolean;
+  sentAt: string;
+  attachments: Attachment[];
+}
+
+interface Conversation {
+  id: string;
+  name: string;
+  owner: string;
+  deletedAt: string | null;
+  members: { displayName: string; left: boolean }[];
+  messages: GroupMessage[];
+}
+
 type Filter = 'deleted' | 'active' | 'all';
 
 export default function AdminStudyGroups() {
@@ -39,6 +70,15 @@ export default function AdminStudyGroups() {
   const [groups, setGroups] = useState<GroupRow[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  /**
+   * The group being read, if any.
+   *
+   * Opened in place rather than on its own route. This is a review action taken
+   * while working down a list, and a page change would lose the filter and the
+   * scroll position every time somebody checked one group.
+   */
+  const [openGroup, setOpenGroup] = useState<Conversation | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -53,6 +93,26 @@ export default function AdminStudyGroups() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Opening a conversation.
+   *
+   * The read is audited on the server before anything comes back — a study
+   * group is children talking to each other, and FR-RBA-004 requires every
+   * staff access to a learner's personal data to be recorded.
+   */
+  const openConversation = async (id: string) => {
+    if (opening) return;
+    setOpening(id);
+    setError(null);
+    try {
+      setOpenGroup(await api<Conversation>(`/admin/study-groups/${id}`, { language }));
+    } catch (caught) {
+      setError(caught as ApiError);
+    } finally {
+      setOpening(null);
+    }
+  };
 
   const restore = async (id: string) => {
     if (busyId) return;
@@ -95,6 +155,96 @@ export default function AdminStudyGroups() {
 
       <ErrorAlert error={error} />
 
+      {/*
+        * The conversation, in place above the list.
+        *
+        * Every message including ones a moderator withheld, and every file
+        * described rather than linked — FR-FIL-003 signs a download per request
+        * and re-checks the scan, so a permanent URL to a child's attachment is
+        * exactly what must not exist on an admin screen.
+        */}
+      {openGroup && (
+        <section className="mt-4 rounded-xl border border-brand-600 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-ink-900">{openGroup.name}</h2>
+              <p className="text-sm text-ink-600">
+                {t('studyGroupsAdmin.owner', { name: openGroup.owner })} ·{' '}
+                {openGroup.members
+                  .map((member) =>
+                    member.left
+                      ? t('studyGroupsAdmin.memberLeft', { name: member.displayName })
+                      : member.displayName,
+                  )
+                  .join(', ')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenGroup(null)}
+              className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm"
+            >
+              {t('common.close')}
+            </button>
+          </div>
+
+          {openGroup.messages.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-600">{t('studyGroupsAdmin.noMessages')}</p>
+          ) : (
+            <ul className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto">
+              {openGroup.messages.map((message) => (
+                <li
+                  key={message.id}
+                  className={`rounded-lg p-3 ${
+                    message.withheld ? 'bg-danger-50' : 'bg-ink-100'
+                  }`}
+                >
+                  <p className="text-xs font-medium text-ink-900">
+                    {message.senderName}
+                    <span className="ml-2 font-normal text-ink-600">
+                      {new Date(message.sentAt).toLocaleString(language)}
+                    </span>
+                    {message.withheld && (
+                      <span className="ml-2 font-normal text-danger-600">
+                        {t('studyGroupsAdmin.withheld')}
+                      </span>
+                    )}
+                  </p>
+
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-ink-900">{message.body}</p>
+
+                  {/*
+                    * What was typed, where redaction changed it. A review that
+                    * saw only the redacted version would be reading the
+                    * platform's edit rather than what the child wrote.
+                    */}
+                  {message.original && (
+                    <p className="mt-1 whitespace-pre-wrap rounded bg-warning-50 p-2 text-xs text-ink-900">
+                      {t('studyGroupsAdmin.asTyped')}: {message.original}
+                    </p>
+                  )}
+
+                  {message.attachments.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {message.attachments.map((file) => (
+                        <li key={file.id} className="text-xs text-ink-600">
+                          📎 {file.fileName} · {file.mimeType} ·{' '}
+                          {Math.max(1, Math.round(file.sizeBytes / 1024))} KB
+                          {file.durationSec !== null &&
+                            ` · ${t('studyGroupsAdmin.seconds', { count: file.durationSec })}`}
+                          {file.scanStatus !== 'clean' &&
+                            ` · ${t('studyGroupsAdmin.fileChecking')}`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {groups?.length === 0 ? (
         <EmptyState title={t('studyGroupsAdmin.none')} body={t('studyGroupsAdmin.intro')} />
       ) : (
@@ -106,7 +256,20 @@ export default function AdminStudyGroups() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-ink-900">{group.name}</p>
+                  {/*
+                    * The name is the way in. A separate "Open" button beside a
+                    * row whose obvious affordance is the row itself is one more
+                    * thing to find, and this list is read by someone looking
+                    * for a specific group.
+                    */}
+                  <button
+                    type="button"
+                    onClick={() => void openConversation(group.id)}
+                    disabled={opening !== null}
+                    className="text-left font-medium text-brand-700 underline disabled:opacity-60"
+                  >
+                    {opening === group.id ? t('common.loading') : group.name}
+                  </button>
                   <p className="text-sm text-ink-600">
                     {group.level} · {t('studyGroupsAdmin.owner', { name: group.owner.displayName })}
                   </p>

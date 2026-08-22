@@ -89,6 +89,15 @@ export type AuditAction =
    * readable again should be nameable afterwards.
    */
   | 'group.restored'
+  /**
+   * Staff read a study group's conversation.
+   *
+   * The read is the auditable event, as with 'live.viewed' and
+   * 'safeguarding.viewed'. FR-RBA-004 requires every staff access to a
+   * learner's personal data to be recorded, and a study group is children
+   * talking to each other.
+   */
+  | 'group.conversation_read'
   /*
    * BUILD-PLAN Phase 2 — lessons.
    *

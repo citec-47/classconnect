@@ -270,6 +270,21 @@ export class GovernanceController {
     return this.studyGroupsService.list(filter ?? 'deleted');
   }
 
+  /**
+   * One group's whole conversation, files included.
+   *
+   * The read itself is audited before anything is returned — see the service.
+   * Deleted groups are readable here, which is the point of the screen.
+   */
+  @Get('study-groups/:groupId')
+  @RequirePermissions('safeguarding:read')
+  async studyGroupConversation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', uuidParam()) groupId: string,
+  ) {
+    return this.studyGroupsService.conversation(user, groupId);
+  }
+
   /** Putting one back, with its members re-seated on the thread. Audited. */
   @Post('study-groups/:groupId/restore')
   @RequirePermissions('safeguarding:act')

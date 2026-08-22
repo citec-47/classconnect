@@ -81,6 +81,116 @@ export class AdminStudyGroupsService {
   }
 
   /**
+   * Reading a group's conversation — every message, and every file in it.
+   *
+   * ## The read is the auditable event
+   *
+   * Not something done afterwards. FR-RBA-004 requires every staff access to a
+   * learner's personal data to be recorded, and a study group is children
+   * talking to each other — the most personal data on this platform after a
+   * safeguarding report. So the audit row is written before the messages are
+   * returned, naming who looked and at whose group.
+   *
+   * Deleted groups are readable here, which is the whole point: the reason to
+   * open a group in this screen is usually that somebody removed it.
+   *
+   * ## Files are described, not linked
+   *
+   * FR-FIL-003 again: a stored URL is permanent and forwardable, and these are
+   * attachments from a children's group. Each carries its name, type, size,
+   * duration for a voice note, and scan status — enough to see what was shared
+   * and decide whether to open it. Fetching one is a separate signed request
+   * that re-checks the scan at that moment.
+   */
+  async conversation(staff: AuthenticatedUser, groupId: string) {
+    const group = await this.prisma.studyGroup.findUnique({
+      where: { id: groupId },
+      select: {
+        id: true,
+        name: true,
+        deletedAt: true,
+        owner: { select: { fullName: true } },
+        members: {
+          select: { userId: true, leftAt: true, user: { select: { fullName: true } } },
+        },
+        thread: {
+          select: {
+            id: true,
+            messages: {
+              orderBy: { createdAt: 'asc' },
+              take: 500,
+              select: {
+                id: true,
+                body: true,
+                bodyOriginal: true,
+                createdAt: true,
+                state: true,
+                sender: { select: { id: true, fullName: true } },
+                attachments: {
+                  select: {
+                    id: true,
+                    fileName: true,
+                    mimeType: true,
+                    sizeBytes: true,
+                    scanStatus: true,
+                    durationSec: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!group) throw AppError.notFound();
+
+    await this.audit.record({
+      action: 'group.conversation_read',
+      entity: 'study_group',
+      entityId: groupId,
+      actorId: staff.id,
+      after: { name: group.name, messages: group.thread.messages.length },
+    });
+
+    return {
+      id: group.id,
+      name: group.name,
+      owner: group.owner.fullName,
+      deletedAt: group.deletedAt?.toISOString() ?? null,
+      members: group.members.map((member) => ({
+        displayName: member.user.fullName,
+        left: member.leftAt !== null,
+      })),
+      messages: group.thread.messages.map((message) => ({
+        id: message.id,
+        senderName: message.sender.fullName,
+        /*
+         * What the group saw, and what was typed when those differ.
+         *
+         * FR-SAF-002 redaction rewrites a message before anyone reads it, and
+         * `bodyOriginal` is kept as evidence. A review that only saw the
+         * redacted version would be looking at the platform's edit rather than
+         * at what the child actually wrote, which is the opposite of the point.
+         */
+        body: message.body,
+        original: message.bodyOriginal,
+        /** Withheld from the group by a moderator, kept for the investigation. */
+        withheld: message.state !== 'visible',
+        sentAt: message.createdAt.toISOString(),
+        attachments: message.attachments.map((file) => ({
+          id: file.id,
+          fileName: file.fileName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          scanStatus: file.scanStatus,
+          /** Present on a voice note; null on everything else. */
+          durationSec: file.durationSec,
+        })),
+      })),
+    };
+  }
+
+  /**
    * Putting a deleted group back.
    *
    * Membership rows were never removed — only `leftAt` on people who actually

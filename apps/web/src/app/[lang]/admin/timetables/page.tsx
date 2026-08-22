@@ -16,6 +16,8 @@ interface OverviewSlot {
   clock: string;
   session: string;
   onHold: boolean;
+  /** Null means the platform rate applies; a number was set for this period. */
+  hourlyRateXaf: number | null;
   subject: { id: string; nameEn: string; nameFr: string };
   teacher: { id: string; fullName: string };
 }
@@ -80,6 +82,12 @@ export default function TimetableOverview() {
   const [subjectId, setSubjectId] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  /*
+   * The rate as typed, so an empty box stays empty and means 'unchanged'.
+   * Parsed to a number it becomes 0 or NaN, and both would have to be
+   * translated back into 'the admin did not touch this'.
+   */
+  const [rate, setRate] = useState('');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<ApiError | null>(null);
 
@@ -94,6 +102,9 @@ export default function TimetableOverview() {
     setSubjectId(slot.subject.id);
     setStart(clockValue(slot.startMinute));
     setEnd(clockValue(slot.endMinute));
+    // Seeded from what the period already pays, so opening the dialog and
+    // saving does not quietly clear a rate somebody set earlier.
+    setRate(slot.hourlyRateXaf === null || slot.hourlyRateXaf === undefined ? '' : String(slot.hourlyRateXaf));
     try {
       const result = await api<{ assignments: EditAssignment[] }>(
         `/admin/timetable/${slot.id}/edit-options`,
@@ -118,6 +129,12 @@ export default function TimetableOverview() {
           dayOfWeek: editing.dayOfWeek,
           startMinute: clockMinutes(start),
           endMinute: clockMinutes(end),
+          /*
+           * Blank means 'leave it alone', not zero. An admin adjusting the hour
+           * of a period must not silently unprice it, and a zero would mean the
+           * teacher works that hour for nothing.
+           */
+          ...(rate.trim() === '' ? {} : { hourlyRateXaf: Number(rate) }),
         },
         language,
       });
@@ -323,6 +340,23 @@ export default function TimetableOverview() {
                   <label className="cc-label">{t('timetable.from')}<input className="cc-field mt-1 w-full" type="time" value={start} onChange={(event) => setStart(event.target.value)} required /></label>
                   <label className="cc-label">{t('timetable.to')}<input className="cc-field mt-1 w-full" type="time" value={end} onChange={(event) => setEnd(event.target.value)} required /></label>
                 </div>
+                <label className="cc-label mt-3">
+                  {t('timetableOverview.rate')}
+                  <input
+                    className="cc-field mt-1 w-full"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={100}
+                    value={rate}
+                    onChange={(event) => setRate(event.target.value)}
+                    placeholder={t('timetableOverview.ratePlaceholder')}
+                  />
+                  <span className="mt-0.5 block text-xs font-normal text-ink-600">
+                    {t('timetableOverview.rateHint')}
+                  </span>
+                </label>
+
                 <div className="mt-5 flex justify-end gap-2">
                   <button type="button" className="cc-btn-secondary" onClick={() => setEditing(null)}>{t('common.cancel')}</button>
                   <button type="submit" className="cc-btn-primary" disabled={saving || !teacherId || !subjectId}>{saving ? t('common.saving') : t('common.save')}</button>

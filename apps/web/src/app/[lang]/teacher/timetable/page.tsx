@@ -30,6 +30,8 @@ interface Slot {
   /** A time change waiting on an admin. Null on both when nothing is pending. */
   proposedStartMinute: number | null;
   proposedEndMinute: number | null;
+  /** Null means the platform rate applies to this period. */
+  hourlyRateXaf: number | null;
 }
 
 interface TeachingPair {
@@ -52,6 +54,8 @@ function TeacherTimetablePage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  /* The platform figure, so an unpriced period can still print what it pays. */
+  const [defaultRate, setDefaultRate] = useState<number | null>(null);
 
   const [form, setForm] = useState({ pair: '', day: '1', start: '08:00', end: '09:00' });
 
@@ -61,10 +65,11 @@ function TeacherTimetablePage() {
   const load = useCallback(async () => {
     try {
       const [mine, application] = await Promise.all([
-        api<{ slots: Slot[] }>('/teacher/timetable', { language }),
+        api<{ slots: Slot[]; defaultHourlyRateXaf: number }>('/teacher/timetable', { language }),
         api<{ subjects: TeachingPair[] }>('/teachers/me/application', { language }),
       ]);
       setSlots(mine.slots);
+      setDefaultRate(mine.defaultHourlyRateXaf);
       setPairs(application.subjects);
       /*
        * Nothing is chosen for the teacher.
@@ -375,6 +380,7 @@ function TeacherTimetablePage() {
             key={day}
             day={day}
             slots={(slots ?? []).filter((slot) => slot.dayOfWeek === day)}
+            defaultRate={defaultRate}
             onWithdraw={(id) => void withdraw(id)}
             onEdit={(slot) => void editTime(slot)}
             busy={busy}
@@ -391,12 +397,15 @@ function DayColumn({
   onWithdraw,
   onEdit,
   busy,
+  defaultRate,
 }: {
   day: TimetableDay;
   slots: Slot[];
   onWithdraw: (slotId: string) => void;
   onEdit: (slot: Slot) => void;
   busy: boolean;
+  /** The platform figure, for periods with no rate of their own. */
+  defaultRate: number | null;
 }) {
   const { t, language } = useI18n();
   const name = (item: { nameEn: string; nameFr: string }) =>
@@ -425,6 +434,19 @@ function DayColumn({
               </p>
               <p className="text-xs text-ink-900">{name(slot.subject)}</p>
               <p className="text-xs text-ink-600">{name(slot.level)}</p>
+              {/*
+                * What this hour pays.
+                *
+                * Shown because a rate an admin sets and the teacher cannot see
+                * is a number they find out about on a payslip. A period with no
+                * rate of its own prints the platform figure rather than a blank,
+                * since 'nothing set here' and 'unpaid' look identical otherwise.
+                */}
+              {(slot.hourlyRateXaf ?? defaultRate) !== null && (
+                <p className="text-[11px] tabular-nums text-ink-600">
+                  {t('timetable.perHour', { amount: slot.hourlyRateXaf ?? defaultRate ?? 0 })}
+                </p>
+              )}
               <p
                 className={`mt-1 text-[11px] font-medium ${
                   slot.state === 'confirmed' ? 'text-success-600' : 'text-warning-600'

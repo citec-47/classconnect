@@ -2020,6 +2020,9 @@ timetable: {
     nonePending: 'No hours are waiting for a decision.',
     /* Money on the approval screen. Blank is a valid answer and the hint says
        so, because an empty money field otherwise reads as "unpaid". */
+    /* On the teacher's own week: an unpriced period shows the platform figure
+       rather than a blank, because 'nothing set' and 'unpaid' look the same. */
+    perHour: '{amount} XAF/hour',
     rateLabel: 'Hourly rate for this period (XAF)',
     ratePlaceholder: 'Leave blank for the standard rate',
     rateHint: 'Only fill this in to pay a different rate for this class and subject.',
@@ -2081,6 +2084,12 @@ timetable: {
     noTimetable: 'No timetable yet',
     freePeriod: 'Free period',
     exportPdf: 'Export PDF',
+    /* The amount, on the dialog where the admin is already deciding who
+       teaches what. Blank means the platform rate, which the hint says
+       because an empty money field otherwise reads as unpaid. */
+    rate: 'Hourly rate for this period (XAF)',
+    ratePlaceholder: 'Leave blank for the standard rate',
+    rateHint: 'The teacher sees this on their own timetable, and earnings are calculated from it.',
     editSlot: 'Edit timetable period',
     course: 'Course',
     teacher: 'Teacher',

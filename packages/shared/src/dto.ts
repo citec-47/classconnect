@@ -691,12 +691,31 @@ export type EditTimetableSlotInput = z.infer<typeof editTimetableSlotSchema>;
  * for one approved subject into a claim for another by changing the request
  * body sent to their own endpoint.
  */
+/**
+ * An hourly rate in XAF, or `null` to fall back to the platform default.
+ *
+ * Whole francs: XAF has no minor unit, so a decimal here would be a rounding
+ * question nobody asked. Capped at ten million an hour — not a real rate, but a
+ * typo of two extra zeros on a payroll figure is worth catching at the boundary
+ * rather than in a payout run.
+ */
+const hourlyRateSchema = z.number().int().min(0).max(10_000_000).nullable().optional();
+
 export const adminEditTimetableSlotSchema = z.object({
   teacherId: z.string().uuid(),
   subjectId: z.string().uuid(),
   dayOfWeek: z.number().int().min(1).max(7),
   startMinute: z.number().int().min(0).max(1440),
   endMinute: z.number().int().min(0).max(1440),
+  /**
+   * What this period pays, per hour, in XAF. Omit to leave it as it is.
+   *
+   * On the edit dialog because that is where an admin is already looking at
+   * who teaches what to whom — the same reasoning as putting it on the
+   * approval screen. `null` clears it and returns the period to the platform
+   * default, which is distinct from omitting the field.
+   */
+  hourlyRateXaf: hourlyRateSchema,
 });
 export type AdminEditTimetableSlotInput = z.infer<typeof adminEditTimetableSlotSchema>;
 
@@ -768,15 +787,6 @@ export type SetStudyGroupMemberPermissionInput = z.infer<typeof setStudyGroupMem
  * a live session starts from one — so the permission sits on this endpoint and
  * not on the proposal (BUILD-PLAN Phase 1, step 3).
  */
-/**
- * An hourly rate in XAF, or `null` to fall back to the platform default.
- *
- * Whole francs: XAF has no minor unit, so a decimal here would be a rounding
- * question nobody asked. Capped at ten million an hour — not a real rate, but a
- * typo of two extra zeros on a payroll figure is worth catching at the boundary
- * rather than in a payout run.
- */
-const hourlyRateSchema = z.number().int().min(0).max(10_000_000).nullable().optional();
 
 export const decideTimetableSlotSchema = z
   .object({

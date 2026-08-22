@@ -38,6 +38,14 @@ const SLOT_SELECT = {
   proposedStartMinute: true,
   proposedEndMinute: true,
   proposedAt: true,
+  /*
+   * What the period pays, so the teacher can see it on their own week.
+   *
+   * A rate an admin sets and the teacher cannot see is a number they find out
+   * about on a payslip. Null means the platform default applies, which the
+   * screen resolves and labels as such rather than showing a blank.
+   */
+  hourlyRateXaf: true,
   level: { select: { id: true, code: true, nameEn: true, nameFr: true } },
   subject: { select: { id: true, code: true, nameEn: true, nameFr: true } },
   cohort: { select: { id: true, name: true } },
@@ -68,7 +76,19 @@ export class TimetableService {
       orderBy: [{ dayOfWeek: 'asc' }, { startMinute: 'asc' }],
       select: SLOT_SELECT,
     });
-    return { slots };
+    /*
+     * The platform rate travels with the week so an unpriced period can say
+     * what it actually pays.
+     *
+     * `hourlyRateXaf` is null on most slots, meaning "whatever the platform
+     * pays" — and a teacher shown a blank there learns nothing. Sending the
+     * default lets the screen print a figure for every period, and mark which
+     * ones were set individually.
+     */
+    return {
+      slots,
+      defaultHourlyRateXaf: this.config.getNumber(CONFIG_KEYS.TEACHER_HOURLY_RATE_XAF),
+    };
   }
 
   /**
@@ -128,6 +148,8 @@ export class TimetableService {
           endMinute: true,
           session: true,
           state: true,
+          // So the edit dialog opens showing what the period already pays.
+          hourlyRateXaf: true,
           subject: { select: { id: true, nameEn: true, nameFr: true } },
           teacher: { select: { userId: true, user: { select: { fullName: true } } } },
         },
@@ -171,6 +193,12 @@ export class TimetableService {
               session: slot.session,
               /** An on-hold period reads as a Free Period to the class. */
               onHold: slot.state === 'on_hold',
+              /*
+               * What this period pays, so the edit dialog opens with the current
+               * figure rather than an empty box — which would otherwise clear a
+               * rate the moment somebody adjusted the hour and pressed Save.
+               */
+              hourlyRateXaf: slot.hourlyRateXaf,
               subject: slot.subject,
               teacher: {
                 id: slot.teacher.userId,
@@ -940,6 +968,12 @@ export class TimetableService {
         proposedEndMinute: null,
         proposedAt: null,
         proposedBy: null,
+        /*
+         * Present only when the caller sent one, so an edit that changes the
+         * hour does not silently clear a rate somebody set separately. `null`
+         * is a real value here and returns the period to the platform default.
+         */
+        ...(input.hourlyRateXaf !== undefined ? { hourlyRateXaf: input.hourlyRateXaf } : {}),
       },
       select: SLOT_SELECT,
     });

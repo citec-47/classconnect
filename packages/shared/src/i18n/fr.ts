@@ -1898,6 +1898,8 @@ timetable: {
     adminDescription: 'Les heures proposées par les enseignants. Confirmer une heure la place sur l’emploi du temps de la classe.',
     nonePending: 'Aucune heure n’attend de décision.',
     /* Voir en.ts : un champ vide est une réponse valide. */
+    /* Voir en.ts. */
+    perHour: '{amount} FCFA/heure',
     rateLabel: 'Taux horaire pour cette période (FCFA)',
     ratePlaceholder: 'Laisser vide pour le taux standard',
     rateHint: 'À remplir uniquement pour payer un taux différent pour cette classe et cette matière.',
@@ -1950,6 +1952,10 @@ timetable: {
   /** La semaine de chaque classe, sur un seul écran d’administration. */
   timetableOverview: {
     exportPdf: 'Exporter en PDF',
+    /* Voir en.ts. */
+    rate: 'Taux horaire pour cette période (FCFA)',
+    ratePlaceholder: 'Laisser vide pour le taux standard',
+    rateHint: 'L’enseignant le voit sur son emploi du temps et les gains sont calculés à partir de ce montant.',
     editSlot: 'Modifier la période',
     course: 'Matière',
     teacher: 'Enseignant',

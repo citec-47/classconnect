@@ -354,9 +354,27 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // Customer service generates report cards and unlocks a group exercise a
     // teacher is unavailable to reopen. Neither writes a mark.
     'report:generate',
+    /*
+     * Customer service enrols students. `teacher:create` is deliberately not
+     * shared.
+     *
+     * A second deliberate widening, and narrower than it looks. Enrolling a
+     * child is front-desk work of the same kind as `learner:class:assign` just
+     * above — a parent telephones, the details are read off a form, and making
+     * them wait for Ops is the difference between joining a class this week and
+     * next. The account created is a learner: it can see its own timetable and
+     * nothing else.
+     *
+     * Creating a *teacher* stays with Ops, because that decides who is put in
+     * front of children, and FR-TVR-005's checklist is the control. Support can
+     * already decide a verification, one applicant at a time with findings
+     * recorded — bringing the account into existence is a different act and
+     * stays where it was.
+     */
+    'student:create',
   ],
 
-  // The only role that can bring a Student or Teacher account into existence.
+  // The only role that can bring a Teacher account into existence.
   admin_ops: [
     'catalogue:read',
     'catalogue:write',

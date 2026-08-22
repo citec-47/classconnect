@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -9,6 +10,33 @@ import { MANDATORY_CHECKLIST_KEYS, VERIFICATION_CHECKLIST } from '../teachers/ve
 import { isMinor } from '@classconnect/shared';
 import type { AuthenticatedUser } from '../rbac/decorators';
 import type { AdminCreateStudentInput, AdminCreateTeacherInput } from '@classconnect/shared';
+
+/**
+ * A password for somebody to type once, off a text message, on a phone.
+ *
+ * `randomInt` rather than `Math.random`, because this is a credential: it is
+ * the difference between unguessable and merely untidy.
+ *
+ * The alphabet omits the characters that are read wrong from a small screen —
+ * O and 0, I and l and 1 — because every one of those becomes a failed sign-in
+ * that reads as "the account does not work" and arrives as a support call. Two
+ * pronounceable-ish chunks and four digits gives roughly 2^57 of entropy, which
+ * is far beyond what a password that expires on first use needs, and is short
+ * enough to copy without a mistake.
+ *
+ * The result is never stored. It is hashed for the account and sent to the
+ * student, and this process forgets it when the request ends.
+ */
+function temporaryPassword(): string {
+  const letters = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const pick = (from: string, count: number) =>
+    Array.from({ length: count }, () => from[randomInt(from.length)]).join('');
+
+  // Capitalised and punctuated so it satisfies a password policy that asks for
+  // a mix, without asking a fourteen-year-old to invent one under pressure.
+  return `${pick(letters, 4).replace(/^./, (c) => c.toUpperCase())}-${pick(letters, 4)}${pick(digits, 4)}`;
+}
 
 /**
  * Admin-created Student and Teacher accounts.
@@ -76,21 +104,48 @@ export class AdminAccountsService {
       const taken = await this.prisma.user.findUnique({ where: { phoneE164: input.phone } });
       if (taken) throw AppError.conflict('errors.phone.taken');
     }
+    if (input.email) {
+      const taken = await this.prisma.user.findUnique({ where: { email: input.email } });
+      if (taken) throw AppError.conflict('errors.email.taken');
+    }
 
-    const passwordHash = input.password ? await this.passwords.hash(input.password) : null;
+    /*
+     * A sign-in is created whenever there is somewhere to send it.
+     *
+     * The rule used to be "phone and password together, or neither", which put
+     * the child's password in the hands of whoever filled the form. Now the
+     * password is generated unless one was given, and the account is marked
+     * `mustChangePassword` — so the person who created it holds a credential
+     * that stops working the first time the student uses it.
+     *
+     * `temporary` is kept in memory only for the length of this request, to be
+     * sent to the student below. It is never returned to the caller and never
+     * written anywhere but the Argon2 hash.
+     */
+    const wantsSignIn = Boolean(input.phone || input.email);
+    const temporary = wantsSignIn && !input.password ? temporaryPassword() : null;
+    const plaintext = input.password ?? temporary;
+    const passwordHash = plaintext ? await this.passwords.hash(plaintext) : null;
     const minor = isMinor(dob);
 
     const learner = await this.prisma.$transaction(async (tx) => {
       // FR-FAM-003: the student's own sign-in, where the Admin set one.
       let accountId: string | null = null;
-      if (input.phone && passwordHash) {
+      if (wantsSignIn && passwordHash) {
         const account = await tx.user.create({
           data: {
-            phoneE164: input.phone,
+            phoneE164: input.phone ?? null,
+            email: input.email ?? null,
             passwordHash,
             fullName: input.fullName,
             preferredLanguage: input.preferredLanguage,
             status: 'active',
+            /*
+             * Only a password this office generated has to be replaced. Where
+             * an admin deliberately set one — a child sitting beside them who
+             * chose it themselves — there is no shared secret to retire.
+             */
+            mustChangePassword: temporary !== null,
             // FR-FAM-006: minor status is derived from the date of birth.
             roles: { create: { role: minor ? 'student' : 'adult_learner' } },
           },
@@ -107,6 +162,8 @@ export class AdminAccountsService {
           preferredLanguage: input.preferredLanguage,
           preferredStudyDays: [],
           createdBy: admin.id,
+          guardianName: input.guardianName ?? null,
+          guardianContact: input.guardianContact ?? null,
           ...(guardianId
             ? {
                 guardians: {
@@ -165,6 +222,31 @@ export class AdminAccountsService {
       await this.notifications.notifyUser(guardianId, 'studentAccountCreated', {
         studentName: learner.fullName,
       });
+    }
+
+    /*
+     * The credentials go to the student, not to whoever created the account.
+     *
+     * Sent after the transaction commits: a notification for an account that
+     * was then rolled back is worse than no notification, and there is nothing
+     * to undo once an SMS has gone.
+     *
+     * A password in an SMS is a real exposure and is accepted deliberately.
+     * §6.2's learners are on shared handsets with intermittent data and often no
+     * email; a reset link they cannot open is not more secure, it is unusable.
+     * What limits the exposure is that the password is single-use in practice —
+     * `mustChangePassword` forces it to be replaced before the account can do
+     * anything — so the message is worth reading once and worthless afterwards.
+     */
+    if (learner.userId && temporary) {
+      await this.notifications.notifyUser(
+        learner.userId,
+        'studentCredentials',
+        { name: learner.fullName, password: temporary },
+        // FR-NOT-003: transactional. An account nobody was told about is an
+        // account nobody can use, so this is not subject to preferences.
+        { dedupeKey: `student-credentials:${learner.userId}` },
+      );
     }
 
     return this.presentStudent(learner.id);

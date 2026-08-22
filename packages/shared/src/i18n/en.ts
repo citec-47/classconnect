@@ -1494,6 +1494,10 @@ export const en = {
       required_for_email: 'Please choose a password to sign in with your email.',
       required_for_signin: 'Set a password to give this student their own sign-in.',
       incorrect: 'Those sign-in details do not match. Check the password and try again.',
+      /* Refused so "you must change your password" cannot be satisfied by
+         typing the temporary one twice: the flag would clear and the shared
+         secret would survive. */
+      unchanged: 'Please choose a different password from the one you have now.',
     },
     identifier: { required: 'Please give us a phone number or an email address.' },
     language: { required: 'Choose at least one language.' },
@@ -1541,6 +1545,9 @@ export const en = {
       subjects_required: 'Choose at least one subject for this student.',
       /* Both ids exist; the subject is simply not on that class's syllabus. */
       subject_not_taught_at_level: 'One of those subjects is not taught in that class.',
+      /* An account with no phone and no email cannot be told its own password,
+         so it is an account nobody can sign in to. */
+      contact_required: 'Give a phone number or an email so this student can be sent their sign-in details.',
     },
     level: {
       not_found: 'Please choose a class.',
@@ -1682,6 +1689,19 @@ export const en = {
   },
 
   notifications: {
+    /*
+     * The credentials for an account somebody else created.
+     *
+     * Says the password must be changed in the same breath as giving it, because
+     * a message that hands over a secret and mentions the condition later is a
+     * message whose second half nobody reads. No link: the learner may be on a
+     * handset where following one is awkward, and the sign-in page is where they
+     * were going anyway.
+     */
+    studentCredentials: {
+      subject: 'Your ClassConnect account',
+      body: 'Hello {name}. Your ClassConnect account is ready. Sign in with this temporary password: {password} — you will be asked to choose your own the first time, and this one stops working then.',
+    },
     fees: {
       registered: {
         subject: 'School fees set up',

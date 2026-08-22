@@ -445,6 +445,24 @@ model User {
   failedLoginCount Int       @default(0) @map("failed_login_count")
   lockedUntil      DateTime? @map("locked_until") @db.Timestamptz(6)
 
+  /// The password was issued by somebody else, and must be replaced on first use.
+  ///
+  /// An account created for a child — by a parent, an admin or support — starts
+  /// with a password that was typed by an adult, sent over SMS, and quite
+  /// possibly read by whoever was holding the phone. Until the child replaces
+  /// it, that password is a shared secret rather than a credential, and the
+  /// account is not really theirs.
+  ///
+  /// A flag rather than an expiry date: the requirement is "before you do
+  /// anything else", not "within seven days". It is cleared by the password
+  /// change itself, so there is no way to satisfy the check without satisfying
+  /// the requirement.
+  ///
+  /// Default false, so every account that already exists is unaffected — this
+  /// is about how an account was *created*, and the ones already out there were
+  /// created by the people using them.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// DAT-006: soft deletion.
@@ -569,6 +587,20 @@ model Learner {
   /// FR-FAM-006: minor status is derived from date of birth, never stored as a flag.
   dob      DateTime @map("dob") @db.Date
   levelId  String?  @map("level_id") @db.Uuid
+
+  /// Who to contact about this child, where that person has no account here.
+  ///
+  /// The real relationship is `LearnerGuardian` → a registered Parent, and that
+  /// is what carries access, consent and billing. These two carry neither: they
+  /// are a name and a number off a paper form, recorded because a school office
+  /// enrolling thirty children on a Monday has exactly that and nothing else,
+  /// and refusing to store it loses the only way to reach the family.
+  ///
+  /// Nothing authenticates against them and nothing is authorised by them. When
+  /// the parent does register, the proper link is made and these remain as what
+  /// they always were — a note.
+  guardianName    String? @map("guardian_name") @db.VarChar(200)
+  guardianContact String? @map("guardian_contact") @db.VarChar(200)
 
   /// Whether this learner attends an ordinary school class or studies privately.
   ///

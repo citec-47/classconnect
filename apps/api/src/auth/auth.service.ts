@@ -356,7 +356,57 @@ export class AuthService {
       phoneVerified: user.phoneVerifiedAt !== null,
       emailVerified: user.emailVerifiedAt !== null,
       mfaEnabled: user.mfaEnabled,
+      /*
+       * The client sends whoever this is to the change-password screen before
+       * anything else. Reported rather than enforced here: the guard belongs on
+       * the endpoints that matter, and a flag the client can read is how the
+       * person gets told what to do instead of finding doors locked.
+       */
+      mustChangePassword: user.mustChangePassword,
     };
+  }
+
+  /**
+   * Replacing a known password.
+   *
+   * The current password is verified rather than trusted from the session,
+   * because a signed-in tab on a shared handset is exactly the situation this
+   * has to survive — on §6.2's shared phones that is the ordinary case.
+   *
+   * `mustChangePassword` is cleared as part of the same write, so a temporary
+   * credential cannot survive the change that was supposed to retire it.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user?.passwordHash) throw AppError.unauthorised('errors.password.incorrect');
+
+    const valid = await this.passwords.verify(user.passwordHash, currentPassword);
+    if (!valid) throw AppError.unauthorised('errors.password.incorrect');
+
+    /*
+     * Refusing a change to the same password.
+     *
+     * Without this, "you must change your password" is satisfied by typing the
+     * temporary one twice — the flag clears, the shared secret survives, and
+     * the requirement has been performed rather than met.
+     */
+    const unchanged = await this.passwords.verify(user.passwordHash, newPassword);
+    if (unchanged) throw AppError.badRequest('errors.password.unchanged');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: await this.passwords.hash(newPassword),
+        mustChangePassword: false,
+      },
+    });
   }
 
   /**

@@ -86,11 +86,24 @@ describe('roles — FR-RBA-001 and FR-AUT-009', () => {
     expect(hasPermission(['parent'], 'student:create')).toBe(false);
   });
 
-  it('reserves account creation to the administrative roles', () => {
-    for (const role of ['parent', 'student', 'adult_learner', 'teacher', 'support_agent'] as const) {
+  it('reserves teacher creation to operations, and shares student creation with the front desk', () => {
+    /*
+     * The two are no longer one rule, and the split is the point.
+     *
+     * Creating a *teacher* decides who is put in front of children, so it stays
+     * with Ops. Creating a *student* is enrolment — the same front-desk work as
+     * `learner:class:assign`, which customer service already does — and making a
+     * telephoning parent wait for Ops is the difference between joining a class
+     * this week and next.
+     */
+    for (const role of ['parent', 'student', 'adult_learner', 'teacher'] as const) {
       expect(hasPermission([role], 'student:create')).toBe(false);
       expect(hasPermission([role], 'teacher:create')).toBe(false);
     }
+
+    expect(hasPermission(['support_agent'], 'student:create')).toBe(true);
+    expect(hasPermission(['support_agent'], 'teacher:create')).toBe(false);
+
     expect(hasPermission(['admin_ops'], 'student:create')).toBe(true);
     expect(hasPermission(['admin_ops'], 'teacher:create')).toBe(true);
     expect(hasPermission(['super_admin'], 'student:create')).toBe(true);

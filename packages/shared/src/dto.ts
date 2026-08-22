@@ -202,6 +202,21 @@ export const passwordResetRequestSchema = z
     message: 'errors.identifier.required',
   });
 
+/**
+ * Changing a password you already know.
+ *
+ * Separate from the reset flow, which proves identity with a one-time code
+ * because the person is locked out. Here they are signed in, so the proof is
+ * the password being replaced — otherwise a handset left open on a shared desk
+ * is a way to take the account over, which on §6.2's shared phones is the
+ * ordinary case rather than the paranoid one.
+ */
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;
+
 export const passwordResetConfirmSchema = z.object({
   token: z.string().min(10).optional(),
   phone: phoneSchema.optional(),
@@ -368,13 +383,50 @@ export const adminCreateStudentSchema = z
      */
     guardianPhone: phoneSchema.optional(),
 
+    /**
+     * The guardian as written down, for a guardian who has no account here.
+     *
+     * `guardianPhone` links to a registered Parent and is the better answer
+     * whenever there is one — it gives the family a shared view and a payer.
+     * But a school office creating thirty accounts on a Monday morning has a
+     * name and a number on a paper form, and refusing to record them until the
+     * parent has registered loses the only contact detail anyone has.
+     *
+     * Kept as text deliberately. It is a note about who to call, not an
+     * identity: nothing authenticates against it and nothing is authorised by
+     * it. When that parent does register, `guardianPhone` is how they are
+     * linked properly.
+     */
+    guardianName: z.string().min(2).max(200).trim().optional(),
+    guardianContact: z.string().min(4).max(200).trim().optional(),
+
+    /**
+     * The student's own email, for credential delivery and password reset.
+     *
+     * Optional because a Cameroonian secondary pupil frequently has a phone and
+     * no email, and requiring one would exclude exactly the learners this
+     * platform is for. One of email or phone must be present when an account is
+     * given sign-in, which the refinement below enforces — an account nobody can
+     * be told about is an account nobody can use.
+     */
+    email: emailSchema.optional(),
+
     /** FR-FAM-003: give the student their own sign-in now, or leave it for later. */
     phone: phoneSchema.optional(),
+    /**
+     * Omit to have a temporary one generated.
+     *
+     * Previously required whenever `phone` was given, which meant whoever filled
+     * the form chose the child's password and therefore knew it. A generated
+     * one is sent to the student and must be replaced on first sign-in
+     * (`User.mustChangePassword`), so the person who created the account does
+     * not end up holding a working credential for a child.
+     */
     password: passwordSchema.optional(),
   })
-  .refine((data) => data.phone === undefined || data.password !== undefined, {
-    message: 'errors.password.required_for_signin',
-    path: ['password'],
+  .refine((data) => data.phone !== undefined || data.email !== undefined || data.password === undefined, {
+    message: 'errors.student.contact_required',
+    path: ['phone'],
   });
 export type AdminCreateStudentInput = z.infer<typeof adminCreateStudentSchema>;
 

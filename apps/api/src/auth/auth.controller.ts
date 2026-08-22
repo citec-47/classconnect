@@ -10,6 +10,7 @@ import {
   verifyOtpSchema,
   passwordLoginSchema,
   refreshSchema,
+  passwordChangeSchema,
   passwordResetConfirmSchema,
   updatePreferredLanguageSchema,
   languageFromHeader,
@@ -17,6 +18,7 @@ import {
   type RequestOtpInput,
   type VerifyOtpInput,
   type PasswordLoginInput,
+  type PasswordChangeInput,
   type UpdatePreferredLanguageInput,
 } from '@classconnect/shared';
 import { AppError } from '../common/http-exception.filter';
@@ -87,6 +89,27 @@ export class AuthController {
       throw AppError.badRequest('errors.identifier.required');
     }
     await this.auth.resetPasswordWithOtp(body.phone, body.code, body.newPassword);
+  }
+
+  /**
+   * Replacing a password you already know — the first-login change.
+   *
+   * Distinct from `password/reset`, which is for somebody locked out and proves
+   * identity with a one-time code on their phone. This one is for somebody
+   * signed in, and proves identity with the password they are replacing: an
+   * account left open on a shared handset must not be a way to take it over.
+   *
+   * Clearing `mustChangePassword` is a consequence of the change rather than a
+   * separate call, so there is no way to satisfy the check without satisfying
+   * the requirement.
+   */
+  @Post('password/change')
+  @HttpCode(204)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(zodBody(passwordChangeSchema)) body: PasswordChangeInput,
+  ): Promise<void> {
+    await this.auth.changePassword(user.id, body.currentPassword, body.newPassword);
   }
 
   @Get('me')

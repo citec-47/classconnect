@@ -1419,6 +1419,8 @@ export const fr: Messages = {
       required_for_signin:
         'Définissez un mot de passe pour donner à cet élève son propre accès.',
       incorrect: 'Ces identifiants ne correspondent pas. Vérifiez le mot de passe et réessayez.',
+      /* Voir en.ts. */
+      unchanged: 'Choisissez un mot de passe différent de l’actuel.',
     },
     identifier: { required: 'Donnez-nous un numéro de téléphone ou une adresse e-mail.' },
     language: { required: 'Choisissez au moins une langue.' },
@@ -1472,6 +1474,9 @@ export const fr: Messages = {
       /* Les deux identifiants existent ; la matière n’est pas au programme. */
       subject_not_taught_at_level:
         'L’une de ces matières n’est pas enseignée dans cette classe.',
+      /* Voir en.ts : sans contact, impossible de transmettre les identifiants. */
+      contact_required:
+        'Indiquez un numéro de téléphone ou un e-mail pour envoyer ses identifiants à cet élève.',
     },
     level: {
       not_found: 'Veuillez choisir une classe.',
@@ -1609,6 +1614,11 @@ export const fr: Messages = {
   },
 
   notifications: {
+    /* Voir en.ts : le mot de passe et sa condition dans la même phrase. */
+    studentCredentials: {
+      subject: 'Votre compte ClassConnect',
+      body: 'Bonjour {name}. Votre compte ClassConnect est prêt. Connectez-vous avec ce mot de passe temporaire : {password} — il vous sera demandé d’en choisir un vous-même à la première connexion, et celui-ci cessera alors de fonctionner.',
+    },
     fees: {
       registered: {
         subject: 'Frais de scolarité enregistrés',

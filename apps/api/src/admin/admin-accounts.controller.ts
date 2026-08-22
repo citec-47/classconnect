@@ -31,10 +31,20 @@ export class AdminAccountsController {
     return this.accounts.createStudent(admin, body);
   }
 
+  /**
+   * The roster, by band.
+   *
+   * Two independent filters, because the four categories are not one dimension:
+   * Primary, Secondary and Sixth Form come from the level, and Private is an
+   * enrolment type that can be true of a learner at any of them.
+   */
   @Get('students')
   @RequirePermissions('student:create')
-  async listStudents(@Query('schoolType') schoolType?: 'primary' | 'secondary') {
-    return this.accounts.listStudents(schoolType);
+  async listStudents(
+    @Query('schoolType') schoolType?: 'primary' | 'secondary' | 'sixth_form',
+    @Query('enrolment') enrolment?: 'school' | 'private',
+  ) {
+    return this.accounts.listStudents(schoolType, enrolment);
   }
 
   /**

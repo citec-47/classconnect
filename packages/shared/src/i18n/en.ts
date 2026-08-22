@@ -480,7 +480,19 @@ export const en = {
     schoolPrimaryHint: 'Class 1 to Class 6.',
     schoolSecondary: 'Secondary school',
     schoolSecondaryHint: 'Form 1 to Form 5, Lower Sixth and Upper Sixth.',
+    /* Sixth Form is its own SchoolType and was never offered as a filter, so
+       the two Sixth Form levels could be created and never listed. Private is
+       an EnrolmentType rather than a level, which is why it sits beside the
+       three rather than among them. */
+    schoolSixthForm: 'Sixth Form',
+    schoolPrivate: 'Private classes',
     allSchools: 'All',
+    /* Bulk selection. The confirm names the number, because this ends accounts
+       belonging to children and the undo is a database restore. */
+    selectAll: 'Select all {count}',
+    selectedCount: '{count} selected',
+    deleteSelected: 'Delete selected',
+    confirmDelete: 'Delete {count} — this cannot be undone',
     chooseClass: 'Choose the class',
     chooseSubjects: 'Subjects this student will learn',
     chooseSubjectsHint: 'Only subjects taught in the chosen class are listed.',

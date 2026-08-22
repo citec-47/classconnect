@@ -401,11 +401,27 @@ export class AdminAccountsService {
   }
 
   /** Every student, for the Admin's list view. */
-  async listStudents(schoolType?: 'primary' | 'secondary') {
+  /**
+   * The roster, filtered the way the four bands are actually thought about.
+   *
+   * `schoolType` covers Primary, Secondary and Sixth Form, which come from the
+   * level. Private is not one of those — it is `EnrolmentType`, a separate fact
+   * because a private Class One learner sits at the same level as the Primary
+   * Class One class and is not part of it. The two filters are independent for
+   * that reason: "Sixth Form" and "Private" can both be true of one learner.
+   *
+   * `sixth_form` was missing from the signature entirely, so the two Sixth Form
+   * levels could be created and never listed.
+   */
+  async listStudents(
+    schoolType?: 'primary' | 'secondary' | 'sixth_form',
+    enrolment?: 'school' | 'private',
+  ) {
     const learners = await this.prisma.learner.findMany({
       where: {
         archivedAt: null,
         ...(schoolType ? { level: { schoolType } } : {}),
+        ...(enrolment ? { enrolmentType: enrolment } : {}),
       },
       include: {
         level: true,
@@ -431,7 +447,21 @@ export class AdminAccountsService {
         nameEn: row.subject.nameEn,
         nameFr: row.subject.nameFr,
       })),
+      /*
+       * Whether this learner studies privately, which the level cannot say. A
+       * private Class One learner sits at the Primary Class One level and is not
+       * in that class, so the roster has to show the difference.
+       */
+      enrolmentType: learner.enrolmentType,
       hasOwnSignIn: learner.user !== null,
+      /*
+       * The account id, not the learner id — the delete endpoint acts on users.
+       *
+       * Null where the learner has no sign-in of their own, and the row is then
+       * not selectable: there is no account to remove, and the learner record is
+       * archived through a different route.
+       */
+      userId: learner.user?.id ?? null,
       guardians: learner.guardians.map((link) => link.guardian.user.fullName),
     }));
   }

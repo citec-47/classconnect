@@ -105,7 +105,15 @@ export function AccountMenu({ language }: { language: Language }) {
              * Past lessons and Fees are real screens without a tab. The nav is
              * at its ceiling, and neither earns a slot: past lessons is reached
              * from Classes and from any subject, and fees is something a learner
-             * checks when they are wondering, not daily.
+             * checks when they are wondering, not daily. Report cards joins them
+             * for the same reason — read at the end of a term, not weekly.
+             *
+             * There was a Notifications entry here pointing at
+             * `/student/notifications`, which is not a page and has no endpoint
+             * behind it either. It has been removed rather than left as a link
+             * to a 404: unread counts already arrive on the destinations they
+             * belong to, and a menu item that always fails teaches people to
+             * distrust the menu.
              */}
             <li>
               <Link href={`${base}/attendance`} className={itemClass}>
@@ -113,7 +121,16 @@ export function AccountMenu({ language }: { language: Language }) {
               </Link>
             </li>
             <li>
-              <Link href={`${base}/lessons`} className={itemClass}>
+              {/*
+                * `/class-videos`, not `/lessons`.
+                *
+                * This label is "My class videos" and pointed at `/lessons`,
+                * which was the recordings screen until that route was renamed
+                * and given to published materials. The link kept working and
+                * started going somewhere else — the quietest kind of breakage,
+                * because nothing errors and the wrong page renders perfectly.
+                */}
+              <Link href={`${base}/class-videos`} className={itemClass}>
                 {t('student.lessons.title')}
               </Link>
             </li>
@@ -123,13 +140,18 @@ export function AccountMenu({ language }: { language: Language }) {
               </Link>
             </li>
             <li>
-              <Link href={`${base}/profile`} className={itemClass}>
-                {t('student.account.profile')}
+              {/*
+                * Report cards had no route in from anywhere: not a tab, not
+                * here. A learner could not reach their own results except by
+                * typing the URL.
+                */}
+              <Link href={`${base}/report-cards`} className={itemClass}>
+                {t('student.reportCards.title')}
               </Link>
             </li>
             <li>
-              <Link href={`${base}/notifications`} className={itemClass}>
-                {t('student.account.notifications')}
+              <Link href={`${base}/profile`} className={itemClass}>
+                {t('student.account.profile')}
               </Link>
             </li>
             <li>

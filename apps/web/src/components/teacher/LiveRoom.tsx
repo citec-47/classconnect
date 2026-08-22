@@ -13,7 +13,7 @@ import {
   type RemoteTrackPublication,
 } from 'livekit-client';
 import { useI18n } from '@/lib/i18n';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
 interface JoinToken {
   url: string;
@@ -168,6 +168,21 @@ export function LiveRoom({
   const [failure, setFailure] = useState<Failure>(null);
   /** The underlying error text, shown so a failure is diagnosable on sight. */
   const [detail, setDetail] = useState<string | null>(null);
+  /**
+   * A refusal the server explained, held as its key rather than its text.
+   *
+   * `ApiError.message` is the message *key* — `ApiError` passes it to `super()`
+   * — so putting it in `detail` printed "errors.live.not_invited" at a learner,
+   * in a monospace diagnostic font, when both catalogues have carried a proper
+   * sentence for it all along. Kept separate from `detail` because the two are
+   * different things: one is prose for the person, the other is a stack-trace
+   * fragment for whoever is debugging.
+   *
+   * Translated at render rather than here, so `t` stays out of `connect`'s
+   * dependencies — it changes identity on a language switch, and a `connect`
+   * that changes identity reconnects the room.
+   */
+  const [detailKey, setDetailKey] = useState<string | null>(null);
   const connectingRef = useRef(false);
   /** One retry over TURN, so a blocked media path cannot loop forever. */
   const relayTriedRef = useRef(false);
@@ -260,6 +275,7 @@ export function LiveRoom({
 
     setFailure(null);
     setDetail(null);
+    setDetailKey(null);
     try {
       /*
        * What this browser can do, before asking it to do anything.
@@ -513,6 +529,23 @@ export function LiveRoom({
        * can read it without opening a console.
        */
       setFailure('connect');
+
+      /*
+       * A refusal by our own API is not a media failure, and the difference
+       * decides both what to say and what to do next.
+       *
+       * `errors.live.not_invited` is the server declining to mint a token: the
+       * media server was never contacted, so probing whether it is reachable
+       * answers a question nobody asked, costs the learner ten seconds, and
+       * appends "the media server is reachable from this browser" to a message
+       * about an invitation. The remedy is to ask the teacher for one, which is
+       * exactly what the catalogue entry says.
+       */
+      if (caught instanceof ApiError) {
+        setDetailKey(caught.messageKey);
+        return;
+      }
+
       const message = (caught as Error)?.message ?? String(caught);
 
       /*
@@ -814,6 +847,9 @@ export function LiveRoom({
       {failure === 'connect' && (
         <div className="mb-2 rounded-lg bg-danger-50 p-2">
           <p className="text-sm text-danger-600">{t('live.room.connectFailed')}</p>
+          {/* Prose for a refusal the server explained; monospace only for a raw
+              diagnostic, which is the one a reader is meant to quote verbatim. */}
+          {detailKey && <p className="mt-0.5 text-sm text-ink-600">{t(detailKey)}</p>}
           {detail && <p className="mt-0.5 font-mono text-xs text-ink-600">{detail}</p>}
           <button type="button" onClick={() => void connect()} className="mt-1 text-sm underline">
             {t('live.room.retry')}

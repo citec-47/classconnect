@@ -860,6 +860,23 @@ model TimetableSlot {
   /// know whose class it is without joining back through the slot.
   proposedBy          String?   @map("proposed_by") @db.Uuid
 
+  /// What this period pays, per hour, in XAF. Null means the platform default.
+  ///
+  /// On the slot rather than on the teacher, because a slot already *is* one
+  /// teacher, one class, one subject, one hour of the week — exactly the
+  /// granularity the rate was asked for. A `TeacherRate` table would say less:
+  /// it could not pay differently for Form 5 Further Maths than for Form 1
+  /// general science, which is the usual reason to vary a rate at all.
+  ///
+  /// Null rather than a copy of the default. A rate written onto every slot at
+  /// creation is a snapshot that stops tracking the platform figure the moment
+  /// somebody changes it, and nothing on screen would say which slots had
+  /// silently frozen. Null means "whatever the platform pays"; a number means
+  /// "an admin decided this one specifically".
+  ///
+  /// Only staff write it. A teacher proposing a period cannot name their price.
+  hourlyRateXaf Int? @map("hourly_rate_xaf")
+
   state        TimetableSlotState @default(proposed)
   /// FR-TVR-004-style attribution: who agreed this, and when.
   confirmedBy  String?            @map("confirmed_by") @db.Uuid

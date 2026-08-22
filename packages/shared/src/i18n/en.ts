@@ -1946,6 +1946,11 @@ timetable: {
     adminTitle: 'Timetable approvals',
     adminDescription: 'Hours teachers have offered. Confirming one puts it on the class timetable.',
     nonePending: 'No hours are waiting for a decision.',
+    /* Money on the approval screen. Blank is a valid answer and the hint says
+       so, because an empty money field otherwise reads as "unpaid". */
+    rateLabel: 'Hourly rate for this period (XAF)',
+    ratePlaceholder: 'Leave blank for the standard rate',
+    rateHint: 'Only fill this in to pay a different rate for this class and subject.',
     addTitle: 'Offer an hour',
     classAndSubject: 'Class and subject',
     /* Two fields now, not one. A teacher of four subjects across three classes

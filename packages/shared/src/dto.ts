@@ -733,6 +733,16 @@ export type SetStudyGroupMemberPermissionInput = z.infer<typeof setStudyGroupMem
  * a live session starts from one — so the permission sits on this endpoint and
  * not on the proposal (BUILD-PLAN Phase 1, step 3).
  */
+/**
+ * An hourly rate in XAF, or `null` to fall back to the platform default.
+ *
+ * Whole francs: XAF has no minor unit, so a decimal here would be a rounding
+ * question nobody asked. Capped at ten million an hour — not a real rate, but a
+ * typo of two extra zeros on a payroll figure is worth catching at the boundary
+ * rather than in a payout run.
+ */
+const hourlyRateSchema = z.number().int().min(0).max(10_000_000).nullable().optional();
+
 export const decideTimetableSlotSchema = z
   .object({
     /*
@@ -743,11 +753,35 @@ export const decideTimetableSlotSchema = z
      */
     decision: z.enum(['confirmed', 'rejected', 'on_hold']),
     note: z.string().max(500).optional(),
+    /**
+     * What this period pays, per hour, in XAF. Omit to leave it as it is.
+     *
+     * Set at the moment of approval because that is when an admin is already
+     * looking at who teaches what to whom — "admin sets the teacher's hourly
+     * rate after timetable approval" is one action in the brief and should be
+     * one action on the screen.
+     *
+     * `null` is meaningful and distinct from omitting: it clears a specific
+     * rate and returns the period to the platform default. Without that there
+     * would be no way back from a rate set by mistake except guessing what the
+     * default currently is and typing it in, which then stops tracking it.
+     */
+    hourlyRateXaf: hourlyRateSchema,
   })
   .refine((d) => d.decision === 'confirmed' || (d.note?.trim().length ?? 0) > 0, {
     message: 'errors.timetable.note_required',
     path: ['note'],
   });
+
+/**
+ * Changing what a period pays, without re-deciding it.
+ *
+ * Separate from the decision above because a rate correction is not an approval
+ * and must not read as one in the audit trail: a period already timetabled
+ * stays timetabled, the class is not disturbed, and only the money changes.
+ */
+export const setSlotRateSchema = z.object({ hourlyRateXaf: hourlyRateSchema });
+export type SetSlotRateInput = z.infer<typeof setSlotRateSchema>;
 export type DecideTimetableSlotInput = z.infer<typeof decideTimetableSlotSchema>;
 
 // ---------------------------------------------------------------------------

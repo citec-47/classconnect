@@ -1834,6 +1834,10 @@ timetable: {
     adminTitle: 'Approbations d’emploi du temps',
     adminDescription: 'Les heures proposées par les enseignants. Confirmer une heure la place sur l’emploi du temps de la classe.',
     nonePending: 'Aucune heure n’attend de décision.',
+    /* Voir en.ts : un champ vide est une réponse valide. */
+    rateLabel: 'Taux horaire pour cette période (FCFA)',
+    ratePlaceholder: 'Laisser vide pour le taux standard',
+    rateHint: 'À remplir uniquement pour payer un taux différent pour cette classe et cette matière.',
     addTitle: 'Proposer une heure',
     classAndSubject: 'Classe et matière',
     /* Voir en.ts : la classe d’abord, puis ses matières. */

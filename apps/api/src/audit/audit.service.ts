@@ -71,6 +71,15 @@ export type AuditAction =
   | 'timetable.admin_edited'
   | 'timetable.withdrawn'
   | 'timetable.decided'
+  /**
+   * What a period pays was set or cleared.
+   *
+   * Its own action rather than part of `timetable.decided`, because pricing a
+   * period and approving it are different decisions that different people are
+   * allowed to make — and "who set this teacher's rate, and to what" is a
+   * question that gets asked after a payout, when the two must be separable.
+   */
+  | 'timetable.rate_set'
   | 'group.archived'
   /*
    * BUILD-PLAN Phase 2 — lessons.

@@ -6,6 +6,8 @@ import {
   decideTimetableEditSchema,
   editTimetableSlotSchema,
   adminEditTimetableSlotSchema,
+  setSlotRateSchema,
+  type SetSlotRateInput,
   type ProposeTimetableSlotInput,
   type DecideTimetableSlotInput,
   type DecideTimetableEditInput,
@@ -181,6 +183,23 @@ export class AdminTimetableController {
     @Body(zodBody(decideTimetableEditSchema)) body: DecideTimetableEditInput,
   ) {
     return this.timetable.decideEdit(staff, slotId, body.approve);
+  }
+
+  /**
+   * What this period pays, set or cleared without re-deciding it.
+   *
+   * `config:write` rather than the decision permission: this is money, and the
+   * roles that approve a timetable are not automatically the roles that set
+   * what it costs. Customer service can confirm an hour and cannot price it.
+   */
+  @Post(':slotId/rate')
+  @RequirePermissions('config:write')
+  async setRate(
+    @CurrentUser() staff: AuthenticatedUser,
+    @Param('slotId', uuidParam()) slotId: string,
+    @Body(zodBody(setSlotRateSchema)) body: SetSlotRateInput,
+  ) {
+    return this.timetable.setRate(staff, slotId, body.hourlyRateXaf ?? null);
   }
 
   @Post(':slotId/decision')

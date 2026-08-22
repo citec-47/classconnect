@@ -48,6 +48,16 @@ export default function AdminTimetablePage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  /**
+   * What each period will pay, per hour, as typed.
+   *
+   * Held as the raw string rather than a number so that an empty box stays
+   * empty. Parsed to a number it becomes `NaN` or `0`, and both would have to be
+   * translated back into "the admin did not type anything" — which is exactly
+   * the distinction that decides whether a teacher is paid the platform default
+   * or nothing at all.
+   */
+  const [rates, setRates] = useState<Record<string, string>>({});
   /*
    * Time changes are a second, separate queue.
    *
@@ -103,9 +113,30 @@ export default function AdminTimetablePage() {
     setBusyId(slotId);
     setError(null);
     try {
+      /*
+       * The rate travels with the approval.
+       *
+       * "Admin sets the teacher's hourly rate after timetable approval" is one
+       * intention, and splitting it across two actions means an admin who
+       * approves twenty periods on a Monday has to come back and price twenty
+       * periods on a Tuesday, from a screen that no longer lists them.
+       *
+       * Left blank it is omitted entirely, not sent as zero — an unpriced period
+       * pays the platform default, and a zero would silently mean this teacher
+       * works this hour for nothing.
+       */
+      const typed = (rates[slotId] ?? '').trim();
+      const hourlyRateXaf = typed === '' ? undefined : Number(typed);
+
       await api(`/admin/timetable/${slotId}/decision`, {
         method: 'POST',
-        body: { decision, ...(decision === 'rejected' ? { note: notes[slotId] ?? '' } : {}) },
+        body: {
+          decision,
+          ...(decision === 'rejected' ? { note: notes[slotId] ?? '' } : {}),
+          ...(hourlyRateXaf !== undefined && Number.isFinite(hourlyRateXaf)
+            ? { hourlyRateXaf }
+            : {}),
+        },
         language,
         timeoutMs: 120_000,
       });
@@ -224,6 +255,29 @@ export default function AdminTimetablePage() {
                 className="cc-field mt-3 w-full"
                 aria-label={t('timetable.notePlaceholder')}
               />
+
+              {/*
+                * What this period pays. Optional, and blank means the platform
+                * rate — said on the label, because an empty money field on an
+                * approval screen otherwise reads as "unpaid".
+                */}
+              <label className="mt-3 block">
+                <span className="cc-label">{t('timetable.rateLabel')}</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={100}
+                  className="cc-field w-full"
+                  value={rates[slot.id] ?? ''}
+                  onChange={(e) => setRates({ ...rates, [slot.id]: e.target.value })}
+                  placeholder={t('timetable.ratePlaceholder')}
+                  aria-label={t('timetable.rateLabel')}
+                />
+                <span className="mt-0.5 block text-xs text-ink-600">
+                  {t('timetable.rateHint')}
+                </span>
+              </label>
 
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <button

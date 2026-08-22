@@ -963,6 +963,45 @@ export class TimetableService {
    * proposal may have been confirmed into the same hour, and confirming both
    * would timetable two lessons on top of each other.
    */
+  /**
+   * Changing what a period pays, without re-deciding the period.
+   *
+   * Kept apart from `decide` on purpose. A rate correction is not an approval,
+   * and routing it through the decision would write `timetable.decided` into
+   * the audit trail, re-stamp `confirmedBy`/`confirmedAt`, and send the teacher
+   * a notification saying their period had been decided again — three
+   * falsehoods to record one number.
+   *
+   * Applies to a period in any state except rejected. Setting the rate on a
+   * proposal is useful: an admin reviewing a batch can price them before
+   * confirming, and a slot that is never confirmed never earns anyway.
+   */
+  async setRate(staff: AuthenticatedUser, slotId: string, hourlyRateXaf: number | null) {
+    const slot = await this.prisma.timetableSlot.findUnique({
+      where: { id: slotId },
+      select: { id: true, state: true, teacherId: true, hourlyRateXaf: true },
+    });
+    if (!slot) throw AppError.notFound();
+    if (slot.state === 'rejected') throw AppError.conflict('errors.timetable.already_decided');
+
+    const updated = await this.prisma.timetableSlot.update({
+      where: { id: slotId },
+      data: { hourlyRateXaf },
+      select: SLOT_SELECT,
+    });
+
+    await this.audit.record({
+      action: 'timetable.rate_set',
+      entity: 'timetable_slot',
+      entityId: slotId,
+      actorId: staff.id,
+      before: { hourlyRateXaf: slot.hourlyRateXaf },
+      after: { hourlyRateXaf },
+    });
+
+    return updated;
+  }
+
   async decide(staff: AuthenticatedUser, slotId: string, input: DecideTimetableSlotInput) {
     const slot = await this.prisma.timetableSlot.findUnique({ where: { id: slotId } });
     if (!slot) throw AppError.notFound();
@@ -1008,6 +1047,14 @@ export class TimetableService {
         decisionNote: input.note ?? null,
         confirmedBy: staff.id,
         confirmedAt: new Date(),
+        /*
+         * Omitted and `null` mean different things, so the key is only present
+         * when the caller sent one. Spreading `{ hourlyRateXaf: undefined }`
+         * would be a no-op in Prisma and therefore harmless, but writing it
+         * conditionally is what makes "leave it alone" and "clear it" legible
+         * here rather than a fact about Prisma's semantics.
+         */
+        ...(input.hourlyRateXaf !== undefined ? { hourlyRateXaf: input.hourlyRateXaf } : {}),
       },
       select: SLOT_SELECT,
     });
@@ -1017,8 +1064,14 @@ export class TimetableService {
       entity: 'timetable_slot',
       entityId: slotId,
       actorId: staff.id,
-      before: { state: slot.state },
-      after: { state: input.decision, note: input.note ?? null },
+      before: { state: slot.state, hourlyRateXaf: slot.hourlyRateXaf },
+      after: {
+        state: input.decision,
+        note: input.note ?? null,
+        // Money is audited on both sides. "Who set this teacher's rate, and to
+        // what" is a question that gets asked after a payout, not before.
+        hourlyRateXaf: input.hourlyRateXaf === undefined ? slot.hourlyRateXaf : input.hourlyRateXaf,
+      },
     });
 
     void this.notifications

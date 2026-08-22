@@ -134,6 +134,15 @@ export class TeacherEarningsService {
         endedAt: true,
         durationMin: true,
         participants: { select: { userId: true, attendedMinutes: true } },
+        /*
+         * The rate this period was priced at, if an admin priced it.
+         *
+         * Read per session rather than once for the teacher, because the rate
+         * lives on the slot: the same teacher can be paid one figure for Form 5
+         * Further Maths and another for Form 1 general science, and a single
+         * rate for the month could not express that.
+         */
+        timetableSlot: { select: { hourlyRateXaf: true } },
       },
     });
 
@@ -149,6 +158,14 @@ export class TeacherEarningsService {
       .map((session) => ({
         at: session.startsAtUtc,
         minutes: session.participants.find((p) => p.userId === teacherId)?.attendedMinutes ?? 0,
+        /*
+         * The rate that applies to *this* lesson.
+         *
+         * Falls back to the platform figure when the period was never priced
+         * individually, which is every period until an admin sets one — so
+         * nothing changes for a school that never uses the feature.
+         */
+        rate: session.timetableSlot?.hourlyRateXaf ?? hourlyRateXaf,
       }))
       .filter((row) => row.minutes >= minMinutes);
 
@@ -156,20 +173,47 @@ export class TeacherEarningsService {
       qualifying.filter((row) => row.at >= from).reduce((total, row) => total + row.minutes, 0);
 
     /*
-     * Minutes to money, in integer arithmetic.
+     * Money is summed per lesson, not derived from a total of minutes.
      *
-     * `rate * minutes / 60` with the division last, so a 45-minute lesson at 2 000
+     * With one rate for everything the two were the same arithmetic, so the
+     * screen multiplied total minutes by a single figure. They are no longer
+     * the same: forty minutes at 3 000 and forty at 1 500 is 3 000 francs, and
+     * eighty minutes at either rate is not. Each lesson is valued at its own
+     * rate and the values are added.
+     */
+    const valueSince = (from: Date) =>
+      qualifying
+        .filter((row) => row.at >= from)
+        .reduce((total, row) => total + Math.floor((row.rate * row.minutes) / 60), 0);
+
+    /*
+     * The division is last inside `valueSince`, so a 45-minute lesson at 2 000
      * an hour is 1 500 exactly rather than 1 499.99… floored. CON-02 applies to
      * calculated money as much as to stored money.
+     *
+     * Rounding is per lesson rather than per period, which is the correct place
+     * for it: each lesson is a separate amount a teacher is owed, and summing
+     * exact francs is right where flooring a total of fractions would quietly
+     * shave a franc off some months and not others.
      */
-    const value = (minutes: number) => Math.floor((hourlyRateXaf * minutes) / 60);
-
     const dayMinutes = minutesSince(startOfDay);
     const weekMinutes = minutesSince(startOfWeek);
     const monthMinutes = minutesSince(startOfMonth);
 
+    /*
+     * The rates actually in play, so the screen can stop claiming one figure.
+     *
+     * `hourlyRateXaf` used to be *the* rate and is now the default; where a
+     * teacher's periods are priced individually, reporting the default alone
+     * would explain none of the money above it. Distinct values, so a teacher
+     * paid the same everywhere still sees one number.
+     */
+    const ratesInUse = [...new Set(qualifying.map((row) => row.rate))].sort((a, b) => a - b);
+
     return {
       hourlyRateXaf,
+      /** Empty when nothing qualified yet; one entry when every period pays alike. */
+      ratesInUse,
       minSessionMinutes: minMinutes,
       /*
        * Named `indicative` rather than `earnings` throughout.
@@ -178,9 +222,9 @@ export class TeacherEarningsService {
        * what they will be paid, and this is not that until Finance runs the period.
        */
       indicative: {
-        today: { minutes: dayMinutes, xaf: String(value(dayMinutes)) },
-        thisWeek: { minutes: weekMinutes, xaf: String(value(weekMinutes)) },
-        thisMonth: { minutes: monthMinutes, xaf: String(value(monthMinutes)) },
+        today: { minutes: dayMinutes, xaf: String(valueSince(startOfDay)) },
+        thisWeek: { minutes: weekMinutes, xaf: String(valueSince(startOfWeek)) },
+        thisMonth: { minutes: monthMinutes, xaf: String(valueSince(startOfMonth)) },
       },
       qualifyingSessions: qualifying.length,
       /*

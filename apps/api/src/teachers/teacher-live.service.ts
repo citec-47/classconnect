@@ -360,6 +360,8 @@ export class TeacherLiveService {
            */
           displayName: await this.displayName(user.id),
           canPublish: true,
+          /* The host is heard from the moment they arrive; that is what hosting is. */
+          canSpeak: true,
           /* The host shares without asking: it is their lesson. */
           screenShare: true,
         })
@@ -413,14 +415,20 @@ export class TeacherLiveService {
     });
     if (!session?.roomId) throw AppError.notFound();
 
-    return this.livekit.issueToken({
+    const token = await this.livekit.issueToken({
       roomId: session.roomId,
       identity: user.id,
       displayName: await this.displayName(user.id),
       canPublish: true,
+      /* The host is heard from the moment they arrive; that is what hosting is. */
+      canSpeak: true,
       /* The host shares without asking: it is their lesson. */
       screenShare: true,
     });
+
+    // The host is their own spotlight; said explicitly so the room does not have
+    // to special-case "I am the teacher" separately from "that is the teacher".
+    return { ...token, canPublish: true, canSpeak: true, hostIdentity: user.id };
   }
 
   /**
@@ -615,6 +623,34 @@ export class TeacherLiveService {
    * `lastLeaveAt` reads as "still in the room" on the admin's live board for ever
    * otherwise.
    */
+  /**
+   * Quieting the room — FR-LIV-005, the blunt end of it.
+   *
+   * Mutes every learner's microphone, or turns off every learner's camera, in
+   * one action. The host is skipped: a teacher who muted themselves along with
+   * the class would be talking to a room that could not hear them, and would
+   * have to work out why.
+   *
+   * This does not revoke the floor. Somebody the teacher called on keeps their
+   * permission and can be heard again the moment they unmute — muting is for
+   * settling a room, and taking the floor back is `decideFloor` with `revoked`,
+   * which is a different intention and is audited as one.
+   */
+  async muteEveryone(
+    user: AuthenticatedUser,
+    sessionId: string,
+    source: 'camera' | 'microphone',
+  ) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
+      select: { roomId: true },
+    });
+    if (!session?.roomId) throw AppError.notFound();
+
+    const muted = await this.livekit.muteEveryoneExcept(session.roomId, user.id, source);
+    return { source, muted };
+  }
+
   async endLive(user: AuthenticatedUser, sessionId: string) {
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, teacherId: user.id, status: 'in_progress' },
@@ -998,7 +1034,22 @@ export class TeacherLiveService {
      */
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, status: 'in_progress' },
-      select: { id: true, roomId: true, earnsFromTimetable: true, timetableSlotId: true },
+      select: {
+        id: true,
+        roomId: true,
+        earnsFromTimetable: true,
+        timetableSlotId: true,
+        /*
+         * Sent to the client so the room knows which tile is the teacher's.
+         *
+         * The alternative is guessing from permissions, and a learner holding
+         * the floor has the same ones — so the class would spotlight whoever was
+         * answering a question instead of the person teaching. The teacher's id
+         * is already the LiveKit identity of their own token; naming it here
+         * just tells everyone else what to look for.
+         */
+        teacherId: true,
+      },
     });
     if (!session?.roomId) throw AppError.notFound();
 
@@ -1066,7 +1117,16 @@ export class TeacherLiveService {
       roomId: session.roomId,
       identity: user.id,
       displayName: await this.displayName(user.id),
-      canPublish: Boolean(granted),
+      /*
+       * Admitted with a camera, without a voice.
+       *
+       * `canPublish` was `Boolean(granted)` — one flag deciding both — so a
+       * learner who had not been called on could neither speak nor be seen, and
+       * a class of thirty was a teacher talking to thirty name labels. The
+       * floor governs the microphone; it never governed the face.
+       */
+      canPublish: true,
+      canSpeak: Boolean(granted),
       screenShare: granted?.screenShare === true,
     });
 
@@ -1083,7 +1143,19 @@ export class TeacherLiveService {
       update: {},
     });
 
-    return { ...token, canPublish: Boolean(granted) };
+    /*
+     * `canSpeak` is what the room actually branches on when it decides whether
+     * to switch the microphone on. `canPublish` stays in the reply because the
+     * client still needs to know it may send *something* — and because a client
+     * built before this split reads it and behaves as it always did.
+     */
+    return {
+      ...token,
+      canPublish: true,
+      canSpeak: Boolean(granted),
+      screenShare: granted?.screenShare === true,
+      hostIdentity: session.teacherId,
+    };
   }
 
   /**

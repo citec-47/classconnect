@@ -14,6 +14,7 @@ import {
   goLiveSchema,
   decidePublishRequestSchema,
   inviteToSpeakSchema,
+  muteEveryoneSchema,
   sendTeacherMessageSchema,
   isStaff,
   REPORT_TERMS,
@@ -30,6 +31,7 @@ import {
   type GoLiveInput,
   type DecidePublishRequestInput,
   type InviteToSpeakInput,
+  type MuteEveryoneInput,
   type SendTeacherMessageInput,
   recordingUrlQuerySchema,
   type RecordingUrlQuery,
@@ -431,6 +433,17 @@ export class TeacherSurfaceController {
     @Body(zodBody(decidePublishRequestSchema)) body: DecidePublishRequestInput,
   ) {
     return this.live.decideFloor(user, sessionId, requestId, body);
+  }
+
+  /** The host quieting the room — every learner's microphone, or every camera. */
+  @Post('live/:sessionId/mute-all')
+  @RequirePermissions('live:host')
+  async muteEveryone(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId', uuidParam()) sessionId: string,
+    @Body(zodBody(muteEveryoneSchema)) body: MuteEveryoneInput,
+  ) {
+    return this.live.muteEveryone(user, sessionId, body.source);
   }
 
   /** The host picking a learner who did not raise a hand. */

@@ -23,15 +23,30 @@ export interface RoomGrant {
   identity: string;
   displayName: string;
   /**
-   * May this participant send audio and video?
+   * May this participant send media at all?
    *
-   * The teacher always can. A learner cannot until the teacher grants them the
-   * floor — FR-LIV: the class listens, and speaks when chosen. Enforced here in
-   * the token rather than by hiding a button, because a hidden button is not an
-   * access control: the grant is signed and the media server refuses anything
-   * the token does not carry.
+   * Everyone admitted to the room can: a learner joins with their camera, so the
+   * class is a room of faces rather than a teacher talking to a list of names.
+   * What a learner cannot do is *speak* — see `canSpeak`.
+   *
+   * Enforced here in the token rather than by hiding a button, because a hidden
+   * button is not an access control: the grant is signed and the media server
+   * refuses anything the token does not carry.
    */
   canPublish: boolean;
+  /**
+   * May this participant be heard?
+   *
+   * The teacher always can. A learner cannot until the teacher grants them the
+   * floor — FR-LIV: the class listens, and speaks when chosen. This used to be
+   * the same flag as `canPublish`, which made "may not speak" and "may not
+   * appear" one decision; they are two, and only the first is what the floor is
+   * about. A learner who has not been called on still has a face.
+   *
+   * The distinction is what makes a room of thirty children workable: thirty
+   * cameras is a class, thirty open microphones is nothing at all.
+   */
+  canSpeak: boolean;
   /**
    * May this participant share their screen?
    *
@@ -147,8 +162,17 @@ export class LiveKitService {
        */
       canPublishSources: grant.canPublish
         ? [
+            /*
+             * The camera is the baseline, the microphone is the grant.
+             *
+             * Listing MICROPHONE unconditionally would hand every learner an
+             * open microphone the moment they joined, and the floor would be a
+             * suggestion. Listing neither — which is what `canPublish: false`
+             * did — cost them their face as well as their voice, for a rule
+             * that was only ever about the voice.
+             */
             TrackSource.CAMERA,
-            TrackSource.MICROPHONE,
+            ...(grant.canSpeak ? [TrackSource.MICROPHONE] : []),
             ...(grant.screenShare
               ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO]
               : []),
@@ -196,7 +220,7 @@ export class LiveKitService {
   async setCanPublish(
     roomId: string,
     identity: string,
-    canPublish: boolean,
+    canSpeak: boolean,
     screenShare = false,
   ): Promise<void> {
     if (!this.configured) return;
@@ -204,7 +228,14 @@ export class LiveKitService {
     const rooms = new RoomServiceClient(this.httpUrl, this.apiKey, this.apiSecret);
     try {
       await rooms.updateParticipant(roomId, identity, undefined, {
-        canPublish,
+        /*
+         * Always true, because the camera is not what the floor governs.
+         *
+         * Withdrawing the floor used to set this false, which took the
+         * learner's camera down with their microphone — they vanished from the
+         * class for having finished answering a question.
+         */
+        canPublish: true,
         canSubscribe: true,
         canPublishData: true,
         /*
@@ -215,13 +246,11 @@ export class LiveKitService {
          * `canPublish` and their screen still going out to the class. Revoking
          * has to say what remains, not only what stops.
          */
-        canPublishSources: canPublish
-          ? [
-              TrackSource.CAMERA,
-              TrackSource.MICROPHONE,
-              ...(screenShare ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
-            ]
-          : [],
+        canPublishSources: [
+          TrackSource.CAMERA,
+          ...(canSpeak ? [TrackSource.MICROPHONE] : []),
+          ...(screenShare ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
+        ],
       });
     } catch (error) {
       /*
@@ -235,6 +264,68 @@ export class LiveKitService {
         `Could not update ${identity} in ${roomId}: ${(error as Error).message}`,
       );
     }
+  }
+
+  /**
+   * Silences, or darkens, everyone in the room except the host.
+   *
+   * Muting server-side rather than asking each browser to mute itself, because
+   * a request the client can decline is not a control a teacher can rely on —
+   * and the one occasion this gets used is the one where a room has got away
+   * from them.
+   *
+   * The track is muted, not the permission revoked. A muted learner can be
+   * unmuted by the teacher or, for their camera, turn it back on themselves;
+   * revoking the source instead would need a second round trip to undo and
+   * would fight with whatever the floor already says. Quieting a room is a
+   * moment, not a change of policy.
+   *
+   * Returns how many tracks were actually muted, so the teacher is told
+   * "muted 12" rather than left wondering whether the button did anything.
+   */
+  async muteEveryoneExcept(
+    roomId: string,
+    hostIdentity: string,
+    source: 'camera' | 'microphone',
+  ): Promise<number> {
+    if (!this.configured) return 0;
+
+    const wanted = source === 'camera' ? TrackSource.CAMERA : TrackSource.MICROPHONE;
+    const rooms = new RoomServiceClient(this.httpUrl, this.apiKey, this.apiSecret);
+    let muted = 0;
+
+    try {
+      const participants = await rooms.listParticipants(roomId);
+      for (const participant of participants) {
+        if (participant.identity === hostIdentity) continue;
+        for (const track of participant.tracks) {
+          if (track.source !== wanted || track.muted) continue;
+          /*
+           * One failure must not stop the rest. "Mute all" that stopped at the
+           * first participant who had already left would leave the loudest half
+           * of the room untouched, which is the opposite of what was asked.
+           */
+          try {
+            await rooms.mutePublishedTrack(roomId, participant.identity, track.sid, true);
+            muted += 1;
+          } catch (error) {
+            this.logger.warn(
+              `Could not mute ${source} for ${participant.identity} in ${roomId}: ` +
+                `${(error as Error).message}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      // Same reasoning as `setCanPublish`: the media server is the thing
+      // catching up here, and throwing would turn a partial success into an
+      // error message over a room that did in fact go quiet.
+      this.logger.error(
+        `Could not list participants in ${roomId}: ${(error as Error).message}`,
+      );
+    }
+
+    return muted;
   }
 
   /**

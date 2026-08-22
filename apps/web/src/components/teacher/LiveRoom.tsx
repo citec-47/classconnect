@@ -19,6 +19,17 @@ interface JoinToken {
   url: string;
   token: string;
   canPublish?: boolean;
+  /**
+   * Whether this participant may be *heard*, as opposed to merely seen.
+   *
+   * Distinct from `canPublish` since the floor stopped governing the camera: a
+   * learner joins with a face and without a voice, so one flag could no longer
+   * answer both questions. Absent from an older API, in which case `canPublish`
+   * still answers both and the room behaves exactly as it used to.
+   */
+  canSpeak?: boolean;
+  /** Whose tile is the lesson. Used to spotlight the teacher without guessing. */
+  hostIdentity?: string;
 }
 
 /** What the tiles need, kept flat so a re-render is cheap. */
@@ -115,6 +126,20 @@ async function probeUrl(
 }
 
 /**
+ * `TrackSource.MICROPHONE`, as it travels on the wire.
+ *
+ * Written as a number rather than imported. The enum lives in
+ * `@livekit/protocol`, which is `livekit-client`'s dependency and not this
+ * app's — importing it would work today only because npm hoists, and would
+ * break the day that layout changes, with an error pointing at a package
+ * nobody here chose to depend on.
+ *
+ * A protocol constant is a safe thing to write down: it cannot change without
+ * breaking every LiveKit client in existence.
+ */
+const MICROPHONE_SOURCE = 2;
+
+/**
  * Did the *browser* block this, rather than the user refusing it?
  *
  * Firefox reports tracking protection and extension blocking as
@@ -190,6 +215,34 @@ export function LiveRoom({
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
+  /**
+   * Whether this participant is allowed to be heard, as the server decided it.
+   *
+   * Drives whether the microphone button does anything. The media server is
+   * still the control — it refuses a track the token does not name — but a
+   * button that silently achieves nothing is its own kind of broken, so a
+   * learner who has not been called on is told why theirs is unavailable.
+   */
+  const [canSpeak, setCanSpeak] = useState(role === 'host');
+  /**
+   * The teacher's identity, so the room can put the lesson in the middle.
+   *
+   * Null until the token arrives, and null forever against an API that predates
+   * it — in which case the spotlight falls back to whoever is speaking, which is
+   * the behaviour there was before.
+   */
+  const [hostIdentity, setHostIdentity] = useState<string | null>(null);
+  /**
+   * The tile a viewer has chosen to enlarge, which overrides the teacher.
+   *
+   * Per-viewer and deliberately not shared: a learner enlarging a classmate to
+   * see their working is looking closer, not directing everyone else's screen.
+   * Cleared when that participant leaves, so the spotlight cannot end up on
+   * somebody who is no longer in the room.
+   */
+  const [pinned, setPinned] = useState<string | null>(null);
+  /** Which mute-all is in flight, so both buttons disable and the pressed one says so. */
+  const [muting, setMuting] = useState<'camera' | 'microphone' | null>(null);
   const [screenOn, setScreenOn] = useState(false);
   /** Who replaced this participant's share, so they are told rather than left guessing. */
   const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
@@ -207,6 +260,40 @@ export function LiveRoom({
    * screen sees the learner's screen, which is the whole point of granting it.
    */
   const sharedScreen = tiles.find((tile) => tile.sharingScreen) ?? null;
+
+  /**
+   * Who is large, when nobody is sharing a screen.
+   *
+   * The teacher by default, because a lesson is a person talking and a grid of
+   * equal squares makes the class hunt for them. A viewer's own choice wins over
+   * that — clicking a classmate to see their working is the whole point — and
+   * clicking again returns to the teacher rather than to a grid, so there is
+   * always exactly one subject and no state in which the lesson is hard to find.
+   *
+   * Null only where the host's tile is not present: they have not joined yet, or
+   * the API predates `hostIdentity`. Then the old equal grid renders, which is a
+   * reasonable answer to "nobody is obviously the subject".
+   */
+  const spotlight =
+    (pinned ? tiles.find((tile) => tile.identity === pinned) : null) ??
+    (hostIdentity ? tiles.find((tile) => tile.identity === hostIdentity) : null) ??
+    null;
+
+  const thumbnails = spotlight
+    ? tiles.filter((tile) => tile.identity !== spotlight.identity)
+    : tiles;
+
+  /*
+   * A pin cannot outlive the person it points at.
+   *
+   * Without this, enlarging a classmate who then leaves the lesson leaves
+   * `pinned` naming an absent identity: `spotlight` falls through to the
+   * teacher, which looks right, but the next person to join with that identity
+   * would be spotlighted for reasons nobody could explain.
+   */
+  useEffect(() => {
+    if (pinned && !tiles.some((tile) => tile.identity === pinned)) setPinned(null);
+  }, [tiles, pinned]);
 
   /** Attached imperatively: LiveKit hands us MediaStreamTracks, not React nodes. */
   const mediaRefs = useRef(new Map<string, HTMLVideoElement | HTMLAudioElement>());
@@ -341,6 +428,39 @@ export function LiveRoom({
           track.detach();
           refreshTiles(room);
         })
+        /*
+         * The floor, granted or taken back, while the lesson is running.
+         *
+         * `setCanPublish` on the server updates the permission in place so a
+         * learner does not have to rejoin to answer a question — but the room
+         * only *knows* it happened if it listens. Without this the teacher
+         * approves the raised hand, the media server starts accepting the
+         * learner's audio, and the learner's microphone button stays greyed out
+         * until they reload: granted in the database, refused on screen.
+         *
+         * The microphone is opened on grant rather than left for the learner to
+         * find, because being called on is the whole of the interaction — a
+         * child who has just been picked should not also have to hunt for a
+         * control. It closes again on revoke, and they can always mute
+         * themselves in between.
+         */
+        .on(RoomEvent.ParticipantPermissionsChanged, () => {
+          const sources = room.localParticipant.permissions?.canPublishSources ?? [];
+          const maySpeakNow = sources.some((source) => (source as number) === MICROPHONE_SOURCE);
+          setCanSpeak(maySpeakNow);
+
+          void room.localParticipant
+            .setMicrophoneEnabled(maySpeakNow)
+            .then(() => setMicOn(maySpeakNow))
+            /*
+             * A refused microphone is not a failure worth a banner over a live
+             * lesson: the button reflects the permission either way, and the
+             * learner can press it themselves once the device allows it.
+             */
+            .catch(() => setMicOn(false));
+
+          refreshTiles(room);
+        })
         .on(RoomEvent.ActiveSpeakersChanged, () => refreshTiles(room))
         .on(RoomEvent.TrackMuted, () => refreshTiles(room))
         .on(RoomEvent.TrackUnmuted, () => refreshTiles(room))
@@ -433,7 +553,24 @@ export function LiveRoom({
        * silently never published, which is precisely the black tile this was
        * reported as.
        */
-      const mayPublish = (role === 'host' ? true : join.canPublish === true) && canUseDevices;
+      setHostIdentity(join.hostIdentity ?? null);
+
+      /*
+       * Two permissions now, where there was one.
+       *
+       * `mayPublish` is whether anything may be sent at all — a learner joins
+       * with their camera, so for them it is now true where it used to be false.
+       * `maySpeak` is the floor, and it is the only one the microphone consults.
+       *
+       * `canSpeak ?? canPublish` is the compatibility line: against an API that
+       * has not been deployed yet, the old single flag answers both questions
+       * and the room behaves exactly as it did before.
+       */
+      const maySpeak = role === 'host' ? true : (join.canSpeak ?? join.canPublish) === true;
+      setCanSpeak(maySpeak);
+
+      const mayPublish =
+        (role === 'host' ? true : (join.canPublish ?? join.canSpeak) === true) && canUseDevices;
       if (mayPublish) {
         /*
          * Camera and microphone are enabled separately, and in that order.
@@ -503,16 +640,34 @@ export function LiveRoom({
           }
         }
 
-        try {
-          await room.localParticipant.setMicrophoneEnabled(true);
-          setMicOn(true);
-        } catch (micError) {
-          /*
-           * Only reported if the camera did not already explain it. Two panels
-           * saying the same thing about one blocked permission is noise.
-           */
+        /*
+         * The microphone is not switched on by joining.
+         *
+         * A learner arrives listening — FR-LIV: the class listens, and speaks
+         * when chosen. Thirty microphones opening at the start of a lesson is
+         * not a class, and asking each child to remember to mute themselves puts
+         * the room's usability on the youngest person in it.
+         *
+         * The device is not even opened, so no permission prompt appears for a
+         * microphone the learner cannot use yet, and no indicator light comes on
+         * in a child's bedroom. It opens when the teacher grants the floor.
+         */
+        if (maySpeak) {
+          try {
+            await room.localParticipant.setMicrophoneEnabled(true);
+            setMicOn(true);
+          } catch (micError) {
+            /*
+             * Only reported if the camera did not already explain it. Two panels
+             * saying the same thing about one blocked permission is noise.
+             */
+            setMicOn(false);
+            setFailure(
+              (current) => current ?? (isBlocked(micError as Error) ? 'blocked' : 'permission'),
+            );
+          }
+        } else {
           setMicOn(false);
-          setFailure((current) => current ?? (isBlocked(micError as Error) ? 'blocked' : 'permission'));
         }
 
       }
@@ -614,6 +769,32 @@ export function LiveRoom({
     const camera = room.localParticipant.getTrackPublication(Track.Source.Camera);
     if (camera?.track) camera.track.attach(element as HTMLVideoElement);
   }, [tiles, cameraOn, state]);
+
+  /**
+   * Re-attach every remote camera after the layout moves it.
+   *
+   * `TrackSubscribed` attaches once, to the element that existed when the track
+   * arrived. That was enough while every tile stayed in one grid for the life of
+   * the call. Now a participant moves between the thumbnail strip and the
+   * spotlight, React unmounts the old `<video>` and mounts a new one, and the
+   * track stays attached to an element that is no longer on the page — the
+   * enlarged tile goes black, which is precisely what clicking it was meant to
+   * avoid.
+   *
+   * Attaching an already-attached track to the same element is a no-op in
+   * LiveKit, so running this on every tile change is cheap and saves tracking
+   * which tile moved.
+   */
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    for (const participant of room.remoteParticipants.values()) {
+      const element = mediaRefs.current.get(participant.identity);
+      if (!element) continue;
+      const camera = participant.getTrackPublication(Track.Source.Camera);
+      if (camera?.track) camera.track.attach(element as HTMLVideoElement);
+    }
+  }, [tiles, pinned, sharedScreen, state]);
 
   /**
    * Attach whichever screen is being shared, local or remote.
@@ -753,8 +934,146 @@ export function LiveRoom({
     }
   };
 
+  /**
+   * The host quieting the room.
+   *
+   * Server-side rather than a data message asking each browser to mute itself:
+   * the one occasion this gets used is the occasion where the room has got away
+   * from the teacher, and a request thirty clients can ignore is not a control.
+   *
+   * Does not revoke the floor. Somebody who was called on keeps their
+   * permission and can be heard again when they unmute — taking the floor back
+   * is a separate, audited decision, and conflating the two would mean a teacher
+   * settling a noisy room silently withdrew a child's turn to speak.
+   */
+  const muteEveryone = async (source: 'camera' | 'microphone') => {
+    if (role !== 'host' || muting) return;
+    setMuting(source);
+    try {
+      await api(`/teacher/live/${sessionId}/mute-all`, {
+        method: 'POST',
+        body: { source },
+        language,
+      });
+    } catch {
+      // Deliberately quiet. The room stays usable, the teacher can press again,
+      // and an error banner over a live lesson costs more attention than the
+      // failure does — the tracks that did mute stayed muted.
+    } finally {
+      setMuting(null);
+    }
+  };
+
   const connecting =
     state === ConnectionState.Connecting || state === ConnectionState.Reconnecting;
+
+  /**
+   * One participant's tile, at whichever of the two sizes the layout wants.
+   *
+   * Written once and called from both places on purpose. The two sizes differ
+   * only in their container class and their label, and the parts that are easy
+   * to get subtly wrong — registering the media element under the right key,
+   * attaching the local camera, muting one's own audio — are the parts that must
+   * not be duplicated and allowed to drift.
+   *
+   * The whole tile is a button rather than a clickable div: it is operable from
+   * a keyboard, it announces what it will do, and on a phone it gives a target
+   * the size of the tile instead of an icon in a corner.
+   */
+  function renderTile(tile: Tile, size: 'spotlight' | 'thumbnail') {
+    const isSpotlight = size === 'spotlight';
+    const isPinned = pinned === tile.identity;
+    /*
+     * The teacher, large, with nothing pinned — the resting state. There is
+     * nothing to return to, so the tile is not an action: disabled keeps it out
+     * of the tab order rather than offering a keyboard user a button that does
+     * nothing when they reach it.
+     */
+    const inert = isSpotlight && !isPinned;
+
+    return (
+      <button
+        key={tile.identity}
+        type="button"
+        disabled={inert}
+        /*
+         * Clicking the spotlight returns to the teacher; clicking a thumbnail
+         * enlarges it. Pressing the teacher's own thumbnail while somebody else
+         * is pinned is the same as unpinning, which is why this is a toggle on
+         * identity rather than a plain "pin this".
+         */
+        onClick={() => setPinned(isPinned || isSpotlight ? null : tile.identity)}
+        aria-pressed={isPinned}
+        aria-label={
+          inert
+            ? undefined
+            : isSpotlight
+              ? t('live.room.shrinkTile')
+              : t('live.room.expandTile', { name: tile.name })
+        }
+        className={`relative block w-full overflow-hidden rounded-lg bg-ink-900 ${
+          isSpotlight ? 'aspect-video sm:aspect-[16/8]' : 'aspect-video'
+        } ${tile.speaking ? 'ring-2 ring-brand-600' : ''}`}
+      >
+        <video
+          ref={(element) => {
+            if (element) mediaRefs.current.set(tile.identity, element);
+            else mediaRefs.current.delete(tile.identity);
+            // The local camera is attached here rather than on an event,
+            // because there is no subscription for one's own track.
+            const room = roomRef.current;
+            if (element && tile.isLocal && room) {
+              const camera = room.localParticipant.getTrackPublication(Track.Source.Camera);
+              camera?.track?.attach(element);
+            }
+          }}
+          autoPlay
+          playsInline
+          // Hearing yourself half a second late makes a room unusable.
+          muted={tile.isLocal}
+          className={`h-full w-full object-cover ${tile.hasVideo ? '' : 'hidden'}`}
+        />
+
+        {/* A name beats a black rectangle when the camera is off. */}
+        {!tile.hasVideo && (
+          <div className="flex h-full w-full items-center justify-center">
+            <span
+              className={`flex items-center justify-center rounded-full bg-ink-700 font-semibold text-white ${
+                isSpotlight ? 'h-24 w-24 text-3xl' : 'h-14 w-14 text-lg'
+              }`}
+            >
+              {initials(tile.name)}
+            </span>
+          </div>
+        )}
+
+        {!tile.isLocal && (
+          <audio
+            ref={(element) => {
+              if (element) mediaRefs.current.set(`audio:${tile.identity}`, element);
+              else mediaRefs.current.delete(`audio:${tile.identity}`);
+            }}
+            autoPlay
+          />
+        )}
+
+        <span className="absolute bottom-1 left-1 rounded bg-ink-900/70 px-1.5 py-0.5 text-xs text-white">
+          {tile.isLocal ? t('live.room.you') : tile.name}
+        </span>
+
+        {/*
+         * Why this person is large, when it is not simply the teacher. Without
+         * it, a viewer who pinned a classmate and then forgot has no way to tell
+         * the spotlight from the room's own choice.
+         */}
+        {isSpotlight && isPinned && (
+          <span className="absolute right-1 top-1 rounded bg-brand-600 px-1.5 py-0.5 text-xs text-white">
+            {t('live.room.pinned')}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-ink-200 bg-white p-3">
@@ -893,71 +1212,26 @@ export function LiveRoom({
       )}
 
       {/*
-       * One column on a phone, more as the screen allows. Most learners are on
-       * a handset, so the single-column case is the design rather than a
-       * fallback squeezed out of a desktop grid.
+       * The lesson, then everyone else.
        *
-       * Tighter while a screen is being shared: the faces are no longer the
-       * subject, and taking a third of a 360px phone for them would push the
-       * thing everyone is looking at off the top of the screen.
+       * A shared screen owns the frame above and the faces all become
+       * thumbnails; otherwise the spotlight does, and the rest go in a strip
+       * beneath it. Both cases have exactly one subject, which is what makes
+       * this usable on the 360px handset most learners are on: an equal grid of
+       * thirty squares there is thirty things too small to read.
        */}
+      {spotlight && !sharedScreen && (
+        <div className="mb-2">{renderTile(spotlight, 'spotlight')}</div>
+      )}
+
       <div
         className={
-          sharedScreen
+          sharedScreen || spotlight
             ? 'grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6'
             : 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
         }
       >
-        {tiles.map((tile) => (
-          <div
-            key={tile.identity}
-            className={`relative aspect-video overflow-hidden rounded-lg bg-ink-900 ${
-              tile.speaking ? 'ring-2 ring-brand-600' : ''
-            }`}
-          >
-            <video
-              ref={(element) => {
-                if (element) mediaRefs.current.set(tile.identity, element);
-                else mediaRefs.current.delete(tile.identity);
-                // The local camera is attached here rather than on an event,
-                // because there is no subscription for one's own track.
-                const room = roomRef.current;
-                if (element && tile.isLocal && room) {
-                  const camera = room.localParticipant.getTrackPublication(Track.Source.Camera);
-                  camera?.track?.attach(element);
-                }
-              }}
-              autoPlay
-              playsInline
-              // Hearing yourself half a second late makes a room unusable.
-              muted={tile.isLocal}
-              className={`h-full w-full object-cover ${tile.hasVideo ? '' : 'hidden'}`}
-            />
-
-            {/* A name beats a black rectangle when the camera is off. */}
-            {!tile.hasVideo && (
-              <div className="flex h-full w-full items-center justify-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ink-700 text-lg font-semibold text-white">
-                  {initials(tile.name)}
-                </span>
-              </div>
-            )}
-
-            {!tile.isLocal && (
-              <audio
-                ref={(element) => {
-                  if (element) mediaRefs.current.set(`audio:${tile.identity}`, element);
-                  else mediaRefs.current.delete(`audio:${tile.identity}`);
-                }}
-                autoPlay
-              />
-            )}
-
-            <span className="absolute bottom-1 left-1 rounded bg-ink-900/70 px-1.5 py-0.5 text-xs text-white">
-              {tile.isLocal ? t('live.room.you') : tile.name}
-            </span>
-          </div>
-        ))}
+        {(sharedScreen ? tiles : thumbnails).map((tile) => renderTile(tile, 'thumbnail'))}
 
         {tiles.length === 0 && (
           <div className="col-span-full flex aspect-video items-center justify-center rounded-lg bg-ink-100">
@@ -983,13 +1257,27 @@ export function LiveRoom({
                 : t('student.classes.speak.ask')}
           </button>
         )}
+        {/*
+         * Unavailable, and saying so, until the floor has been granted.
+         *
+         * The media server is still the control — it refuses a microphone track
+         * the token does not name — but a button that looks available and
+         * silently achieves nothing reads as a broken app. A learner pressing it
+         * gets told they have to be called on, which is the actual rule.
+         */}
         <button
           type="button"
           onClick={() => void toggleMic()}
           aria-pressed={!micOn}
-          className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium"
+          disabled={!canSpeak}
+          title={canSpeak ? undefined : t('live.room.listenOnly')}
+          className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium disabled:opacity-60"
         >
-          {micOn ? t('live.room.muteMic') : t('live.room.unmuteMic')}
+          {canSpeak
+            ? micOn
+              ? t('live.room.muteMic')
+              : t('live.room.unmuteMic')
+            : t('live.room.listenOnly')}
         </button>
         <button
           type="button"
@@ -1020,6 +1308,35 @@ export function LiveRoom({
         >
           {screenOn ? t('live.room.stopSharing') : t('live.room.shareScreen')}
         </button>
+        {/*
+         * Settling the room, for the host only.
+         *
+         * Two buttons rather than one, because muting a class and turning off
+         * every child's camera are different decisions and a combined control
+         * makes the second one accidental. Server-side, so it does not depend on
+         * thirty browsers choosing to comply — and the count comes back, so the
+         * teacher is told "muted 12" rather than left wondering.
+         */}
+        {role === 'host' && (
+          <>
+            <button
+              type="button"
+              onClick={() => void muteEveryone('microphone')}
+              disabled={muting !== null}
+              className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium disabled:opacity-60"
+            >
+              {muting === 'microphone' ? t('common.saving') : t('live.room.muteAllMics')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void muteEveryone('camera')}
+              disabled={muting !== null}
+              className="min-h-touch rounded-lg border border-ink-300 px-3 text-sm font-medium disabled:opacity-60"
+            >
+              {muting === 'camera' ? t('common.saving') : t('live.room.muteAllCameras')}
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={() => void leave()}

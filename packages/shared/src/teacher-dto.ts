@@ -352,6 +352,18 @@ export const inviteToSpeakSchema = z.object({
 });
 export type InviteToSpeakInput = z.infer<typeof inviteToSpeakSchema>;
 
+/**
+ * The host quieting the room.
+ *
+ * One source per call rather than a `both` option: "mute everyone" and "turn
+ * every camera off" are two different decisions about a class of children, and
+ * a single button doing both makes the second one accidental.
+ */
+export const muteEveryoneSchema = z.object({
+  source: z.enum(['camera', 'microphone']),
+});
+export type MuteEveryoneInput = z.infer<typeof muteEveryoneSchema>;
+
 // ---------------------------------------------------------------------------
 // Messaging — the teacher's inbox
 // ---------------------------------------------------------------------------

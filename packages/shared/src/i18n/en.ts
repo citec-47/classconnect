@@ -612,8 +612,20 @@ export const en = {
       you: 'You',
       muteMic: 'Mute',
       unmuteMic: 'Unmute',
+      /* What a learner's microphone button says before they have been called
+         on. Names the state rather than the refusal: "Listen only" is what they
+         are, where "You cannot speak" reads as a fault. */
+      listenOnly: 'Listen only',
       cameraOff: 'Camera off',
       cameraOn: 'Camera on',
+      /* Spotlight controls. The name is interpolated so a screen reader says
+         which person the button acts on, not merely "expand". */
+      expandTile: 'Show {name} larger',
+      shrinkTile: 'Return to the teacher',
+      pinned: 'Pinned',
+      /* The host settling the room. Two separate actions, deliberately. */
+      muteAllMics: 'Mute everyone',
+      muteAllCameras: 'All cameras off',
       endCall: 'End call',
       leaveCall: 'Leave call',
       retry: 'Try again',
